@@ -1,0 +1,18 @@
+<script nonce="{{ .nonce }}">
+  "use strict"
+
+  $("#signout").click(function () {
+    $.get({{ api "/signout" }}).fail(function (d) {
+      toastr.error(d.responseText);
+    }).done(function (d) {
+      if (d.code != 0)
+        toastr.error(d.msg);
+      else
+        toastr.success(d.msg, "", {
+          timeOut: 500, onHidden: () => {
+            window.location.href = "/";
+          }
+        });
+    })
+  });
+</script>

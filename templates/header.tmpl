@@ -1,0 +1,23 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <title>{{ .title }}</title>
+
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="csrf-token" content={{ .csrftoken }}>
+
+  <link rel="stylesheet" href="/css/skynet.css" />
+  <link rel="stylesheet" href="/css/adminlte.css" />
+  <link rel="stylesheet" href="/css/fontawesome-all.css" />
+  <link rel="stylesheet" href="/css/icheck-bootstrap.css" />
+  <link rel="stylesheet" href="/css/Source-Sans-Pro.css" />
+  <link rel="stylesheet" href="/css/toastr.css" />
+
+  <script nonce={{ .nonce }} src="/js/jquery.js"></script>
+  <script nonce={{ .nonce }} src="/js/bootstrap.js"></script>
+  <script nonce={{ .nonce }} src="/js/adminlte.js"></script>
+  <script nonce={{ .nonce }} src="/js/toastr.js"></script>
+  <script nonce={{ .nonce }} src="/js/skynet.js"></script>
+</head>
