@@ -1,3 +1,6 @@
 .vscode
 data.db
 log.txt
+*.crt
+*.key
+*.so

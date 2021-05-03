@@ -1,7 +1,36 @@
 .copyright {
-    margin-top: 20px;
+  margin-top: 20px;
 }
 
 .username {
-    max-width: 120px;
+  max-width: 120px;
+}
+
+th.th-time {
+  width: 160px;
+}
+
+th.th-badge {
+  width: 70px;
+}
+
+th.th-op3 {
+  width: 220px;
+}
+
+th.th-op1 {
+  width: 100px;
+}
+
+th.th-uuid {
+  width: 300px;
+}
+
+th.th-name {
+  width: 200px;
+}
+
+.avatar {
+  height: auto;
+  width: 3rem;
 }

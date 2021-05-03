@@ -1,12 +1,10 @@
 package cmd
 
 import (
-	"context"
 	"errors"
 	"io/ioutil"
-	"skynet/db"
-	"skynet/handlers"
-	"skynet/utils"
+	"skynet/sn"
+	"skynet/sn/utils"
 
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
@@ -21,14 +19,14 @@ var userCmd = &cobra.Command{
 }
 
 var (
+	roleuser   bool
 	avatar     string
 	userAddCmd = &cobra.Command{
 		Use:   "add user [pass]",
 		Short: "Add skynet user",
 		Args:  cobra.RangeArgs(1, 2),
 		Run: func(cmd *cobra.Command, args []string) {
-			ctx := context.Background()
-			connectDB(ctx)
+			connectDB()
 			log.WithFields(log.Fields{
 				"path": viper.GetString("database.path"),
 			}).Debug("Database connected")
@@ -48,7 +46,13 @@ var (
 				newpass = args[1]
 			}
 
-			newpass, err = handlers.AddUser(args[0], newpass, content)
+			if roleuser {
+				newpass, err = sn.Skynet.User.AddUser(args[0], newpass, content, sn.RoleUser)
+			} else {
+				newpass, err = sn.Skynet.User.AddUser(args[0], newpass, content, sn.RoleAdmin)
+				log.Warn("By default the user has admin permission, use -u/--user to force user permission")
+			}
+
 			if err != nil {
 				log.Fatal("Database error: ", err)
 			}
@@ -67,16 +71,11 @@ var (
 		Short: "Reset skynet user password",
 		Args:  cobra.MaximumNArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			ctx := context.Background()
-			db.InitRedis(ctx, &db.RedisConfig{
-				Address:  viper.GetString("redis.address"),
-				Password: viper.GetString("redis.password"),
-				DB:       viper.GetInt("redis.db"),
-			})
+			connectRedis()
 			log.WithFields(log.Fields{
 				"addr": viper.GetString("redis.address"),
 			}).Debug("Redis connected")
-			connectDB(ctx)
+			connectDB()
 			log.WithFields(log.Fields{
 				"path": viper.GetString("database.path"),
 			}).Debug("Database connected")
@@ -86,7 +85,7 @@ var (
 					log.Fatal("No user specified")
 				}
 
-				newpass, err := handlers.ResetUser(args[0])
+				newpass, err := sn.Skynet.User.ResetUser(args[0])
 				if errors.Is(err, gorm.ErrRecordNotFound) {
 					log.Fatalf("User %v not found", args[0])
 				} else if err != nil {
@@ -98,7 +97,7 @@ var (
 					log.Fatal("Remove --all if you want to reset specific user")
 				}
 
-				newpass, err := handlers.ResetAllUser()
+				newpass, err := sn.Skynet.User.ResetAllUser()
 				if err != nil {
 					log.Fatal("Database error: ", err)
 				}
@@ -118,6 +117,7 @@ var (
 
 func init() {
 	userAddCmd.Flags().StringVarP(&avatar, "avatar", "a", viper.GetString("default_avatar"), "user avatar")
+	userAddCmd.Flags().BoolVarP(&roleuser, "user", "u", false, "set role to user permission")
 	userResetCmd.Flags().BoolVar(&resetall, "all", false, "reset all user password")
 
 	userCmd.AddCommand(userAddCmd)

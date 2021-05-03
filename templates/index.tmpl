@@ -1,4 +1,4 @@
-{{ template "header.tmpl" . }}
+{{ template "header" . }}
 
 <body class="hold-transition login-page">
   <div class="login-box">
@@ -10,9 +10,9 @@
       <div class="card-body login-card-body">
         <p class="login-box-msg">BIG BROTHER IS WATCHING YOU</p>
 
-        <form id="loginForm" action={{ api "/signin" }} method="post">
+        <form id="loginForm" action={{ api "/signin" }} method="post" class="form-horizontal">
           <div class="input-group mb-3">
-            <input name="username" type="text" class="form-control" placeholder="Username" required>
+            <input name="username" type="text" class="form-control" placeholder="Username" maxlength="32" required>
             <div class="input-group-append">
               <div class="input-group-text">
                 <span class="fas fa-envelope"></span>
@@ -49,13 +49,15 @@
     reserved.
   </div>
 
-  <script nonce="{{ .nonce }}">
+  <script nonce="{{ ._nonce }}">
     "use strict"
 
-    $("#loginForm").submit(function (event) {
-      event.preventDefault();
+    $("#loginForm").submit((e) => {
+      e.preventDefault();
       let form = document.getElementById("loginForm");
-      JSONPost(form, (d) => { d["remember"] = "remember" in d ? 1 : 0; return d; })
+      let d = GetData(form);
+      d["remember"] = "remember" in d ? true : false;
+      JSONPost(GetUrl(form), d)
         .done(function (d) {
           if (d.code != 0)
             toastr.error(d.msg);
@@ -70,4 +72,4 @@
   </script>
 </body>
 
-{{ template "footer.tmpl" . }}
+{{ template "footer" . }}

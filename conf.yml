@@ -9,13 +9,23 @@ database:
   salt_prefix: "en[7" # password salt prefix, modify need reset all user password
   salt_suffix: "z1&." # password salt suffix, modify need reset all user password
 
-csrf_secret: "01234567890123456789012345678912" # csrf secret
-listen_addr: "0.0.0.0:8080" # listen address
-log_file: "log.txt" # log file path, empty for disable
-default_avatar: "default.webp" # default avatar
-
 session:
   cookie: "GOSESSIONID" # session cookie name
   prefix: "session_" # prefix in redis
-  expire: 3600 # default expire time
-  remember: 5184000 # remember expire time
+  expire: 3600 # default expire time seconds
+  remember: 5184000 # remember expire time seconds
+
+listen:
+  address: "0.0.0.0:8080" # listen address
+  allowhosts: "" # if set, only allow listed host, allow regex, seperated by ,
+  ssl: false # enable ssl
+  ssl_cert: "" # ssl certificate path(.crt)
+  ssl_key: "" # ssl key path(.key)
+
+proxy:
+  enable: false # if skynet is behind proxy, enable to get correct ip
+  header: "X-Forwarded-For" # ip header set by proxy server
+
+csrf_secret: "01234567890123456789012345678912" # csrf secret
+log_file: "" # log file path, empty for disable
+default_avatar: "default.webp" # default avatar

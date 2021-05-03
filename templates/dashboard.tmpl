@@ -1,26 +1,5 @@
-{{ template "header.tmpl" . }}
+{{define "content"}}
+<div class="container-fluid">
 
-<body class="layout-navbar-fixed layout-fixed control-sidebar-slide-open sidebar-mini">
-  <div class="wrapper">
-
-    {{ template "navbar.tmpl" . }}
-
-    {{ template "sidebar.tmpl" . }}
-
-    <div class="content-wrapper">
-      {{ template "sitepath.tmpl" . }}
-
-      <section class="content">
-        <div class="container-fluid">
-
-        </div>
-      </section>
-    </div>
-
-    {{ template "copyright.tmpl" . }}
-  </div>
-
-  {{ template "commonjs.tmpl" . }}
-</body>
-
-{{ template "footer.tmpl" . }}
+</div>
+{{end}}

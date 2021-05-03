@@ -1,26 +1,64 @@
-{{ template "header.tmpl" . }}
-
-<body class="layout-navbar-fixed layout-fixed control-sidebar-slide-open sidebar-mini">
-  <div class="wrapper">
-
-    {{ template "navbar.tmpl" . }}
-
-    {{ template "sidebar.tmpl" . }}
-
-    <div class="content-wrapper">
-      {{ template "sitepath.tmpl" . }}
-
-      <section class="content">
-        <div class="container-fluid">
-
+{{define "content"}}
+<div class="container-fluid">
+  <form id="userSettingForm" action={{ api "/user" }} method="patch" class="form-horizontal">
+    <input name="id" type="text" class="form-control" value={{ ._id }} hidden>
+    <div class="card card-primary">
+      <div class="card-header">
+        <h3 class="card-title">User Setting</h3>
+      </div>
+      <div class="card-body">
+        <div class="form-group row">
+          <label class="col-sm-2 col-form-label">Avatar</label>
+          <div class="col-sm-10">
+            <img src="data:image/webp;base64,{{ ._avatar }}" class="img-circle elevation-2 avatar" alt="User Image">
+            <input type="file" name="avatar" accept="image/png, image/jpeg, image/webp" class="ml-5">
+          </div>
         </div>
-      </section>
+        <div class="form-group row">
+          <label class="col-sm-2 col-form-label">Username</label>
+          <div class="col-sm-10">
+            <input type="text" class="form-control" name="username" maxlength="32" value={{ ._username }}>
+          </div>
+        </div>
+        <div class="form-group row">
+          <label class="col-sm-2 col-form-label">Role</label>
+          <div class="col-sm-10 my-auto">
+            {{ if eq ._role 2 }}
+            <td><span class="badge bg-orange">Admin</span></td>
+            {{ else }}
+            <td><span class="badge bg-secondary">User</span></td>
+            {{ end }}
+          </div>
+        </div>
+      </div>
     </div>
+    <button type="submit" class="btn btn-primary">Save & Refresh</button>
+  </form>
+</div>
+{{end}}
 
-    {{ template "copyright.tmpl" . }}
-  </div>
+{{define "js"}}
+<script nonce="{{ ._nonce }}">
+  "use strict"
 
-  {{ template "commonjs.tmpl" . }}
-</body>
+  $("#userSettingForm").submit(function (e) {
+    e.preventDefault();
+    let form = document.getElementById("userSettingForm");
+    let d = GetData(form);
+    d["id"] = parseInt(d["id"]);
+    delete d["avatar"];
 
-{{ template "footer.tmpl" . }}
+    var file = $('input[type=file]')[0].files[0];
+    if (file != undefined) {
+      var fr = new FileReader();
+      fr.readAsDataURL(file);
+      fr.onload = (e) => {
+        d["avatar"] = fr.result;
+        JSONPatch(GetUrl(form), d).done(DelayReload());
+      };
+    } else {
+      JSONPatch(GetUrl(form), d).done(DelayReload());
+    }
+  });
+</script>
+{{end}}

@@ -1,23 +1,27 @@
+{{define "header"}}
 <!DOCTYPE html>
 <html lang="en">
 
 <head>
-  <title>{{ .title }}</title>
+  <title>{{ ._title }}</title>
 
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <meta name="csrf-token" content={{ .csrftoken }}>
+  <meta name="csrf-token" content={{ ._csrftoken }}>
 
   <link rel="stylesheet" href="/css/skynet.css" />
-  <link rel="stylesheet" href="/css/adminlte.css" />
-  <link rel="stylesheet" href="/css/fontawesome-all.css" />
-  <link rel="stylesheet" href="/css/icheck-bootstrap.css" />
+  <link rel="stylesheet" href="/css/adminlte.min.css" />
+  <link rel="stylesheet" href="/css/fontawesome-all.min.css" />
+  <link rel="stylesheet" href="/css/icheck-bootstrap.min.css" />
   <link rel="stylesheet" href="/css/Source-Sans-Pro.css" />
-  <link rel="stylesheet" href="/css/toastr.css" />
+  <link rel="stylesheet" href="/css/toastr.min.css" />
+  <link rel="stylesheet" href="/css/bootstrap-switch.min.css" />
 
-  <script nonce={{ .nonce }} src="/js/jquery.js"></script>
-  <script nonce={{ .nonce }} src="/js/bootstrap.js"></script>
-  <script nonce={{ .nonce }} src="/js/adminlte.js"></script>
-  <script nonce={{ .nonce }} src="/js/toastr.js"></script>
-  <script nonce={{ .nonce }} src="/js/skynet.js"></script>
+  <script nonce={{ ._nonce }} src="/js/jquery.min.js"></script>
+  <script nonce={{ ._nonce }} src="/js/bootstrap.bundle.min.js"></script>
+  <script nonce={{ ._nonce }} src="/js/adminlte.min.js"></script>
+  <script nonce={{ ._nonce }} src="/js/toastr.min.js"></script>
+  <script nonce={{ ._nonce }} src="/js/skynet.js"></script>
+  <script nonce={{ ._nonce }} src="/js/bootstrap-switch.min.js"></script>
 </head>
+{{end}}

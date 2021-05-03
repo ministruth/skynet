@@ -1,0 +1,168 @@
+{{define "content"}}
+<div class="container-fluid">
+  <form id="monitorForm" action={{ api .saveAPI }} method="patch" class="form-horizontal">
+    <div class="card card-primary">
+      <div class="card-header">
+        <h3 class="card-title">Monitor Setting</h3>
+      </div>
+      <div class="card-body">
+        <div class="form-group row">
+          <label class="col-sm-2 col-form-label">Connect token</label>
+          <div class="input-group col-sm-10">
+            <input id="token" type="text" class="form-control" name="token" value="{{ .token }}" maxlength="32">
+            <span class="input-group-append">
+              {{if not .token}}
+              <button id="generate" type="button" class="btn btn-outline-primary">Generate</button>
+              {{else}}
+              <button type="button" class="btn btn-outline-danger" data-toggle="modal"
+                data-target="#modal-regenerate">Regenerate</button>
+              {{end}}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>
+    <button type="submit" class="btn btn-primary">Save & Reload</button>
+  </form>
+
+  <div class="card card-success mt-4">
+    <div class="card-header">
+      <h3 class="card-title">Connected Machine</h3>
+    </div>
+    <div class="card-body">
+      <table class="table table-bordered">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th class="th-badge">Status</th>
+            <th>Hostname</th>
+            <th>IP</th>
+            <th>System</th>
+            <th>Machine</th>
+            <th class="th-time">Last Login</th>
+            <th class="th-op1">Operation</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{range .agents}}
+          <tr>
+            <td>{{ .ID }}</td>
+            <td>{{ .Name }}</td>
+            {{ if .Online }}
+            <td><span class="badge bg-success">ONLINE</span></td>
+            {{ else }}
+            <td><span class="badge bg-secondary">OFFLINE</span></td>
+            {{ end }}
+            <td>{{ .HostName }}</td>
+            <td>{{ .IP }}</td>
+            <td>{{ .System }}</td>
+            <td>{{ .Machine }}</td>
+            <td>{{ time .LastLogin }}</td>
+            <td>
+              <button id="rename" data-agentid={{ .ID }} data-agentname={{ .Name }} type="button"
+                class="btn btn-outline-primary" data-operation="rename" data-toggle="modal"
+                data-target="#modal-rename">Rename</button>
+            </td>
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="modal-rename" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h4 class="modal-title">Rename Machine</h4>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">×</span>
+        </button>
+      </div>
+      <form id="renameForm" action={{ api .renameAPI }} method="patch" class="form-horizontal">
+        <input id="renameID" name="id" type="text" class="form-control" hidden>
+        <div class="modal-body">
+          <div class="form-group row">
+            <label class="col-sm-2 col-form-label">Name</label>
+            <div class="col-sm-10">
+              <input id="editName" name="name" type="text" class="form-control" placeholder="Name" maxlength="32"
+                required>
+            </div>
+          </div>
+        </div>
+        <div class="modal-footer justify-content-between">
+          <button type="button" class="btn btn-default" data-dismiss="modal">Cancel</button>
+          <button type="submit" class="btn btn-primary">Submit</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="modal-regenerate" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content bg-danger">
+      <div class="modal-header">
+        <h4 class="modal-title">Regenerate Token</h4>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">×</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p>If you change your token, all client will be OFFLINE and need to reconfigure to connect again!</p>
+      </div>
+      <div class="modal-footer justify-content-between">
+        <button type="button" class="btn btn-outline-light" data-dismiss="modal">Cancel</button>
+        <button id="generateConfirm" type="button" class="btn btn-outline-light">Confirm</button>
+      </div>
+    </div>
+  </div>
+</div>
+{{end}}
+
+{{define "js"}}
+<script nonce="{{ ._nonce }}">
+  "use strict"
+
+  function rand_token(length) {
+    var a = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ1234567890".split("");
+    var b = [];
+    for (var i = 0; i < length; i++) {
+      var j = (Math.random() * (a.length - 1)).toFixed(0);
+      b[i] = a[j];
+    }
+    return b.join("");
+  }
+
+  $("#monitorForm").submit((e) => {
+    e.preventDefault();
+    let form = document.getElementById("monitorForm");
+    JSONPatch(GetUrl(form), GetData(form)).done(DelayReload(5000));
+  });
+
+  $("#generate").click((e) => {
+    $("#token").val(rand_token(32))
+  })
+  $("#generateConfirm").click((e) => {
+    $("#token").val(rand_token(32))
+    $('#modal-regenerate').modal('hide')
+  })
+
+  $("[data-operation='rename']").click((e) => {
+    $("#renameID").val(e.target.getAttribute("data-agentid"))
+    $("#editName").val(e.target.getAttribute("data-agentname"))
+  })
+  $("#renameForm").submit((e) => {
+    e.preventDefault();
+    let form = document.getElementById("renameForm");
+    let d = GetData(form);
+    d["id"] = parseInt(d["id"]);
+    JSONPatch(GetUrl(form), d).done((d) => {
+      $('#modal-rename').modal('hide');
+      DelayReload()(d);
+    });
+  })
+</script>
+{{end}}

@@ -2,6 +2,7 @@ package db
 
 import (
 	"context"
+	"skynet/sn"
 
 	log "github.com/sirupsen/logrus"
 	"gorm.io/driver/sqlite"
@@ -21,27 +22,31 @@ type DBConfig struct {
 	Path string
 }
 
-var dbClient *gorm.DB
+type DBClient struct {
+	dbClient *gorm.DB
+}
 
-// InitDB init db
-func InitDB(ctx context.Context, param *DBConfig) {
+func NewDB(ctx context.Context, param *DBConfig) sn.SNDB {
+	var ret DBClient
 	var err error
+
 	switch param.Type {
 	case DBType_Sqlite:
-		dbClient, err = gorm.Open(sqlite.Open(param.Path), &gorm.Config{
+		ret.dbClient, err = gorm.Open(sqlite.Open(param.Path), &gorm.Config{
 			Logger: logger.Default.LogMode(logger.Silent),
 		})
 		if err != nil {
 			log.Fatal("Failed to connect sqlite database")
 		}
-		dbClient.AutoMigrate(&Users{})
+		ret.dbClient.AutoMigrate(&sn.Users{}, &sn.Settings{})
 	}
+
+	return &ret
 }
 
-// GetDB get db connection
-func GetDB() *gorm.DB {
-	if dbClient == nil {
+func (c *DBClient) GetDB() interface{} {
+	if c.dbClient == nil {
 		log.Fatal("DB not init")
 	}
-	return dbClient
+	return c.dbClient
 }

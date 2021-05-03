@@ -26,13 +26,19 @@ var defaultSettings = map[string]interface{}{
 	"*database.salt_prefix": "en[7",
 	"*database.salt_suffix": "z1&.",
 	"*csrf_secret":          "01234567890123456789012345678912",
-	"listen_addr":           "0.0.0.0:8080",
-	"log_file":              "log.txt",
+	"listen.address":        "0.0.0.0:8080",
+	"*listen.allowhosts":    "",
+	"*listen.ssl":           false,
+	"listen.ssl_cert":       "",
+	"listen.ssl_key":        "",
+	"log_file":              "",
 	"session.cookie":        "GOSESSIONID",
 	"session.expire":        3600,
 	"session.remember":      5184000,
 	"session.prefix":        "session_",
 	"default_avatar":        "default.webp",
+	"proxy.enable":          false,
+	"proxy.header":          "X-Forwarded-For",
 }
 
 func init() {

@@ -1,0 +1,72 @@
+{{define "content"}}
+<div class="container-fluid">
+  <div class="card">
+    <div class="card-header">
+      <h3 class="card-title">Plugin List</h3>
+    </div>
+    <div class="card-body">
+      <table class="table table-bordered">
+        <thead>
+          <tr>
+            <th class="th-uuid">ID</th>
+            <th class="th-name">Name</th>
+            <th class="th-badge">Version</th>
+            <th class="th-badge">Status</th>
+            <th>Disable Reason</th>
+            <th class="th-op1">Operation</th>
+          </tr>
+        </thead>
+        <tbody>
+          {{range .plugins}}
+          <tr>
+            <td>{{ .ID }}</td>
+            <td>{{ .Name }}</td>
+            <td>{{ .Version }}</td>
+            {{ if .Enable }}
+            <td><span class="badge bg-success">ENABLED</span></td>
+            {{ else }}
+            <td><span class="badge bg-danger">DISABLED</span></td>
+            {{ end }}
+            <td>{{ .DisableReason }}</td>
+            <td>
+              {{ if .Enable }}
+              <button id="disable" data-pluginid={{ .ID }} type="button"
+                class="btn btn-outline-warning">Disable</button>
+              {{ else }}
+              <button id="enable" data-pluginid={{ .ID }} type="button" class="btn btn-outline-primary">Enable</button>
+              {{ end }}
+            </td>
+          </tr>
+          {{end}}
+        </tbody>
+      </table>
+    </div>
+  </div>
+  <button id="reload" class="btn btn-primary">Reload Skynet</button>
+</div>
+</div>
+{{end}}
+
+{{define "js"}}
+<script nonce="{{ ._nonce }}">
+  "use strict"
+
+  $("#enable").click((e) => {
+    JSONPatch({{ api "/plugin"}}, {
+    "id": e.target.getAttribute("data-pluginid"),
+    "enable": true,
+  }).done(DelayReload());
+  })
+
+  $("#disable").click((e) => {
+    JSONPatch({{ api "/plugin"}}, {
+    "id": e.target.getAttribute("data-pluginid"),
+    "enable": false,
+  }).done(DelayReload(5000));
+  })
+
+  $("#reload").click((e) => {
+    JSONGet({{ api "/reload"}}).done(DelayReload(5000));
+  })
+</script>
+{{end}}

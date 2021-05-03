@@ -2,17 +2,22 @@ package cmd
 
 import (
 	"context"
-	"html/template"
 	"io"
 	"net/http"
 	"os"
+	"skynet/api"
 	"skynet/db"
-	"skynet/handlers"
-	"skynet/pages"
+	"skynet/handler"
+	"skynet/page"
+	"skynet/sn"
+	"skynet/sn/utils"
+	"strings"
 	"syscall"
+	"time"
 
 	logrus_stack "github.com/Gurpartap/logrus-stack"
 	"github.com/fvbock/endless"
+	"github.com/gin-contrib/multitemplate"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/csrf"
 	"github.com/gorilla/sessions"
@@ -22,8 +27,6 @@ import (
 	"github.com/spf13/viper"
 	"github.com/unrolled/secure"
 )
-
-var logFile *os.File
 
 var runCmd = &cobra.Command{
 	Use:   "run",
@@ -35,14 +38,13 @@ func init() {
 	rootCmd.AddCommand(runCmd)
 }
 
-func apiVersion(in string) (string, error) {
-	return handlers.APIVERSION + in, nil
-}
+func connectDB() {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
+	defer cancel()
 
-func connectDB(ctx context.Context) {
 	switch viper.GetString("database.type") {
 	case "sqlite":
-		db.InitDB(ctx, &db.DBConfig{
+		sn.Skynet.DB = db.NewDB(ctx, &db.DBConfig{
 			Type: db.DBType_Sqlite,
 			Path: viper.GetString("database.path"),
 		})
@@ -50,10 +52,31 @@ func connectDB(ctx context.Context) {
 		log.Fatalf("Database type %s not supported", viper.GetString("database.type"))
 	}
 }
+func connectRedis() {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
+	defer cancel()
+
+	sn.Skynet.Redis = db.NewRedis(ctx, &db.RedisConfig{
+		Address:  viper.GetString("redis.address"),
+		Password: viper.GetString("redis.password"),
+		DB:       viper.GetInt("redis.db"),
+	})
+}
+
+func connectSession() {
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
+	defer cancel()
+
+	sn.Skynet.Session = db.NewSession(ctx, &db.SessionConfig{
+		RedisClient: utils.GetRedis(),
+		Prefix:      viper.GetString("session.prefix"),
+	})
+}
 
 func run(cmd *cobra.Command, args []string) {
 	// logrus hook
 	var err error
+	var logFile *os.File
 	if viper.GetString("log_file") != "" {
 		log.SetFormatter(&log.JSONFormatter{})
 		logFile, err = os.OpenFile(viper.GetString("log_file"), os.O_CREATE|os.O_APPEND|os.O_RDWR, 0755)
@@ -81,28 +104,31 @@ func run(cmd *cobra.Command, args []string) {
 
 	// gin.SetMode(gin.ReleaseMode)
 	r := gin.Default()
-	ctx := context.Background()
 
 	// database
-	db.InitRedis(ctx, &db.RedisConfig{
-		Address:  viper.GetString("redis.address"),
-		Password: viper.GetString("redis.password"),
-		DB:       viper.GetInt("redis.db"),
-	})
+	connectRedis()
 	log.WithFields(log.Fields{
 		"addr": viper.GetString("redis.address"),
 	}).Info("Redis connected")
-	connectDB(ctx)
+	connectSession()
+	log.WithFields(log.Fields{
+		"prefix": viper.GetString("session.prefix"),
+	}).Info("Redis session connected")
+	connectDB()
 	log.WithFields(log.Fields{
 		"path": viper.GetString("database.path"),
 	}).Info("Database connected")
 
 	// security
+	hosts := strings.Split(viper.GetString("listen.allowhosts"), ",")
+	if len(hosts) == 1 && hosts[0] == "" {
+		hosts = []string{}
+	}
 	secureMiddleware := secure.New(secure.Options{
-		AllowedHosts:          []string{},
+		AllowedHosts:          hosts,
 		AllowedHostsAreRegex:  true,
 		HostsProxyHeaders:     []string{"X-Forwarded-Hosts"},
-		SSLRedirect:           false, // TODO: SSL
+		SSLRedirect:           viper.GetBool("listen.ssl"),
 		SSLProxyHeaders:       map[string]string{"X-Forwarded-Proto": "https"},
 		STSSeconds:            31536000,
 		FrameDeny:             true,
@@ -129,30 +155,34 @@ func run(cmd *cobra.Command, args []string) {
 	}()
 	r.Use(secureFunc)
 
-	r.ForwardedByClientIP = false // disable ip forward to prevent sproof
-	r.Use(gin.Recovery())         // recover from panic
+	if !viper.GetBool("proxy.enable") {
+		r.ForwardedByClientIP = false // disable ip forward to prevent sproof
+	} else {
+		r.ForwardedByClientIP = true
+		r.RemoteIPHeaders = []string{viper.GetString("proxy.header")}
+	}
+	r.Use(gin.Recovery()) // recover from panic
 
 	// CSRF protection
 	csrfFunc := func() gin.HandlerFunc {
 		return adapter.Wrap(csrf.Protect([]byte(viper.GetString("csrf_secret")),
-			csrf.Secure(false), csrf.MaxAge(0), csrf.SameSite(csrf.SameSiteStrictMode))) // TODO: SSL
+			csrf.Secure(viper.GetBool("listen.ssl")), csrf.MaxAge(0), csrf.SameSite(csrf.SameSiteStrictMode)))
 	}
 	r.Use(csrfFunc())
 
 	// session
-	db.GetSession().Options(sessions.Options{
+	utils.GetSession().Options(sessions.Options{
 		Path:     "/",
 		MaxAge:   viper.GetInt("session.expire"),
-		Secure:   false, // TODO: SSL
+		Secure:   viper.GetBool("listen.ssl"),
 		HttpOnly: true,
 		SameSite: http.SameSiteStrictMode,
 	})
 
 	// template
-	r.SetFuncMap(template.FuncMap{
-		"api": apiVersion,
-	})
-	r.LoadHTMLGlob("templates/*")
+	t := multitemplate.NewRenderer()
+	sn.Skynet.Page = page.NewPage(t)
+	r.HTMLRender = t
 
 	// static files
 	r.Static("/js", "./assets/js")
@@ -161,15 +191,32 @@ func run(cmd *cobra.Command, args []string) {
 
 	// router
 	web := r.Group("/")
-	pages.PageRouter(web)
+	page.PageRouter(web)
+	sn.Skynet.PageRouter = web
 
 	// api router
-	v1 := r.Group(handlers.APIVERSION)
-	handlers.APIRouter(v1)
+	v1 := r.Group(api.APIVERSION)
+	api.APIRouter(v1)
+	sn.Skynet.APIRouter = v1
 
-	server := endless.NewServer(viper.GetString("listen_addr"), r)
+	// plugin
+	sn.Skynet.Setting, err = handler.NewSetting()
+	if err != nil {
+		log.Fatal("Setting init error: ", err)
+	}
+	sn.Skynet.Plugin, err = handler.NewPlugin("plugin")
+	if err != nil {
+		log.Fatal("Plugin init error: ", err)
+	}
+
+	endless.DefaultHammerTime = 1 * time.Second
+	server := endless.NewServer(viper.GetString("listen.address"), r)
 	server.BeforeBegin = func(add string) {
 		log.Info("Running pid ", syscall.Getpid())
 	}
-	server.ListenAndServe()
+	if !viper.GetBool("listen.ssl") {
+		server.ListenAndServe()
+	} else {
+		server.ListenAndServeTLS(viper.GetString("listen.ssl_cert"), viper.GetString("listen.ssl_key"))
+	}
 }
