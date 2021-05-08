@@ -22,10 +22,24 @@ func SaveCTXSession(c *gin.Context) error {
 	return sessions.Save(c.Request, c.Writer)
 }
 
-func NeedAdmin(f func(c *gin.Context, u *sn.Users), re bool) func(c *gin.Context) {
-	return NeedSignIn(func(c *gin.Context, u *sn.Users) {
+func WithAdmin(f func(c *gin.Context, u *sn.Users), re bool) func(c *gin.Context) {
+	return WithAdminErr(func(c *gin.Context, u *sn.Users) (int, error) {
+		f(c, u)
+		return 0, nil
+	}, re)
+}
+
+func WithSignIn(f func(c *gin.Context, u *sn.Users), re bool) func(c *gin.Context) {
+	return WithSignInErr(func(c *gin.Context, u *sn.Users) (int, error) {
+		f(c, u)
+		return 0, nil
+	}, re)
+}
+
+func WithAdminErr(f sn.SNAPIFunc, re bool) func(c *gin.Context) {
+	return WithSignInErr(func(c *gin.Context, u *sn.Users) (int, error) {
 		if u.Role == sn.RoleAdmin {
-			f(c, u)
+			return f(c, u)
 		} else {
 			if re {
 				c.Redirect(302, "/deny")
@@ -33,10 +47,11 @@ func NeedAdmin(f func(c *gin.Context, u *sn.Users), re bool) func(c *gin.Context
 				c.String(403, "You need admin permission")
 			}
 		}
+		return 0, nil
 	}, re)
 }
 
-func NeedSignIn(f func(c *gin.Context, u *sn.Users), re bool) func(c *gin.Context) {
+func WithSignInErr(f sn.SNAPIFunc, re bool) func(c *gin.Context) {
 	return func(c *gin.Context) {
 		res, err := CheckSignIn(c)
 		if err != nil {
@@ -52,7 +67,12 @@ func NeedSignIn(f func(c *gin.Context, u *sn.Users), re bool) func(c *gin.Contex
 				c.AbortWithStatus(500)
 				return
 			}
-			f(c, &u)
+			code, err := f(c, &u)
+			if err != nil {
+				log.Error(err)
+				c.AbortWithStatus(code)
+				return
+			}
 		} else {
 			if re {
 				c.Redirect(302, "/")

@@ -15,13 +15,11 @@ type editPluginParam struct {
 	Enable bool   `form:"enable"`
 }
 
-func APIEditPlugin(c *gin.Context, u *sn.Users) {
+func APIEditPlugin(c *gin.Context, u *sn.Users) (int, error) {
 	var param editPluginParam
 	err := c.ShouldBind(&param)
 	if err != nil {
-		log.Error(err)
-		c.AbortWithStatus(400)
-		return
+		return 400, err
 	}
 	fields := log.Fields{
 		"ip":     c.ClientIP(),
@@ -30,9 +28,7 @@ func APIEditPlugin(c *gin.Context, u *sn.Users) {
 	}
 	id, err := uuid.Parse(param.ID)
 	if err != nil {
-		log.Error(err)
-		c.AbortWithStatus(400)
-		return
+		return 400, err
 	}
 
 	if param.Enable {
@@ -40,7 +36,7 @@ func APIEditPlugin(c *gin.Context, u *sn.Users) {
 		if err != nil {
 			log.WithFields(fields).Warn("Enable plugin fail")
 			c.JSON(200, gin.H{"code": 1, "msg": err.Error()})
-			return
+			return 0, nil
 		}
 		log.WithFields(fields).Info("Enable plugin success")
 		c.JSON(200, gin.H{"code": 0, "msg": "Enable plugin success"})
@@ -49,7 +45,7 @@ func APIEditPlugin(c *gin.Context, u *sn.Users) {
 		if err != nil {
 			log.WithFields(fields).Warn("Disable plugin fail")
 			c.JSON(200, gin.H{"code": 1, "msg": err.Error()})
-			return
+			return 0, nil
 		}
 		log.WithFields(fields).Info("Disable plugin success")
 		c.JSON(200, gin.H{"code": 0, "msg": "Disable plugin success, reloading"})
@@ -58,4 +54,5 @@ func APIEditPlugin(c *gin.Context, u *sn.Users) {
 			utils.Restart()
 		}()
 	}
+	return 0, nil
 }

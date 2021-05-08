@@ -1,27 +1,84 @@
 package sn
 
-import "github.com/gin-gonic/gin"
+import (
+	"html/template"
+	"net/http"
+	"sort"
+
+	"github.com/gin-gonic/gin"
+)
 
 type SNPage interface {
-	GetPage() []*SNPageItem
-	AddTemplate(name string, files ...string)
-	Render(c *gin.Context, page string, title string, name string, link string, u *Users, p gin.H)
-	RenderSingle(c *gin.Context, page string, p gin.H)
+	GetRouter() *gin.RouterGroup
+	GetNavItem() []*SNNavItem
+	GetPageItem() []*SNPageItem
+	AddNavItem(i []*SNNavItem)
+	AddPageItem(i []*SNPageItem)
+	GetDefaultFunc() template.FuncMap
+	GetDefaultPath() *SNPathItem
 }
 
-type SNPageItem struct {
+type SNPathItem struct {
 	Name   string
-	Active bool
-	Open   bool
 	Link   string
-	Icon   string
-	Role   UserRole
-	Child  []*SNPageItem
+	Active bool
+	Child  *SNPathItem
 }
 
-var SNDefaultPath = []*SNPageItem{
-	{
-		Name: "Home",
-		Link: "/",
-	},
+func (i *SNPathItem) WithChild(c []*SNPathItem) *SNPathItem {
+	cur := i
+	for _, v := range c {
+		cur.Child = v
+		cur = cur.Child
+	}
+	return i
+}
+
+type SNNavItem struct {
+	Priority int
+	Name     string
+	Active   bool
+	Open     bool
+	Link     string
+	Icon     string
+	Role     UserRole
+	Child    []*SNNavItem
+}
+
+func (i *SNNavItem) SortChild() {
+	for _, v := range i.Child {
+		v.SortChild()
+	}
+	sort.Stable(SNNavSort(i.Child))
+}
+
+type SNNavSort []*SNNavItem
+
+func (a SNNavSort) Sort() {
+	for _, v := range a {
+		v.SortChild()
+	}
+	sort.Stable(a)
+}
+func (s SNNavSort) Len() int           { return len(s) }
+func (s SNNavSort) Less(i, j int) bool { return s[i].Priority < s[j].Priority }
+func (s SNNavSort) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
+
+type SNRenderHookFunc func(c *gin.Context, u *Users, v *SNPageItem) bool
+type SNPageItem struct {
+	TplName      string
+	Files        []string
+	FuncMap      template.FuncMap
+	Title        string
+	Name         string
+	Link         string
+	Path         *SNPathItem
+	Role         UserRole
+	BeforeRender SNRenderHookFunc
+	AfterRender  SNRenderHookFunc
+	Param        map[string]interface{}
+}
+
+func (i *SNPageItem) Render(c *gin.Context) {
+	c.HTML(http.StatusOK, i.TplName, i.Param)
 }

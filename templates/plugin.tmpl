@@ -1,6 +1,6 @@
 {{define "content"}}
 <div class="container-fluid">
-  <div class="card">
+  <div class="card card-primary">
     <div class="card-header">
       <h3 class="card-title">Plugin List</h3>
     </div>
@@ -8,10 +8,10 @@
       <table class="table table-bordered">
         <thead>
           <tr>
-            <th class="th-uuid">ID</th>
-            <th class="th-name">Name</th>
-            <th class="th-badge">Version</th>
-            <th class="th-badge">Status</th>
+            <th class="th-300">ID</th>
+            <th class="th-200">Name</th>
+            <th class="th-70">Version</th>
+            <th class="th-70">Status</th>
             <th>Disable Reason</th>
             <th class="th-op1">Operation</th>
           </tr>
@@ -30,10 +30,11 @@
             <td>{{ .DisableReason }}</td>
             <td>
               {{ if .Enable }}
-              <button id="disable" data-pluginid={{ .ID }} type="button"
+              <button id="disable" data-pluginid="{{ .ID }}" type="button"
                 class="btn btn-outline-warning">Disable</button>
               {{ else }}
-              <button id="enable" data-pluginid={{ .ID }} type="button" class="btn btn-outline-primary">Enable</button>
+              <button id="enable" data-pluginid="{{ .ID }}" type="button"
+                class="btn btn-outline-primary">Enable</button>
               {{ end }}
             </td>
           </tr>

@@ -179,25 +179,20 @@ func run(cmd *cobra.Command, args []string) {
 		SameSite: http.SameSiteStrictMode,
 	})
 
-	// template
-	t := multitemplate.NewRenderer()
-	sn.Skynet.Page = page.NewPage(t)
-	r.HTMLRender = t
-
 	// static files
 	r.Static("/js", "./assets/js")
 	r.Static("/css", "./assets/css")
 	r.Static("/fonts", "./assets/fonts")
 
-	// router
+	// router & template
 	web := r.Group("/")
-	page.PageRouter(web)
-	sn.Skynet.PageRouter = web
+	t := multitemplate.NewRenderer()
+	sn.Skynet.Page = page.NewPage(t, web)
+	r.HTMLRender = t
 
 	// api router
 	v1 := r.Group(api.APIVERSION)
-	api.APIRouter(v1)
-	sn.Skynet.APIRouter = v1
+	sn.Skynet.API = api.NewAPI(v1)
 
 	// plugin
 	sn.Skynet.Setting, err = handler.NewSetting()

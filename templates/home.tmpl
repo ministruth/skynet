@@ -1,4 +1,10 @@
-{{ template "header" . }}
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  {{ template "common_header" . }}
+  {{block "header" .}}{{end}}
+</head>
 
 <body class="layout-navbar-fixed layout-fixed control-sidebar-slide-open sidebar-mini">
   <div class="wrapper">
@@ -50,45 +56,37 @@
         <nav class="mt-2">
           <ul class="nav nav-pills nav-sidebar flex-column nav-compact nav-flat" data-widget="treeview" role="menu"
             data-accordion="false">
-            {{range ._sitepath}}
-            {{if ge $._role .Role}}
+            {{ define "walknav" }}
+            {{range .Item}}
+            {{if ge $.Role .Role}}
             {{if .Open}}
             <li class="nav-item menu-is-opening menu-open">
               {{else}}
             <li class="nav-item">
               {{end}}
               {{if .Active}}
-              <a href={{ .Link }} class="nav-link active">
+              <a href="{{ .Link }}" class="nav-link active">
                 {{else}}
-                <a href={{ .Link }} class="nav-link">
+                <a href="{{ .Link }}" class="nav-link">
                   {{end}}
                   <i class="nav-icon fas {{ .Icon }}"></i>
-                  <p>{{ .Name }}</p>
-                  {{if .Child}}
-                  <i class="fas fa-angle-left right"></i>
+                  <p>{{ .Name }}
+                    {{if .Child}}
+                    <i class="fas fa-angle-left right"></i>
+                  </p>
+                  {{else}}
+                  </p>
                   {{end}}
                 </a>
                 {{if .Child}}
                 <ul class="nav nav-treeview">
-                  {{range .Child}}
-                  {{if ge $._role .Role}}
-                  <li class="nav-item">
-                    {{if .Active}}
-                    <a href={{ .Link }} class="nav-link active">
-                      {{else}}
-                      <a href={{ .Link }} class="nav-link">
-                        {{end}}
-                        <i class="fas {{ .Icon }} nav-icon"></i>
-                        <p>{{ .Name }}</p>
-                      </a>
-                  </li>
-                  {{end}}
-                  {{end}}
+                  {{ template "walknav" dict "Item" .Child "Role" $.Role }}
                 </ul>
                 {{end}}
-            </li>
-            {{end}}
-            {{end}}
+                {{end}}
+                {{end}}
+                {{end}}
+                {{ template "walknav" dict "Item" ._navbar "Role" ._role }}
           </ul>
         </nav>
       </div>
@@ -103,13 +101,17 @@
             </div>
             <div class="col-sm-6">
               <ol class="breadcrumb float-sm-right">
-                {{range ._path}}
+                {{ define "walkpath" }}
                 {{if .Active}}
                 <li class="breadcrumb-item active">{{ .Name }}</li>
                 {{else}}
-                <li class="breadcrumb-item"><a href={{ .Link }}>{{ .Name }}</a></li>
+                <li class="breadcrumb-item"><a href="{{ .Link }}">{{ .Name }}</a></li>
+                {{end}}
+                {{if .Child}}
+                {{ template "walkpath" .Child }}
                 {{end}}
                 {{end}}
+                {{ template "walkpath" ._path }}
               </ol>
             </div>
           </div>
@@ -133,7 +135,8 @@
 
     $("#signout").click(function () {
       $.get({{ api "/signout" }}).fail(function (d) {
-        toastr.error(d.responseText);
+        if (d.responseText == undefined) toastr.error("Connect error");
+        else toastr.error(d.responseText);
       }).done(function (d) {
         if (d.code != 0)
           toastr.error(d.msg);
@@ -148,4 +151,7 @@
   </script>
 </body>
 
-{{ template "footer" . }}
+{{ template "common_footer" . }}
+{{block "footer" .}}{{end}}
+
+</html>

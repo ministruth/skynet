@@ -1,13 +1,13 @@
 package utils
 
 import (
+	"skynet/sn"
+
 	"github.com/hashicorp/go-version"
 )
 
-const VERSION = "1.0.0"
-
 func CheckSkynetVersion(c string) (bool, error) {
-	return CheckVersion(VERSION, c)
+	return CheckVersion(sn.VERSION, c)
 }
 
 func CheckVersion(v string, c string) (bool, error) {

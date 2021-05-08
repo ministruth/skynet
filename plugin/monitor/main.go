@@ -31,18 +31,137 @@ var token string
 
 // PluginInit will be executed after plugin loaded or enabled, return error to stop skynet run or plugin enable
 func PluginInit() error {
-	plugins.SPAddSubPath("Service", "Monitor", "/service/"+Config.ID.String(), "", sn.RoleUser, true)
-	plugins.SPAddSubPath("Plugin", "Monitor", "/plugin/"+Config.ID.String(), "", sn.RoleAdmin, true)
-
-	plugins.SPAddTemplate("monitor", plugins.SPWithIDPrefix(&Config, "setting"), "templates/setting.tmpl")
-
-	sn.Skynet.PageRouter.GET("/plugin/"+Config.ID.String(), utils.NeedAdmin(PageSetting, true))
-
-	sn.Skynet.APIRouter.GET("/plugin/"+Config.ID.String(), func(c *gin.Context) {
-		WSHandler(c.ClientIP(), c.Writer, c.Request)
+	plugins.SPAddSubPath("Service", []*sn.SNNavItem{
+		{
+			Priority: 10,
+			Name:     "Monitor",
+			Link:     "/service/" + Config.ID.String() + "/monitor",
+			Role:     sn.RoleUser,
+		},
+		{
+			Priority: 11,
+			Name:     "Shell",
+			Link:     "/service/" + Config.ID.String() + "/shell",
+			Role:     sn.RoleUser,
+		},
 	})
-	sn.Skynet.APIRouter.PATCH("/plugin/"+Config.ID.String(), utils.NeedAdmin(APISaveSetting, false))
-	sn.Skynet.APIRouter.PATCH("/plugin/"+Config.ID.String()+"/agent", utils.NeedAdmin(APISaveAgent, false))
+	plugins.SPAddSubPath("Plugin", []*sn.SNNavItem{
+		{
+			Priority: 10,
+			Name:     "Monitor",
+			Link:     "/plugin/" + Config.ID.String(),
+			Role:     sn.RoleAdmin,
+		},
+	})
+
+	sn.Skynet.Page.AddPageItem([]*sn.SNPageItem{
+		{
+			TplName: plugins.SPWithIDPrefix(&Config, "setting"),
+			Files:   plugins.SPWithLayerFiles("monitor", "setting"),
+			FuncMap: sn.Skynet.Page.GetDefaultFunc(),
+			Title:   "Skynet | Monitor",
+			Name:    "Monitor",
+			Link:    "/plugin/" + Config.ID.String(),
+			Role:    sn.RoleAdmin,
+			Path: sn.Skynet.Page.GetDefaultPath().WithChild([]*sn.SNPathItem{
+				{
+					Name: "Plugin",
+					Link: "/plugin",
+				},
+				{
+					Name:   "Monitor",
+					Active: true,
+				},
+			}),
+			Param: gin.H{
+				"settingAPI": "/plugin/" + Config.ID.String(),
+				"agentAPI":   "/plugin/" + Config.ID.String() + "/agent",
+				"token":      token,
+				"agents":     agents,
+			},
+		},
+		{
+			TplName: plugins.SPWithIDPrefix(&Config, "monitor"),
+			Files:   plugins.SPWithLayerFiles("monitor", "monitor"),
+			FuncMap: sn.Skynet.Page.GetDefaultFunc(),
+			Title:   "Skynet | Monitor",
+			Name:    "Monitor",
+			Link:    "/service/" + Config.ID.String() + "/monitor",
+			Role:    sn.RoleUser,
+			Path: sn.Skynet.Page.GetDefaultPath().WithChild([]*sn.SNPathItem{
+				{
+					Name: "Service",
+					Link: "#",
+				},
+				{
+					Name:   "Monitor",
+					Active: true,
+				},
+			}),
+			Param: gin.H{
+				"agentAPI": "/plugin/" + Config.ID.String() + "/agent",
+				"agents":   agents,
+			},
+		},
+		{
+			TplName: plugins.SPWithIDPrefix(&Config, "shell"),
+			Files:   plugins.SPWithLayerFiles("monitor", "shell"),
+			FuncMap: sn.Skynet.Page.GetDefaultFunc(),
+			Title:   "Skynet | Shell",
+			Name:    "Shell",
+			Link:    "/service/" + Config.ID.String() + "/shell",
+			Role:    sn.RoleUser,
+			Path: sn.Skynet.Page.GetDefaultPath().WithChild([]*sn.SNPathItem{
+				{
+					Name: "Service",
+					Link: "#",
+				},
+				{
+					Name:   "Shell",
+					Active: true,
+				},
+			}),
+			Param: gin.H{
+				"agents": agents,
+			},
+		},
+	})
+
+	sn.Skynet.API.AddAPIItem([]*sn.SNAPIItem{
+		{
+			Path:   "/plugin/" + Config.ID.String(),
+			Method: sn.APIPatch,
+			Role:   sn.RoleAdmin,
+			Func:   APISaveSetting,
+		},
+		{
+			Path:   "/plugin/" + Config.ID.String() + "/agent",
+			Method: sn.APIGet,
+			Role:   sn.RoleUser,
+			Func:   APIGetAgent,
+		},
+		{
+			Path:   "/plugin/" + Config.ID.String() + "/agent",
+			Method: sn.APIPatch,
+			Role:   sn.RoleAdmin,
+			Func:   APISaveAgent,
+		},
+		{
+			Path:   "/plugin/" + Config.ID.String() + "/agent",
+			Method: sn.APIDelete,
+			Role:   sn.RoleAdmin,
+			Func:   APIDelAgent,
+		},
+		{
+			Path:   "/plugin/" + Config.ID.String(),
+			Method: sn.APIGet,
+			Role:   sn.RoleEmpty,
+			Func: func(c *gin.Context, u *sn.Users) (int, error) {
+				WSHandler(c.ClientIP(), c.Writer, c.Request)
+				return 0, nil
+			},
+		},
+	})
 
 	sn.Skynet.Setting.AddSetting(plugins.SPWithIDPrefix(&Config, "token"), "")
 

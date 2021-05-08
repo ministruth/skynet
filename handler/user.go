@@ -78,6 +78,22 @@ func (u *siteUser) EditUser(id int, username string, password string, role sn.Us
 	return utils.GetDB().Save(&rec).Error
 }
 
+func (u *siteUser) DelUser(id int) (bool, error) {
+	// kick first
+	err := utils.DeleteSessionsByID(id)
+	if err != nil {
+		return false, err
+	}
+
+	res := utils.GetDB().Delete(&sn.Users{}, id)
+	if res.RowsAffected == 0 {
+		return false, nil
+	} else if res.Error != nil {
+		return false, err
+	}
+	return true, nil
+}
+
 func (u *siteUser) ResetUser(username string) (string, error) {
 	var rec sn.Users
 	err := utils.GetDB().Where("username = ?", username).First(&rec).Error

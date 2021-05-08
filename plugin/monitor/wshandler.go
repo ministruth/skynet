@@ -3,13 +3,10 @@ package main
 import (
 	"encoding/json"
 	"net/http"
-	plugins "skynet/plugin"
 	"skynet/plugin/monitor/msg"
-	"skynet/sn"
 	"skynet/sn/utils"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	"github.com/jinzhu/copier"
 	log "github.com/sirupsen/logrus"
@@ -28,8 +25,21 @@ type AgentInfo struct {
 	LastLogin time.Time
 	System    string
 	Machine   string
-	Conn      *websocket.Conn
+	Conn      *websocket.Conn `json:"-"`
 	Online    bool
+
+	LastRsp   time.Time
+	CPU       float64 // percent
+	Mem       uint64  // bytes
+	TotalMem  uint64  // bytes
+	Disk      uint64  // bytes
+	TotalDisk uint64  // bytes
+	Load1     float64
+	Latency   int64  // ms
+	NetUp     uint64 // bytes/s
+	NetDown   uint64 // bytes/s
+	BandUp    uint64 // bytes
+	BandDown  uint64 // bytes
 }
 
 var agents map[int]*AgentInfo
@@ -120,7 +130,10 @@ func WSHandler(ip string, w http.ResponseWriter, r *http.Request) {
 						LastLogin: connTime,
 						Online:    true,
 					}
-					defer func() { agents[id].Online = false }()
+					defer func() {
+						agents[id].Online = false
+						agents[id].Conn = nil
+					}()
 
 					msg.SendRsp(conn, 0, "Login success")
 					log.WithFields(fields()).Info("Login success")
@@ -157,28 +170,29 @@ func WSHandler(ip string, w http.ResponseWriter, r *http.Request) {
 					log.WithFields(defaultField).Error(err)
 					return
 				}
+			case msg.OPStat:
+				var data msg.StatMsg
+				err = json.Unmarshal([]byte(res.Data), &data)
+				if err != nil {
+					formatErr()
+					continue
+				}
+				agents[id].CPU = data.CPU
+				agents[id].Mem = data.Mem
+				agents[id].TotalMem = data.TotalMem
+				agents[id].Disk = data.Disk
+				agents[id].TotalDisk = data.TotalDisk
+				agents[id].Load1 = data.Load1
+				agents[id].Latency = time.Since(data.Time).Milliseconds()
+				current := time.Since(agents[id].LastRsp).Seconds()
+				agents[id].NetUp = uint64(float64(data.BandUp-agents[id].BandUp) / current)
+				agents[id].NetDown = uint64(float64(data.BandDown-agents[id].BandDown) / current)
+				agents[id].BandUp = data.BandUp
+				agents[id].BandDown = data.BandDown
+				agents[id].LastRsp = time.Now()
 			default:
 				log.Warn("Unknown opcode ", res.Opcode)
 			}
 		}
 	}
-}
-
-func PageSetting(c *gin.Context, u *sn.Users) {
-	sn.Skynet.Page.Render(c, plugins.SPWithIDPrefix(&Config, "setting"), "Skynet | Monitor", "Monitor", "/plugin/monitor", u, gin.H{
-		"saveAPI":   "/plugin/" + Config.ID.String(),
-		"renameAPI": "/plugin/" + Config.ID.String() + "/agent",
-		"token":     token,
-		"agents":    agents,
-		"_path": append(sn.SNDefaultPath, []*sn.SNPageItem{
-			{
-				Name: "Plugin",
-				Link: "/plugin",
-			},
-			{
-				Name:   "Monitor",
-				Active: true,
-			},
-		}...),
-	})
 }

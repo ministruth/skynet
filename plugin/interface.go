@@ -29,24 +29,19 @@ func SPWithIDPrefix(c *PluginConfig, n string) string {
 	}
 }
 
-func SPAddSubPath(root string, name string, link string, icon string, role sn.UserRole, front bool) {
-	ins := sn.SNPageItem{
-		Name: name,
-		Link: link,
-		Icon: icon,
-		Role: role,
-	}
-	for _, v := range sn.Skynet.Page.GetPage() {
+func SPAddSubPath(root string, i []*sn.SNNavItem) {
+	for _, v := range sn.Skynet.Page.GetNavItem() {
 		if v.Name == root {
-			if front {
-				v.Child = append([]*sn.SNPageItem{&ins}, v.Child...)
-			} else {
-				v.Child = append(v.Child, &ins)
-			}
+			v.Child = append(v.Child, i...)
+			sn.SNNavSort(v.Child).Sort()
 		}
 	}
 }
 
-func SPAddTemplate(p string, n string, f string) {
-	sn.Skynet.Page.AddTemplate(n, "templates/home.tmpl", "plugin/"+p+"/"+f, "templates/header.tmpl", "templates/footer.tmpl")
+func SPWithLayerFiles(pn string, n string) []string {
+	return []string{"templates/home.tmpl", "plugin/" + pn + "/templates/" + n + ".tmpl", "templates/header.tmpl", "templates/footer.tmpl"}
+}
+
+func SPWithSingleFiles(pn string, n string) []string {
+	return []string{"plugin/" + pn + "/templates/" + n + ".tmpl", "templates/header.tmpl", "templates/footer.tmpl"}
 }

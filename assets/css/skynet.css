@@ -2,32 +2,52 @@
   margin-top: 20px;
 }
 
-.username {
-  max-width: 120px;
-}
-
-th.th-time {
-  width: 160px;
-}
-
-th.th-badge {
+th.th-70 {
   width: 70px;
+}
+
+th.th-50 {
+  width: 50px;
+}
+
+th.th-100 {
+  width: 100px;
+}
+
+th.th-120 {
+  width: 120px;
+}
+
+th.th-150 {
+  width: 150px;
+}
+
+th.th-170 {
+  width: 170px;
+}
+
+th.th-200 {
+  width: 200px;
+}
+
+th.th-300 {
+  width: 300px;
 }
 
 th.th-op3 {
   width: 220px;
 }
 
+th.th-op2 {
+  width: 180px;
+}
+
 th.th-op1 {
   width: 100px;
 }
 
-th.th-uuid {
-  width: 300px;
-}
-
-th.th-name {
-  width: 200px;
+.expandable-body > td {
+  width: auto;
 }
 
 .avatar {

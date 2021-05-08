@@ -1,6 +1,6 @@
 {{define "content"}}
 <div class="container-fluid">
-  <form id="monitorForm" action={{ api .saveAPI }} method="patch" class="form-horizontal">
+  <form id="monitorForm" action={{ api .settingAPI }} method="patch" class="form-horizontal">
     <div class="card card-primary">
       <div class="card-header">
         <h3 class="card-title">Monitor Setting</h3>
@@ -14,20 +14,20 @@
               {{if not .token}}
               <button id="generate" type="button" class="btn btn-outline-primary">Generate</button>
               {{else}}
-              <button type="button" class="btn btn-outline-danger" data-toggle="modal"
-                data-target="#modal-regenerate">Regenerate</button>
+              <button id="generate" type="button" class="btn btn-outline-warning">Regenerate</button>
               {{end}}
             </span>
           </div>
         </div>
       </div>
     </div>
-    <button type="submit" class="btn btn-primary">Save & Reload</button>
+    <button type="button" class="btn btn-primary" data-toggle="modal" data-target="#modal-save">Save &
+      Reload</button>
   </form>
 
   <div class="card card-success mt-4">
     <div class="card-header">
-      <h3 class="card-title">Connected Machine</h3>
+      <h3 class="card-title">Connected Agent</h3>
     </div>
     <div class="card-body">
       <table class="table table-bordered">
@@ -35,13 +35,13 @@
           <tr>
             <th>ID</th>
             <th>Name</th>
-            <th class="th-badge">Status</th>
+            <th class="th-70">Status</th>
             <th>Hostname</th>
             <th>IP</th>
             <th>System</th>
             <th>Machine</th>
-            <th class="th-time">Last Login</th>
-            <th class="th-op1">Operation</th>
+            <th class="th-170">Last Login</th>
+            <th class="th-op2">Operation</th>
           </tr>
         </thead>
         <tbody>
@@ -60,9 +60,11 @@
             <td>{{ .Machine }}</td>
             <td>{{ time .LastLogin }}</td>
             <td>
-              <button id="rename" data-agentid={{ .ID }} data-agentname={{ .Name }} type="button"
+              <button id="rename" data-agentid="{{ .ID }}" data-agentname="{{ .Name }}" type="button"
                 class="btn btn-outline-primary" data-operation="rename" data-toggle="modal"
                 data-target="#modal-rename">Rename</button>
+              <button data-operation="delete" data-deleteid="{{ .ID }}" type="button" class="btn btn-outline-danger"
+                data-toggle="modal" data-target="#modal-delete">Delete</button>
             </td>
           </tr>
           {{end}}
@@ -81,7 +83,7 @@
           <span aria-hidden="true">×</span>
         </button>
       </div>
-      <form id="renameForm" action={{ api .renameAPI }} method="patch" class="form-horizontal">
+      <form id="renameForm" action={{ api .agentAPI }} method="patch" class="form-horizontal">
         <input id="renameID" name="id" type="text" class="form-control" hidden>
         <div class="modal-body">
           <div class="form-group row">
@@ -101,9 +103,9 @@
   </div>
 </div>
 
-<div class="modal fade" id="modal-regenerate" aria-hidden="true">
+<div class="modal fade" id="modal-save" aria-hidden="true">
   <div class="modal-dialog">
-    <div class="modal-content bg-danger">
+    <div class="modal-content bg-warning">
       <div class="modal-header">
         <h4 class="modal-title">Regenerate Token</h4>
         <button type="button" class="close" data-dismiss="modal" aria-label="Close">
@@ -115,7 +117,28 @@
       </div>
       <div class="modal-footer justify-content-between">
         <button type="button" class="btn btn-outline-light" data-dismiss="modal">Cancel</button>
-        <button id="generateConfirm" type="button" class="btn btn-outline-light">Confirm</button>
+        <button id="saveConfirm" type="button" class="btn btn-outline-light">Confirm</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="modal-delete" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content bg-danger">
+      <div class="modal-header">
+        <h4 class="modal-title">Delete Agent</h4>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">×</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p>Once delete, the agent is required to connect again to show on list! Note that this will trigger auto
+          reconnect if the agent is ONLINE and you do not change the token first.</p>
+      </div>
+      <div class="modal-footer justify-content-between">
+        <button type="button" class="btn btn-outline-light" data-dismiss="modal">Cancel</button>
+        <button id="deleteConfirm" type="button" class="btn btn-outline-light">Confirm</button>
       </div>
     </div>
   </div>
@@ -136,23 +159,20 @@
     return b.join("");
   }
 
-  $("#monitorForm").submit((e) => {
-    e.preventDefault();
-    let form = document.getElementById("monitorForm");
-    JSONPatch(GetUrl(form), GetData(form)).done(DelayReload(5000));
-  });
-
   $("#generate").click((e) => {
-    $("#token").val(rand_token(32))
+    $("#token").val(rand_token(32));
   })
-  $("#generateConfirm").click((e) => {
-    $("#token").val(rand_token(32))
-    $('#modal-regenerate').modal('hide')
+  $("#saveConfirm").click((e) => {
+    let form = document.getElementById("monitorForm");
+    JSONPatch(GetUrl(form), GetData(form)).done((d) => {
+      $('#modal-save').modal('hide');
+      DelayReload()(d);
+    });
   })
 
   $("[data-operation='rename']").click((e) => {
-    $("#renameID").val(e.target.getAttribute("data-agentid"))
-    $("#editName").val(e.target.getAttribute("data-agentname"))
+    $("#renameID").val(e.target.getAttribute("data-agentid"));
+    $("#editName").val(e.target.getAttribute("data-agentname"));
   })
   $("#renameForm").submit((e) => {
     e.preventDefault();
@@ -161,6 +181,17 @@
     d["id"] = parseInt(d["id"]);
     JSONPatch(GetUrl(form), d).done((d) => {
       $('#modal-rename').modal('hide');
+      DelayReload()(d);
+    });
+  })
+
+  let deleteID = 0;
+  $("[data-operation='delete']").click((e) => {
+    deleteID = parseInt(e.target.getAttribute("data-deleteid"));
+  })
+  $("#deleteConfirm").click((e) => {
+    JSONDelete({{ api .agentAPI }}, { "id": deleteID }).done((d) => {
+      $('#modal-delete').modal('hide');
       DelayReload()(d);
     });
   })

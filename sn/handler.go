@@ -13,6 +13,7 @@ type SNSetting interface {
 type SNUser interface {
 	AddUser(username string, password string, avatar []byte, role UserRole) (string, error)
 	EditUser(id int, username string, password string, role UserRole, avatar []byte, kick bool) error
+	DelUser(id int) (bool, error)
 	ResetUser(username string) (string, error)
 	ResetAllUser() (map[string]string, error)
 	GetUser() ([]Users, error)

@@ -1,18 +1,17 @@
 package sn
 
-import "github.com/gin-gonic/gin"
-
 type SNGlobal struct {
-	PageRouter *gin.RouterGroup
-	APIRouter  *gin.RouterGroup
-	Page       SNPage
-	Plugin     SNPlugin
-	Setting    SNSetting
-	User       SNUser
-	DB         SNDB
-	Redis      SNDB
-	Session    SNDB
-	ShareData  map[string]interface{}
+	API       SNAPI
+	Page      SNPage
+	Plugin    SNPlugin
+	Setting   SNSetting
+	User      SNUser
+	DB        SNDB
+	Redis     SNDB
+	Session   SNDB
+	ShareData map[string]interface{}
 }
+
+const VERSION = "1.0.0"
 
 var Skynet SNGlobal

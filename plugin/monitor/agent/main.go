@@ -2,6 +2,7 @@ package main
 
 import (
 	"bytes"
+	"context"
 	"crypto/tls"
 	"encoding/json"
 	"io"
@@ -103,6 +104,10 @@ func deadloop(u string) error {
 	if err != nil {
 		return err
 	}
+
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	go UploadStat(ctx, c)
 
 	for {
 		_, msg, err := c.ReadMessage()

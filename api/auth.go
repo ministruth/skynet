@@ -17,13 +17,11 @@ type authParam struct {
 	Remember bool   `form:"remember"`
 }
 
-func APISignIn(c *gin.Context) {
+func APISignIn(c *gin.Context, u *sn.Users) (int, error) {
 	var param authParam
 	err := c.ShouldBind(&param)
 	if err != nil {
-		log.Error(err)
-		c.AbortWithStatus(400)
-		return
+		return 400, err
 	}
 	fields := log.Fields{
 		"ip":       c.ClientIP(),
@@ -32,9 +30,7 @@ func APISignIn(c *gin.Context) {
 
 	u, res, err := handler.CheckUserPass(param.Username, param.Password)
 	if err != nil {
-		log.Error(err)
-		c.AbortWithStatus(500)
-		return
+		return 500, err
 	}
 
 	switch res {
@@ -43,16 +39,12 @@ func APISignIn(c *gin.Context) {
 		u.LastIP = c.ClientIP()
 		err = utils.GetDB().Save(u).Error
 		if err != nil {
-			log.Error(err)
-			c.AbortWithStatus(500)
-			return
+			return 500, err
 		}
 
 		session, err := utils.GetCTXSession(c)
 		if err != nil {
-			log.Error(err)
-			c.AbortWithStatus(500)
-			return
+			return 500, err
 		}
 		session.Values["id"] = int(u.ID)
 		if param.Remember {
@@ -61,9 +53,7 @@ func APISignIn(c *gin.Context) {
 			session.Options.MaxAge = viper.GetInt("session.expire")
 		}
 		if err = utils.SaveCTXSession(c); err != nil {
-			log.Error(err)
-			c.AbortWithStatus(500)
-			return
+			return 500, err
 		}
 
 		log.WithFields(fields).Info("Sign in success")
@@ -72,9 +62,10 @@ func APISignIn(c *gin.Context) {
 		log.WithFields(fields).Warn("Invalid username or password")
 		c.JSON(200, gin.H{"code": 1, "msg": "Invalid username or password"})
 	}
+	return 0, nil
 }
 
-func APISignOut(c *gin.Context, u *sn.Users) {
+func APISignOut(c *gin.Context, u *sn.Users) (int, error) {
 	fields := log.Fields{
 		"ip": c.ClientIP(),
 		"id": u.ID,
@@ -82,16 +73,22 @@ func APISignOut(c *gin.Context, u *sn.Users) {
 
 	session, err := utils.GetCTXSession(c)
 	if err != nil {
-		log.Error(err)
-		c.AbortWithStatus(500)
-		return
+		return 500, err
 	}
 	session.Options.MaxAge = -1
 	if err = utils.SaveCTXSession(c); err != nil {
-		log.Error(err)
-		c.AbortWithStatus(500)
-		return
+		return 500, err
 	}
 	log.WithFields(fields).Info("Sign out success")
 	c.JSON(200, gin.H{"code": 0, "msg": "Sign out success"})
+	return 0, nil
+}
+
+func APIReload(c *gin.Context, u *sn.Users) (int, error) {
+	c.JSON(200, gin.H{"code": 0, "msg": "Restarting skynet..."})
+	go func() {
+		time.Sleep(time.Second * 2)
+		utils.Restart()
+	}()
+	return 0, nil
 }

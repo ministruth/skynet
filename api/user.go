@@ -4,7 +4,6 @@ import (
 	"errors"
 	"io/ioutil"
 	"skynet/sn"
-	"skynet/sn/utils"
 
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
@@ -19,13 +18,11 @@ type userAddParam struct {
 	Role     sn.UserRole `form:"role"`
 }
 
-func APIAddUser(c *gin.Context, u *sn.Users) {
+func APIAddUser(c *gin.Context, u *sn.Users) (int, error) {
 	var param userAddParam
 	err := c.ShouldBind(&param)
 	if err != nil {
-		log.Error(err)
-		c.AbortWithStatus(400)
-		return
+		return 400, err
 	}
 	fields := log.Fields{
 		"ip":       c.ClientIP(),
@@ -35,18 +32,15 @@ func APIAddUser(c *gin.Context, u *sn.Users) {
 
 	content, err := ioutil.ReadFile(viper.GetString("default_avatar"))
 	if err != nil {
-		log.Error(err)
-		c.AbortWithStatus(500)
-		return
+		return 500, err
 	}
 	_, err = sn.Skynet.User.AddUser(param.Username, param.Password, content, param.Role)
 	if err != nil {
-		log.Error(err)
-		c.AbortWithStatus(500)
-		return
+		return 500, err
 	}
 	log.WithFields(fields).Info("Add user success")
 	c.JSON(200, gin.H{"code": 0, "msg": "Add user success"})
+	return 0, nil
 }
 
 type userEditParam struct {
@@ -57,13 +51,11 @@ type userEditParam struct {
 	Avatar   string      `form:"avatar"`
 }
 
-func APIEditUser(c *gin.Context, u *sn.Users) {
+func APIEditUser(c *gin.Context, u *sn.Users) (int, error) {
 	var param userEditParam
 	err := c.ShouldBind(&param)
 	if err != nil {
-		log.Error(err)
-		c.AbortWithStatus(400)
-		return
+		return 400, err
 	}
 	fields := log.Fields{
 		"ip":       c.ClientIP(),
@@ -74,7 +66,7 @@ func APIEditUser(c *gin.Context, u *sn.Users) {
 	if u.ID != param.ID && u.Role < sn.RoleAdmin {
 		log.WithFields(fields).Warn("Edit user permission denied")
 		c.JSON(200, gin.H{"code": 2, "msg": "Permission denied"})
-		return
+		return 0, nil
 	}
 	if u.Role < sn.RoleAdmin {
 		param.Role = u.Role // not allow change role
@@ -84,9 +76,7 @@ func APIEditUser(c *gin.Context, u *sn.Users) {
 	if param.Avatar != "" {
 		tmp, err := dataurl.DecodeString(param.Avatar)
 		if err != nil {
-			log.Error(err)
-			c.AbortWithStatus(500)
-			return
+			return 500, err
 		}
 		avatar = tmp.Data
 	}
@@ -94,11 +84,9 @@ func APIEditUser(c *gin.Context, u *sn.Users) {
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		log.WithFields(fields).Warn("Edit user not exist")
 		c.JSON(200, gin.H{"code": 1, "msg": "User not exists"})
-		return
+		return 0, nil
 	} else if err != nil {
-		log.Error(err)
-		c.AbortWithStatus(500)
-		return
+		return 500, err
 	}
 	if param.Username == "" && param.Password == "" && param.Role == sn.RoleEmpty && param.Avatar == "" {
 		log.WithFields(fields).Info("Kick user success")
@@ -107,19 +95,18 @@ func APIEditUser(c *gin.Context, u *sn.Users) {
 		log.WithFields(fields).Info("Edit user success")
 		c.JSON(200, gin.H{"code": 0, "msg": "Edit user success"})
 	}
+	return 0, nil
 }
 
 type userDeleteParam struct {
 	ID int32 `form:"id" binding:"required"`
 }
 
-func APIDeleteUser(c *gin.Context, u *sn.Users) {
+func APIDeleteUser(c *gin.Context, u *sn.Users) (int, error) {
 	var param userDeleteParam
 	err := c.ShouldBind(&param)
 	if err != nil {
-		log.Error(err)
-		c.AbortWithStatus(400)
-		return
+		return 400, err
 	}
 	fields := log.Fields{
 		"ip":       c.ClientIP(),
@@ -127,25 +114,18 @@ func APIDeleteUser(c *gin.Context, u *sn.Users) {
 		"targetID": param.ID,
 	}
 
-	// kick first
-	err = utils.DeleteSessionsByID(int(param.ID))
+	res, err := sn.Skynet.User.DelUser(int(param.ID))
 	if err != nil {
-		log.Error(err)
-		c.AbortWithStatus(500)
-		return
+		return 500, err
 	}
 
-	res := utils.GetDB().Delete(&sn.Users{}, param.ID)
-	if res.RowsAffected == 0 {
+	if !res {
 		log.WithFields(fields).Warn("Delete user not exist")
 		c.JSON(200, gin.H{"code": 1, "msg": "User not exists"})
-		return
-	} else if res.Error != nil {
-		log.Error(res.Error)
-		c.AbortWithStatus(500)
-		return
+		return 0, nil
 	}
 
 	log.WithFields(fields).Info("Delete user success")
 	c.JSON(200, gin.H{"code": 0, "msg": "Delete user success"})
+	return 0, nil
 }

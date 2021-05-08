@@ -3,30 +3,67 @@ package api
 import (
 	"skynet/sn"
 	"skynet/sn/utils"
-	"time"
 
 	"github.com/gin-gonic/gin"
+	log "github.com/sirupsen/logrus"
 )
 
 const APIVERSION = "/v1"
 
-func APIRouter(r *gin.RouterGroup) {
-	// TODO: Add new api router
-	r.POST("/signin", APISignIn)
-
-	r.GET("/signout", utils.NeedSignIn(APISignOut, false))
-	r.PATCH("/user", utils.NeedSignIn(APIEditUser, false))
-
-	r.POST("/user", utils.NeedAdmin(APIAddUser, false))
-	r.DELETE("/user", utils.NeedAdmin(APIDeleteUser, false))
-	r.GET("/reload", utils.NeedAdmin(APIReload, false))
-	r.PATCH("/plugin", utils.NeedAdmin(APIEditPlugin, false))
+type siteAPI struct {
+	router *gin.RouterGroup
+	api    []*sn.SNAPIItem
 }
 
-func APIReload(c *gin.Context, u *sn.Users) {
-	c.JSON(200, gin.H{"code": 0, "msg": "Restarting skynet..."})
-	go func() {
-		time.Sleep(time.Second * 2)
-		utils.Restart()
-	}()
+func (s *siteAPI) GetRouter() *gin.RouterGroup {
+	return s.router
+}
+
+func (s *siteAPI) AddAPIItem(i []*sn.SNAPIItem) {
+	for _, v := range i {
+		var fun func(c *gin.Context)
+		switch v.Role {
+		case sn.RoleEmpty:
+			fun = func(f sn.SNAPIFunc) func(c *gin.Context) {
+				return func(c *gin.Context) {
+					code, err := f(c, nil)
+					if err != nil {
+						log.Error(err)
+						c.AbortWithStatus(code)
+						return
+					}
+				}
+			}(v.Func)
+		case sn.RoleUser:
+			fun = utils.WithSignInErr(v.Func, false)
+		case sn.RoleAdmin:
+			fun = utils.WithAdminErr(v.Func, false)
+		}
+		switch v.Method {
+		case sn.APIGet:
+			s.router.GET(v.Path, fun)
+		case sn.APIPost:
+			s.router.POST(v.Path, fun)
+		case sn.APIPut:
+			s.router.PUT(v.Path, fun)
+		case sn.APIPatch:
+			s.router.PATCH(v.Path, fun)
+		case sn.APIDelete:
+			s.router.DELETE(v.Path, fun)
+		case sn.APIOptions:
+			s.router.OPTIONS(v.Path, fun)
+		case sn.APIHead:
+			s.router.HEAD(v.Path, fun)
+		case sn.APIAny:
+			s.router.Any(v.Path, fun)
+		}
+	}
+	s.api = append(s.api, i...)
+}
+
+func NewAPI(r *gin.RouterGroup) sn.SNAPI {
+	var ret siteAPI
+	ret.router = r
+	ret.AddAPIItem(api)
+	return &ret
 }

@@ -2,166 +2,147 @@ package page
 
 import (
 	"html/template"
-	"log"
 	"net/http"
-	"skynet/api"
 	"skynet/sn"
 	"skynet/sn/utils"
-	"time"
 
 	"github.com/gin-contrib/multitemplate"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/csrf"
 	"github.com/jinzhu/copier"
+	log "github.com/sirupsen/logrus"
 )
-
-func NewPage(t multitemplate.Renderer) sn.SNPage {
-	var ret sitePage
-	ret.renderer = t
-	ret.page = []*sn.SNPageItem{
-		// TODO: Add new page
-		{
-			Name: "Dashboard",
-			Link: "/dashboard",
-			Icon: "fa-tachometer-alt",
-			Role: 1,
-		},
-		{
-			Name: "Service",
-			Link: "#",
-			Icon: "fa-briefcase",
-			Role: 1,
-		},
-		{
-			Name: "Plugin",
-			Link: "#",
-			Icon: "fa-plug",
-			Role: 1,
-			Child: []*sn.SNPageItem{
-				{
-					Name: "Manager",
-					Link: "/plugin",
-					Role: 2,
-				},
-			},
-		},
-		{
-			Name: "User",
-			Link: "/user",
-			Icon: "fa-user",
-			Role: 2,
-		},
-		{
-			Name: "Setting",
-			Link: "/setting",
-			Icon: "fa-cog",
-			Role: 1,
-		},
-	}
-
-	// TODO: Add new page
-	ret.ParseTemplateStatic("index")
-	ret.ParseTemplateStatic("header")
-	ret.ParseTemplateStatic("footer")
-	ret.ParseTemplate("dashboard")
-	ret.ParseTemplate("setting")
-	ret.ParseTemplate("user")
-	ret.ParseTemplate("deny")
-	ret.ParseTemplate("plugin")
-
-	return &ret
-}
-
-var defaultFunc = template.FuncMap{
-	// TODO: Add page functions
-	"api":  apiVersion,
-	"time": formatTime,
-}
-
-func PageRouter(r *gin.RouterGroup) {
-	// TODO: Add new page
-	r.GET("/", PageIndex)
-	r.GET("/dashboard", utils.NeedSignIn(PageDashboard, true))
-	r.GET("/setting", utils.NeedSignIn(PageSetting, true))
-	r.GET("/user", utils.NeedAdmin(PageUser, true))
-	r.GET("/deny", utils.NeedSignIn(PageDeny, true))
-	r.GET("/plugin", utils.NeedAdmin(PagePlugin, true))
-}
 
 type sitePage struct {
 	renderer multitemplate.Renderer
+	router   *gin.RouterGroup
 	page     []*sn.SNPageItem
+	navbar   []*sn.SNNavItem
 }
 
-func (r *sitePage) GetPage() []*sn.SNPageItem {
-	return r.page
+func NewPage(t multitemplate.Renderer, r *gin.RouterGroup) sn.SNPage {
+	var ret sitePage
+	ret.renderer = t
+	ret.router = r
+	ret.AddNavItem(navbar)
+	ret.AddPageItem(pages)
+	return &ret
 }
 
-func (r *sitePage) AddTemplate(name string, files ...string) {
-	r.renderer.AddFromFilesFuncs(name, defaultFunc, files...)
+func (s *sitePage) GetDefaultFunc() template.FuncMap {
+	return defaultFunc
+}
+
+func (s *sitePage) GetDefaultPath() *sn.SNPathItem {
+	return defaultPath
+}
+
+func (s *sitePage) GetRouter() *gin.RouterGroup {
+	return s.router
+}
+
+func (s *sitePage) GetNavItem() []*sn.SNNavItem {
+	return s.navbar
+}
+
+func (s *sitePage) GetPageItem() []*sn.SNPageItem {
+	return s.page
+}
+
+func (s *sitePage) AddNavItem(i []*sn.SNNavItem) {
+	s.navbar = append(s.navbar, i...)
+	sn.SNNavSort(s.navbar).Sort()
 }
 
 func (r *sitePage) RenderSingle(c *gin.Context, page string, p gin.H) {
+	if p == nil {
+		p = make(map[string]interface{})
+	}
 	p["_nonce"] = c.Keys["nonce"]
 	p["_csrftoken"] = csrf.Token(c.Request)
 
 	c.HTML(http.StatusOK, page, p)
 }
 
-func (r *sitePage) Render(c *gin.Context, page string, title string, name string, link string, u *sn.Users, p gin.H) {
+func (r *sitePage) Render(c *gin.Context, u *sn.Users, p *sn.SNPageItem) {
 	avatar, err := utils.PicFromByte(u.Avatar)
 	if err != nil {
 		log.Fatal(err)
 	}
-	snpath := sn.Skynet.Page.GetPage()
-	tmpPath := make([]*sn.SNPageItem, len(snpath))
-	copier.CopyWithOption(&tmpPath, &snpath, copier.Option{DeepCopy: true})
-	for i := range tmpPath {
-		if tmpPath[i].Link == link {
-			tmpPath[i].Active = true
-		}
-		for j := range tmpPath[i].Child {
-			if tmpPath[i].Child[j].Link == link {
-				tmpPath[i].Child[j].Active = true
-				tmpPath[i].Active = true
-				tmpPath[i].Open = true
+	tmpNav := make([]*sn.SNNavItem, len(r.navbar))
+	copier.CopyWithOption(&tmpNav, &r.navbar, copier.Option{DeepCopy: true})
+
+	var activateLink func(i []*sn.SNNavItem) bool
+	activateLink = func(i []*sn.SNNavItem) bool {
+		for _, v := range i {
+			if v.Link == p.Link {
+				v.Active = true
+				return true
+			}
+			if activateLink(v.Child) {
+				v.Active = true
+				v.Open = true
+				return true
 			}
 		}
+		return false
 	}
+	activateLink(tmpNav)
 
-	p["_title"] = title
-	p["_name"] = name
-	p["_id"] = u.ID
-	p["_username"] = u.Username
-	p["_avatar"] = avatar.Base64()
-	p["_sitepath"] = tmpPath
-	p["_role"] = u.Role
-	p["_version"] = utils.VERSION
+	if p.Param == nil {
+		p.Param = make(map[string]interface{})
+	}
+	p.Param["_title"] = p.Title
+	p.Param["_name"] = p.Name
+	p.Param["_id"] = u.ID
+	p.Param["_username"] = u.Username
+	p.Param["_avatar"] = avatar.Base64()
+	p.Param["_navbar"] = tmpNav
+	p.Param["_path"] = p.Path
+	p.Param["_role"] = u.Role
+	p.Param["_version"] = sn.VERSION
 
-	r.RenderSingle(c, page, p)
+	r.RenderSingle(c, p.TplName, p.Param)
 }
 
-func (r *sitePage) ParseTemplateStatic(n string) {
-	r.renderer.AddFromFilesFuncs(n, defaultFunc, "templates/"+n+".tmpl", "templates/header.tmpl", "templates/footer.tmpl")
-}
-
-func (r *sitePage) ParseTemplate(n string) {
-	r.renderer.AddFromFilesFuncs(n, defaultFunc, "templates/home.tmpl", "templates/"+n+".tmpl", "templates/header.tmpl", "templates/footer.tmpl")
-}
-
-func apiVersion(in string) (string, error) {
-	return api.APIVERSION + in, nil
-}
-
-func formatTime(t time.Time) (string, error) {
-	return t.Format("2006-01-02 15:04:05"), nil
-}
-
-func PageDeny(c *gin.Context, u *sn.Users) {
-	sn.Skynet.Page.Render(c, "deny", "Skynet | Permission Denied", "Permission Denied", "", u, gin.H{
-		"_path": append(sn.SNDefaultPath, &sn.SNPageItem{
-			Name:   "Permission Denied",
-			Active: true,
-		}),
-	})
+func (s *sitePage) AddPageItem(i []*sn.SNPageItem) {
+	for _, v := range i {
+		s.renderer.AddFromFilesFuncs(v.TplName, v.FuncMap, v.Files...)
+		renderer := func(v *sn.SNPageItem) func(c *gin.Context, u *sn.Users) {
+			return func(c *gin.Context, u *sn.Users) {
+				ret := true
+				if v.BeforeRender != nil {
+					ret = v.BeforeRender(c, u, v)
+				}
+				if ret {
+					s.Render(c, u, v)
+				}
+				if v.AfterRender != nil {
+					v.AfterRender(c, u, v)
+				}
+			}
+		}
+		switch v.Role {
+		case sn.RoleEmpty:
+			s.router.GET(v.Link, func(v *sn.SNPageItem) func(c *gin.Context) {
+				return func(c *gin.Context) {
+					ret := true
+					if v.BeforeRender != nil {
+						ret = v.BeforeRender(c, nil, v)
+					}
+					if ret {
+						s.RenderSingle(c, v.TplName, v.Param)
+					}
+					if v.AfterRender != nil {
+						v.AfterRender(c, nil, v)
+					}
+				}
+			}(v))
+		case sn.RoleUser:
+			s.router.GET(v.Link, utils.WithSignIn(renderer(v), true))
+		case sn.RoleAdmin:
+			s.router.GET(v.Link, utils.WithAdmin(renderer(v), true))
+		}
+	}
+	s.page = append(s.page, i...)
 }
