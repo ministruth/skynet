@@ -72,9 +72,6 @@ var pages = []*sn.SNPageItem{
 			},
 		}),
 		BeforeRender: func(c *gin.Context, u *sn.Users, v *sn.SNPageItem) bool {
-			if v.Param == nil {
-				v.Param = make(map[string]interface{})
-			}
 			v.Param["plugins"] = sn.Skynet.Plugin.GetAllPlugin()
 			return true
 		},
@@ -145,9 +142,6 @@ var pages = []*sn.SNPageItem{
 				}
 				param[i].Users = users[i]
 				param[i].Online = len(s) != 0
-			}
-			if v.Param == nil {
-				v.Param = make(map[string]interface{})
 			}
 			v.Param["users"] = param
 			return true

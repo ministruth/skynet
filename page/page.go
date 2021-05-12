@@ -54,14 +54,17 @@ func (s *sitePage) AddNavItem(i []*sn.SNNavItem) {
 	sn.SNNavSort(s.navbar).Sort()
 }
 
-func (r *sitePage) RenderSingle(c *gin.Context, page string, p gin.H) {
-	if p == nil {
-		p = make(map[string]interface{})
-	}
-	p["_nonce"] = c.Keys["nonce"]
-	p["_csrftoken"] = csrf.Token(c.Request)
+func (r *sitePage) RenderSingle(c *gin.Context, u *sn.Users, p *sn.SNPageItem) {
+	p.Param["_nonce"] = c.Keys["nonce"]
+	p.Param["_csrftoken"] = csrf.Token(c.Request)
 
-	c.HTML(http.StatusOK, page, p)
+	ret := true
+	if p.BeforeReturn != nil {
+		ret = p.BeforeReturn(c, u, p)
+	}
+	if ret {
+		c.HTML(http.StatusOK, p.TplName, p.Param)
+	}
 }
 
 func (r *sitePage) Render(c *gin.Context, u *sn.Users, p *sn.SNPageItem) {
@@ -89,9 +92,6 @@ func (r *sitePage) Render(c *gin.Context, u *sn.Users, p *sn.SNPageItem) {
 	}
 	activateLink(tmpNav)
 
-	if p.Param == nil {
-		p.Param = make(map[string]interface{})
-	}
 	p.Param["_title"] = p.Title
 	p.Param["_name"] = p.Name
 	p.Param["_id"] = u.ID
@@ -101,8 +101,11 @@ func (r *sitePage) Render(c *gin.Context, u *sn.Users, p *sn.SNPageItem) {
 	p.Param["_path"] = p.Path
 	p.Param["_role"] = u.Role
 	p.Param["_version"] = sn.VERSION
+	for _, v := range p.QueryParam {
+		p.Param["_"+v] = c.Query(v)
+	}
 
-	r.RenderSingle(c, p.TplName, p.Param)
+	r.RenderSingle(c, u, p)
 }
 
 func (s *sitePage) AddPageItem(i []*sn.SNPageItem) {
@@ -111,6 +114,9 @@ func (s *sitePage) AddPageItem(i []*sn.SNPageItem) {
 		renderer := func(v *sn.SNPageItem) func(c *gin.Context, u *sn.Users) {
 			return func(c *gin.Context, u *sn.Users) {
 				ret := true
+				if v.Param == nil {
+					v.Param = make(map[string]interface{})
+				}
 				if v.BeforeRender != nil {
 					ret = v.BeforeRender(c, u, v)
 				}
@@ -126,12 +132,15 @@ func (s *sitePage) AddPageItem(i []*sn.SNPageItem) {
 		case sn.RoleEmpty:
 			s.router.GET(v.Link, func(v *sn.SNPageItem) func(c *gin.Context) {
 				return func(c *gin.Context) {
+					if v.Param == nil {
+						v.Param = make(map[string]interface{})
+					}
 					ret := true
 					if v.BeforeRender != nil {
 						ret = v.BeforeRender(c, nil, v)
 					}
 					if ret {
-						s.RenderSingle(c, v.TplName, v.Param)
+						s.RenderSingle(c, nil, v)
 					}
 					if v.AfterRender != nil {
 						v.AfterRender(c, nil, v)

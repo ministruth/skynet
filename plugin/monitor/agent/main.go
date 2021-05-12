@@ -15,6 +15,7 @@ import (
 	logrus_stack "github.com/Gurpartap/logrus-stack"
 	"github.com/denisbrodbeck/machineid"
 	"github.com/gorilla/websocket"
+	"github.com/kballard/go-shellquote"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"golang.org/x/sys/unix"
@@ -110,11 +111,40 @@ func deadloop(u string) error {
 	go UploadStat(ctx, c)
 
 	for {
-		_, msg, err := c.ReadMessage()
+		_, msgRead, err := c.ReadMessage()
 		if err != nil {
 			break
 		}
-		log.Printf("recv: %s", msg)
+		var res msg.CommonMsg
+		err = json.Unmarshal(msgRead, &res)
+		if err != nil {
+			log.Warn("Msg format error")
+			continue
+		}
+		switch res.Opcode {
+		case msg.OPCMD:
+			var data msg.CMDMsg
+			err = json.Unmarshal([]byte(res.Data), &data)
+			if err != nil {
+				log.Warn("Msg format error")
+				continue
+			}
+			w, err := shellquote.Split(data.Data)
+			if err != nil {
+				d, _ := json.Marshal(msg.CMDMsg{
+					UID:  data.UID,
+					Data: err.Error(),
+					End:  true,
+				})
+				err = msg.SendReq(c, msg.OPCMDRes, string(d))
+				if err != nil {
+					log.Warn("Could not send cmd result")
+				}
+			} else {
+				log.Info("Run command: ", data.Data)
+				RunCommand(c, data.UID, w[0], w[1:]...)
+			}
+		}
 	}
 	log.Warn("lost connection")
 	sleep()

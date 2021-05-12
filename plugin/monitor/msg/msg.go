@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 )
 
@@ -13,6 +14,8 @@ const (
 	OPLogin OPCode = iota + 1
 	OPInfo
 	OPStat
+	OPCMD
+	OPCMDRes
 )
 
 type CommonMsg struct {
@@ -33,6 +36,12 @@ type InfoMsg struct {
 	Host    string
 	Machine string
 	System  string
+}
+
+type CMDMsg struct {
+	UID  uuid.UUID
+	Data string
+	End  bool
 }
 
 type StatMsg struct {

@@ -7,6 +7,7 @@ import (
 	plugins "skynet/plugin"
 	"skynet/sn"
 	"skynet/sn/utils"
+	"sort"
 	"strings"
 
 	"github.com/google/uuid"
@@ -20,6 +21,12 @@ type pluginLoad struct {
 	Instance      *plugin.Plugin
 }
 
+type pluginLoadSort []*pluginLoad
+
+func (s pluginLoadSort) Len() int           { return len(s) }
+func (s pluginLoadSort) Less(i, j int) bool { return s[i].Priority < s[j].Priority }
+func (s pluginLoadSort) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
+
 func (p *pluginLoad) CallPlugin(n string) error {
 	pSymbol, err := p.Instance.Lookup(n)
 	if err == nil {
@@ -29,7 +36,8 @@ func (p *pluginLoad) CallPlugin(n string) error {
 }
 
 type sitePlugin struct {
-	plugin map[uuid.UUID]*pluginLoad
+	priority pluginLoadSort
+	plugin   map[uuid.UUID]*pluginLoad
 }
 
 func NewPlugin(base string) (sn.SNPlugin, error) {
@@ -65,6 +73,7 @@ func NewPlugin(base string) (sn.SNPlugin, error) {
 						Enable:       false,
 						Instance:     p,
 					}
+					ret.priority = append(ret.priority, ret.plugin[pConfig.ID])
 					log.WithFields(log.Fields{
 						"id":      pConfig.ID,
 						"name":    pConfig.Name,
@@ -75,6 +84,8 @@ func NewPlugin(base string) (sn.SNPlugin, error) {
 		}
 	}
 
+	sort.Stable(ret.priority)
+
 	// setting enable cleanup
 	for k, v := range sn.Skynet.Setting.Get() {
 		if strings.HasPrefix(k, "plugin_") && v == "1" {
@@ -82,14 +93,14 @@ func NewPlugin(base string) (sn.SNPlugin, error) {
 		}
 	}
 
-	for k, v := range ret.plugin {
-		if status, exist := sn.Skynet.Setting.GetSetting("plugin_" + k.String()); exist {
+	for _, v := range ret.priority {
+		if status, exist := sn.Skynet.Setting.GetSetting("plugin_" + v.ID.String()); exist {
 			v.Enable = status == "-1"
 			if v.Enable {
-				sn.Skynet.Setting.Get()["plugin_"+k.String()] = "1"
+				sn.Skynet.Setting.Get()["plugin_"+v.ID.String()] = "1"
 			}
 		} else {
-			err := sn.Skynet.Setting.AddSetting("plugin_"+k.String(), "0")
+			err := sn.Skynet.Setting.AddSetting("plugin_"+v.ID.String(), "0")
 			if err != nil {
 				return nil, err
 			}
@@ -106,7 +117,7 @@ func NewPlugin(base string) (sn.SNPlugin, error) {
 	}
 
 	// skynet version check
-	for _, v := range ret.plugin {
+	for _, v := range ret.priority {
 		c, err := utils.CheckSkynetVersion(v.SkynetVersion)
 		if err != nil {
 			return nil, err
@@ -120,7 +131,7 @@ func NewPlugin(base string) (sn.SNPlugin, error) {
 	}
 
 	// dependency check
-	for _, v := range ret.plugin {
+	for _, v := range ret.priority {
 		for _, p := range v.Dependency {
 			if dp, exist := ret.plugin[p.ID]; exist {
 				if dp.Enable == false && v.Enable == true {
@@ -149,7 +160,7 @@ func NewPlugin(base string) (sn.SNPlugin, error) {
 	}
 
 	// plugin init
-	for _, v := range ret.plugin {
+	for _, v := range ret.priority {
 		if v.Enable {
 			err = v.CallPlugin("PluginInit")
 			if err != nil {

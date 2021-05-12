@@ -19,6 +19,7 @@ type PluginConfig struct {
 	Path          string
 	Version       string
 	SkynetVersion string
+	Priority      int
 }
 
 func SPWithIDPrefix(c *PluginConfig, n string) string {

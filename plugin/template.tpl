@@ -13,11 +13,13 @@ var Config = plugins.PluginConfig{
 	Dependency:    []plugins.PluginDep{}, // if your plugin need dependency, write here
 	Version:       "1.0.0",               // plugin version, better follow https://semver.org/
 	SkynetVersion: ">= 1.0",              // skynet version constraints using https://github.com/hashicorp/go-version
+	Priority:      0,                     // priority to run PluginInit   
 }
 
 // Delete function below as you wish if you do not need
 
 // PluginInit will be executed after plugin loaded or enabled, return error to stop skynet run or plugin enable
+// Note that dependency PluginInit may NOT execute previously
 func PluginInit() error {
 	return nil
 }

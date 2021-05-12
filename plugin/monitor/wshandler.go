@@ -4,9 +4,11 @@ import (
 	"encoding/json"
 	"net/http"
 	"skynet/plugin/monitor/msg"
+	"skynet/plugin/monitor/shared"
 	"skynet/sn/utils"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/jinzhu/copier"
 	log "github.com/sirupsen/logrus"
@@ -17,35 +19,16 @@ var wsupgrader = websocket.Upgrader{
 	EnableCompression: true,
 }
 
-type AgentInfo struct {
-	ID        int
-	IP        string
-	Name      string
-	HostName  string
-	LastLogin time.Time
-	System    string
-	Machine   string
-	Conn      *websocket.Conn `json:"-"`
-	Online    bool
+var agents map[int]*shared.AgentInfo
 
-	LastRsp   time.Time
-	CPU       float64 // percent
-	Mem       uint64  // bytes
-	TotalMem  uint64  // bytes
-	Disk      uint64  // bytes
-	TotalDisk uint64  // bytes
-	Load1     float64
-	Latency   int64  // ms
-	NetUp     uint64 // bytes/s
-	NetDown   uint64 // bytes/s
-	BandUp    uint64 // bytes
-	BandDown  uint64 // bytes
-}
+type AgentSort []*shared.AgentInfo
 
-var agents map[int]*AgentInfo
+func (s AgentSort) Len() int           { return len(s) }
+func (s AgentSort) Less(i, j int) bool { return s[i].ID < s[j].ID }
+func (s AgentSort) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 
 func init() {
-	agents = make(map[int]*AgentInfo)
+	agents = make(map[int]*shared.AgentInfo)
 }
 
 func WSHandler(ip string, w http.ResponseWriter, r *http.Request) {
@@ -97,7 +80,7 @@ func WSHandler(ip string, w http.ResponseWriter, r *http.Request) {
 				if data.Token == token {
 					utils.GetDB().Create(&PluginMonitorAgent{
 						UID:  data.UID,
-						Name: data.UID,
+						Name: data.UID[:6],
 					})
 					var rec PluginMonitorAgent
 					err = utils.GetDB().Where("uid = ?", data.UID).First(&rec).Error
@@ -122,7 +105,7 @@ func WSHandler(ip string, w http.ResponseWriter, r *http.Request) {
 						return
 					}
 
-					agents[id] = &AgentInfo{
+					agents[id] = &shared.AgentInfo{
 						ID:        id,
 						IP:        ip,
 						Name:      rec.Name,
@@ -190,6 +173,23 @@ func WSHandler(ip string, w http.ResponseWriter, r *http.Request) {
 				agents[id].BandUp = data.BandUp
 				agents[id].BandDown = data.BandDown
 				agents[id].LastRsp = time.Now()
+			case msg.OPCMDRes:
+				var data msg.CMDMsg
+				err = json.Unmarshal([]byte(res.Data), &data)
+				if err != nil {
+					formatErr()
+					continue
+				}
+				if agents[id].CMDRes == nil {
+					agents[id].CMDRes = make(map[uuid.UUID]*shared.CMDRes)
+				}
+				if agents[id].CMDRes[data.UID] == nil {
+					agents[id].CMDRes[data.UID] = &shared.CMDRes{
+						End: false,
+					}
+				}
+				agents[id].CMDRes[data.UID].Data += data.Data
+				agents[id].CMDRes[data.UID].End = data.End
 			default:
 				log.Warn("Unknown opcode ", res.Opcode)
 			}

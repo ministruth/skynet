@@ -9,5 +9,3 @@
 
 ## Reference Project
 All golang library included.
-
-- [GoTTY](https://github.com/yudai/gotty)

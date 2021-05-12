@@ -54,3 +54,9 @@ th.th-op1 {
   height: auto;
   width: 3rem;
 }
+
+.pagebtn {
+  padding: 0.25rem 0.5rem !important;
+  height: auto !important;
+  margin-left: 0.5rem;
+}

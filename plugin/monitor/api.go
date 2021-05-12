@@ -4,14 +4,39 @@ import (
 	plugins "skynet/plugin"
 	"skynet/sn"
 	"skynet/sn/utils"
+	"sort"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"
 )
 
+type getAgentParam struct {
+	Page int `form:"page"`
+	Size int `form:"size" binding:"oneof=5 10 20 50"`
+}
+
 func APIGetAgent(c *gin.Context, u *sn.Users) (int, error) {
-	c.JSON(200, gin.H{"code": 0, "msg": "Get stat success", "data": agents})
+	var param getAgentParam
+	err := c.ShouldBindQuery(&param)
+	if err != nil {
+		return 400, err
+	}
+	if param.Page <= 0 {
+		param.Page = 1
+	}
+
+	var sortedAgents AgentSort
+	for _, v := range agents {
+		sortedAgents = append(sortedAgents, v)
+	}
+	sort.Stable(sortedAgents)
+	low, high := utils.GetSplitPage(len(sortedAgents), param.Page, param.Size)
+	if low == -1 {
+		c.JSON(200, gin.H{"code": 0, "msg": "Get stat success", "data": sortedAgents})
+	} else {
+		c.JSON(200, gin.H{"code": 0, "msg": "Get stat success", "data": sortedAgents[low:high]})
+	}
 	return 0, nil
 }
 
@@ -61,6 +86,12 @@ func APISaveAgent(c *gin.Context, u *sn.Users) (int, error) {
 		"id": param.ID,
 	}
 
+	if _, ok := agents[param.ID]; !ok {
+		log.WithFields(defaultField).WithFields(fields).Warn("Agent not exist")
+		c.JSON(200, gin.H{"code": 1, "msg": "Agent not exist"})
+		return 0, nil
+	}
+
 	var rec PluginMonitorAgent
 	err = utils.GetDB().First(&rec, param.ID).Error
 	if err != nil {
@@ -91,6 +122,12 @@ func APIDelAgent(c *gin.Context, u *sn.Users) (int, error) {
 	fields := log.Fields{
 		"ip": c.ClientIP(),
 		"id": param.ID,
+	}
+
+	if _, ok := agents[param.ID]; !ok {
+		log.WithFields(defaultField).WithFields(fields).Warn("Agent not exist")
+		c.JSON(200, gin.H{"code": 1, "msg": "Agent not exist"})
+		return 0, nil
 	}
 
 	err = utils.GetDB().Delete(&PluginMonitorAgent{}, param.ID).Error

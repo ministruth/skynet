@@ -63,6 +63,29 @@
         </tbody>
       </table>
     </div>
+    <div class="card-footer clearfix">
+      <ul class="pagination pagination-sm m-0 d-flex justify-content-center">
+        {{range split ._page ._totpage}}
+        {{if .Active}}
+        <li class="page-item active"><a class="page-link" page="{{.Number}}">{{.Text}}</a></li>
+        {{else}}
+        {{if .Disabled}}
+        <li class="page-item disabled"><a class="page-link" page="{{.Number}}">{{.Text}}</a></li>
+        {{else}}
+        <li class="page-item"><a class="page-link" page="{{.Number}}">{{.Text}}</a></li>
+        {{end}}
+        {{end}}
+        {{end}}
+        <li>
+          <select class="form-control pagebtn">
+            <option value="5">5 / page</option>
+            <option value="10">10 / page</option>
+            <option value="20">20 / page</option>
+            <option value="50">50 / page</option>
+          </select>
+        </li>
+      </ul>
+    </div>
   </div>
 </div>
 {{end}}
@@ -70,6 +93,16 @@
 {{define "js"}}
 <script nonce="{{ ._nonce }}">
   "use strict"
+
+  let sp = GetPageSize(10, [5, 10, 20, 50]);
+
+  $(".pagebtn").on("change", function () {
+    InsertParam("size", this.value)
+  });
+
+  $(".page-item").click((e) => {
+    InsertParam("page", e.target.getAttribute("page"))
+  })
 
   function updateTable(r) {
     $('#agent_' + r.ID + '_status').empty();
@@ -103,7 +136,7 @@
   }
 
   function update() {
-    JSONGet({{ api .agentAPI }}).done((e) => {
+    JSONGet("{{ api .agentAPI }}" + "?page=" + sp[0] + "&size=" + sp[1]).done((e) => {
       $.each(e.data, function (_, e) {
         updateTable(e);
       });

@@ -75,8 +75,10 @@ type SNPageItem struct {
 	Path         *SNPathItem
 	Role         UserRole
 	BeforeRender SNRenderHookFunc
+	BeforeReturn SNRenderHookFunc
 	AfterRender  SNRenderHookFunc
-	Param        map[string]interface{}
+	QueryParam   []string
+	Param        gin.H
 }
 
 func (i *SNPageItem) Render(c *gin.Context) {
