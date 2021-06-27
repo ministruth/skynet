@@ -8,7 +8,6 @@ import (
 	"skynet/sn/utils"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/jinzhu/copier"
 	log "github.com/sirupsen/logrus"
@@ -180,16 +179,14 @@ func WSHandler(ip string, w http.ResponseWriter, r *http.Request) {
 					formatErr()
 					continue
 				}
-				if agents[id].CMDRes == nil {
-					agents[id].CMDRes = make(map[uuid.UUID]*shared.CMDRes)
-				}
-				if agents[id].CMDRes[data.UID] == nil {
-					agents[id].CMDRes[data.UID] = &shared.CMDRes{
-						End: false,
-					}
-				}
 				agents[id].CMDRes[data.UID].Data += data.Data
+				agents[id].CMDRes[data.UID].Code = data.Code
 				agents[id].CMDRes[data.UID].End = data.End
+				agents[id].CMDRes[data.UID].Complete = data.Complete
+				agents[id].CMDRes[data.UID].DataChan <- data.Data
+				if data.End {
+					close(agents[id].CMDRes[data.UID].DataChan)
+				}
 			default:
 				log.Warn("Unknown opcode ", res.Opcode)
 			}

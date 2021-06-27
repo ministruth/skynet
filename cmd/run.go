@@ -93,18 +93,6 @@ func run(cmd *cobra.Command, args []string) {
 	log.Info("========== Skynet server start ==========")
 	log.Infof("config file: %s", conf)
 
-	// check default settings
-	for k, v := range defaultSettings {
-		if k[0] == '*' {
-			if viper.Get(k[1:]) == v {
-				log.Warnf("Setting %v has default value, please modify your config file for safety", k[1:])
-			}
-		}
-	}
-
-	// gin.SetMode(gin.ReleaseMode)
-	r := gin.Default()
-
 	// database
 	connectRedis()
 	log.WithFields(log.Fields{
@@ -118,6 +106,23 @@ func run(cmd *cobra.Command, args []string) {
 	log.WithFields(log.Fields{
 		"path": viper.GetString("database.path"),
 	}).Info("Database connected")
+	log.AddHook(handler.NotificationHook{})
+
+	// check default settings
+	for k, v := range defaultSettings {
+		if k[0] == '*' {
+			if viper.Get(k[1:]) == v {
+				log.Warnf("Setting %v has default value, please modify your config file for safety", k[1:])
+			}
+		}
+	}
+
+	if !viper.GetBool("debug") {
+		gin.SetMode(gin.ReleaseMode)
+	} else {
+		log.Warn("Debug mode is on, make it off when put into production")
+	}
+	r := gin.Default()
 
 	// security
 	hosts := strings.Split(viper.GetString("listen.allowhosts"), ",")
@@ -165,7 +170,7 @@ func run(cmd *cobra.Command, args []string) {
 
 	// CSRF protection
 	csrfFunc := func() gin.HandlerFunc {
-		return adapter.Wrap(csrf.Protect([]byte(viper.GetString("csrf_secret")),
+		return adapter.Wrap(csrf.Protect([]byte(viper.GetString("csrf_secret")), csrf.Path("/"),
 			csrf.Secure(viper.GetBool("listen.ssl")), csrf.MaxAge(0), csrf.SameSite(csrf.SameSiteStrictMode)))
 	}
 	r.Use(csrfFunc())
@@ -191,7 +196,7 @@ func run(cmd *cobra.Command, args []string) {
 	r.HTMLRender = t
 
 	// api router
-	v1 := r.Group(api.APIVERSION)
+	v1 := r.Group("/api")
 	sn.Skynet.API = api.NewAPI(v1)
 
 	// plugin
@@ -203,6 +208,7 @@ func run(cmd *cobra.Command, args []string) {
 	if err != nil {
 		log.Fatal("Plugin init error: ", err)
 	}
+	defer sn.Skynet.Plugin.Fini()
 
 	endless.DefaultHammerTime = 1 * time.Second
 	server := endless.NewServer(viper.GetString("listen.address"), r)

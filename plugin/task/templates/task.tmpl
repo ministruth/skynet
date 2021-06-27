@@ -1,0 +1,277 @@
+{{define "content"}}
+<div class="container-fluid">
+  <div class="card card-primary">
+    <div class="card-header">
+      <h3 class="card-title">Tasks</h3>
+    </div>
+    <div class="card-body">
+      {{if eq ._role 2}}
+      <button id="deleteInactive" class="btn btn-warning cardbtn">Delete inactive task</button>
+      {{end}}
+      <table class="table table-bordered">
+        <thead>
+          <tr>
+            <th class="th-50">ID</th>
+            <th class="th-150">Name</th>
+            <th class="th-70">Status</th>
+            <th class="th-200">Percent</th>
+            <th>Output</th>
+            <th class="th-150">Last Update</th>
+            {{if eq ._role 2}}
+            <th class="th-150">Operation</th>
+            {{else}}
+            <th class="th-op1">Operation</th>
+            {{end}}
+          </tr>
+        </thead>
+        <tbody id="tasks">
+        </tbody>
+      </table>
+    </div>
+    <div class="card-footer clearfix">
+      <ul class="pagination pagination-sm m-0 d-flex justify-content-center">
+        {{range split ._page ._totpage}}
+        {{if .Active}}
+        <li class="page-item active"><a class="page-link" page="{{.Number}}">{{.Text}}</a></li>
+        {{else}}
+        {{if .Disabled}}
+        <li class="page-item disabled"><a class="page-link" page="{{.Number}}">{{.Text}}</a></li>
+        {{else}}
+        <li class="page-item"><a class="page-link" page="{{.Number}}">{{.Text}}</a></li>
+        {{end}}
+        {{end}}
+        {{end}}
+        <li>
+          <select class="form-control pagebtn">
+            <option value="5">5 / page</option>
+            <option value="10">10 / page</option>
+            <option value="20">20 / page</option>
+            <option value="50">50 / page</option>
+          </select>
+        </li>
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="modal-detail" aria-hidden="true">
+  <div class="modal-dialog modal-lg">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h4 class="modal-title">Task Detail</h4>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">×</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <div class="row">
+          <label class="col-sm-2">ID</label>
+          <div class="col-sm-10">
+            <p id="detailID"></p>
+          </div>
+        </div>
+        <div class="row">
+          <label class="col-sm-2">Name</label>
+          <div class="col-sm-10">
+            <p id="detailName"></p>
+          </div>
+        </div>
+        <div class="row">
+          <label class="col-sm-2">Detail</label>
+          <div class="col-sm-10">
+            <textarea id="detailDetail" class="form-control mb-3" rows="2" disabled></textarea>
+          </div>
+        </div>
+        <div class="row">
+          <label class="col-sm-2">Status</label>
+          <div class="col-sm-4 mb-3" id="detailStatus">
+          </div>
+          <label class="col-sm-2">Percent</label>
+          <div class="col-sm-3 mt-1">
+            <div class="progress" id="detailPercent">
+            </div>
+          </div>
+          <div class="col-sm-1">
+            <p id="detailPercentNum"></p>
+          </div>
+        </div>
+        <div class="row">
+          <label class="col-sm-2">Create Time</label>
+          <div class="col-sm-4">
+            <p id="detailCreate"></p>
+          </div>
+          <label class="col-sm-2">Last Update</label>
+          <div class="col-sm-4">
+            <p id="detailUpdate"></p>
+          </div>
+        </div>
+        <div class="row">
+          <label class="col-sm-2">Output</label>
+          <div class="col-sm-10">
+            <textarea id="detailOutput" class="form-control mb-3" rows="7" disabled></textarea>
+          </div>
+        </div>
+      </div>
+      <div class="modal-footer">
+        <button type="button" class="btn btn-primary" data-dismiss="modal">OK</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="modal-kill" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content bg-danger">
+      <div class="modal-header">
+        <h4 class="modal-title">Kill Task</h4>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">×</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p>Force kill the task?</p>
+      </div>
+      <div class="modal-footer justify-content-between">
+        <button type="button" class="btn btn-outline-light" data-dismiss="modal">Cancel</button>
+        <button id="killConfirm" type="button" class="btn btn-outline-light">Confirm</button>
+      </div>
+    </div>
+  </div>
+</div>
+{{end}}
+
+{{define "js"}}
+<script nonce="{{ ._nonce }}">
+  "use strict"
+
+  let sp = GetPageSize(10, [5, 10, 20, 50]);
+
+  $(".pagebtn").on("change", function () {
+    InsertParam("size", this.value);
+  });
+
+  $(".page-item").click((e) => {
+    InsertParam("page", e.target.getAttribute("page"));
+  });
+
+  $("#modal-detail").attrchange({
+    trackValues: true,
+    callback: function (evt) {
+      if (evt.attributeName == "aria-hidden" && evt.newValue == undefined)
+        $("#detailOutput").scrollTop($("#detailOutput")[0].scrollHeight);
+    }
+  });
+
+  $("#killConfirm").click((e) => {
+    JSONDelete(`/api/plugin/c1e81895-1f75-4988-9f10-52786b875ec7/task/${e.target.getAttribute("data-taskID")}`).done((d) => {
+      $('#modal-kill').modal('hide');
+      DelayReload()(d);
+    });
+  })
+
+  $("#deleteInactive").click((e) => {
+    JSONDelete("/api/plugin/c1e81895-1f75-4988-9f10-52786b875ec7/task").done(DelayReload());
+  });
+
+  const getColor = (s) => {
+    let bgcolor;
+    let badge;
+
+    switch (s) {
+      case 0:
+        badge = "IDLE";
+        bgcolor = "bg-secondary";
+        break;
+      case 1:
+        badge = "RUNNING";
+        bgcolor = "bg-primary";
+        break;
+      case 2:
+        badge = "STOP";
+        bgcolor = "bg-warning";
+        break;
+      case 3:
+        badge = "SUCCESS";
+        bgcolor = "bg-success";
+        break;
+      case 4:
+        badge = "FAILED";
+        bgcolor = "bg-danger";
+        break;
+    }
+    return [bgcolor, badge];
+  }
+
+  function parseTable(r) {
+    let color = getColor(r.Status);
+
+    return `
+    <tr>
+      <td>${r.ID}</td>
+      <td>${r.Name}</td>
+      <td>
+        <span class="badge ${color[0]}">${color[1]}</span>
+      </td>
+      <td>
+        <div class="progress">
+          <div class="progress-bar ${color[0]}"
+           role="progressbar" aria-valuenow="${r.Percent}"
+           aria-valuemin="0" aria-valuemax="100"></div>
+        </div>
+      </td>
+      <td>${r.Output}</td>
+      <td>${TimeSince(new Date(r.Track.UpdatedAt))} ago</td>
+      <td>
+        <button data-taskID="${r.ID}" data-toggle="modal" 
+          data-target="#modal-detail" type="button"
+          class="btn btn-outline-primary ${$("deleteInactive").length == 0 ? "" : "mr-1"}">Detail</button>
+        <button data-taskID="${r.ID}" data-toggle="modal" 
+          data-target="#modal-kill" type="button"
+          class="btn btn-outline-danger" ${$("deleteInactive").length == 0 ? "hidden" : ""} ${["IDLE", "RUNNING"].includes(color[1]) ? "" : "disabled"}>Kill</button>
+      </td>
+    </tr>
+    `;
+  }
+
+  let data;
+  function update() {
+    JSONGet(`/api/plugin/c1e81895-1f75-4988-9f10-52786b875ec7/task?page=${sp[0]}&size=${sp[1]}`).done((e) => {
+      if (JSON.stringify(e.data) !== JSON.stringify(data)) {
+        data = e.data;
+        $("#tasks").empty();
+        $.each(e.data, function (_, e) {
+          $("#tasks").append(parseTable(e));
+        });
+        updateProgress();
+        $("[data-target='#modal-kill']").click((e) => {
+          $("#killConfirm").attr("data-taskID", e.target.getAttribute("data-taskID"));
+        })
+        $("[data-target='#modal-detail']").click((e) => {
+          JSONGet(`/api/plugin/c1e81895-1f75-4988-9f10-52786b875ec7/task/${e.target.getAttribute("data-taskID")}`).done((e) => {
+            let color = getColor(e.data.Status);
+            $("#detailID").text(e.data.ID);
+            $("#detailName").text(e.data.Name);
+            $("#detailDetail").val(e.data.Detail);
+            $("#detailPercent").html(`
+              <div id="detailProcess" class="progress-bar ${color[0]}"
+                role="progressbar" aria-valuenow="${e.data.Percent}"
+                aria-valuemin="0" aria-valuemax="100"></div>
+            `);
+            $("#detailStatus").html(`
+              <span class="badge ${color[0]}">${color[1]}</span>
+            `);
+            $("#detailPercentNum").text(e.data.Percent + "%");
+            $("#detailCreate").text(new Date(e.data.Track.CreatedAt).Format("yyyy-MM-dd hh:mm:ss"));
+            $("#detailUpdate").text(new Date(e.data.Track.UpdatedAt).Format("yyyy-MM-dd hh:mm:ss"));
+            $("#detailOutput").val(e.data.Output);
+            updateProgress();
+          });
+        })
+      }
+    });
+  }
+
+  update();
+  setInterval(update, 1000);
+</script>
+{{end}}

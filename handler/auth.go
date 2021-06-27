@@ -15,8 +15,7 @@ func HashPass(pass string) string {
 }
 
 func CheckUserPass(user string, pass string) (*sn.Users, int, error) {
-	var rec sn.Users
-	err := utils.GetDB().Where("username = ?", user).First(&rec).Error
+	rec, err := sn.Skynet.User.GetByUsername(user)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, 1, nil
 	} else if err != nil {
@@ -25,5 +24,5 @@ func CheckUserPass(user string, pass string) (*sn.Users, int, error) {
 	if rec.Password != HashPass(pass) {
 		return nil, 2, nil
 	}
-	return &rec, 0, nil
+	return rec, 0, nil
 }

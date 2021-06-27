@@ -1,6 +1,3 @@
-{{define "header"}}
-{{end}}
-
 {{define "content"}}
 <div class="container-fluid">
   <div class="card card-primary">
@@ -8,6 +5,8 @@
       <h3 class="card-title">User List</h3>
     </div>
     <div class="card-body">
+      <button class="btn btn-primary cardbtn" data-toggle="modal" data-target="#modal-add">Add
+        User</button>
       <table class="table table-bordered">
         <thead>
           <tr>
@@ -40,12 +39,12 @@
             <td>{{ time .LastLogin }}</td>
             <td>{{ .LastIP }}</td>
             <td>
-              <button data-operation="edit" data-editid="{{ .ID }}" data-edituser="{{ .Username }}"
-                data-editrole="{{ .Role }}" type="button" class="btn btn-outline-primary" data-toggle="modal"
+              <button data-operation="edit" data-userID="{{ .ID }}" data-edituser="{{ .Username }}"
+                data-editrole="{{ .Role }}" type="button" class="btn btn-outline-primary mr-1" data-toggle="modal"
                 data-target="#modal-edit">Edit</button>
-              <button data-operation="kick" data-kickid="{{ .ID }}" type="button"
-                class="btn btn-outline-warning">Kick</button>
-              <button data-operation="delete" data-deleteid="{{ .ID }}" type="button" class="btn btn-outline-danger"
+              <button data-operation="kick" data-userID="{{ .ID }}" type="button"
+                class="btn btn-outline-warning mr-1">Kick</button>
+              <button data-operation="delete" data-userID="{{ .ID }}" type="button" class="btn btn-outline-danger"
                 data-toggle="modal" data-target="#modal-delete">Delete</button>
             </td>
           </tr>
@@ -54,8 +53,6 @@
       </table>
     </div>
   </div>
-  <button class="btn btn-primary" data-toggle="modal" data-target="#modal-add">Add
-    User</button>
 </div>
 
 <div class="modal fade" id="modal-add" aria-hidden="true">
@@ -67,7 +64,7 @@
           <span aria-hidden="true">×</span>
         </button>
       </div>
-      <form id="addUser" action={{ api "/user" }} method="post" class="form-horizontal">
+      <form id="addUser" action="/api/user" method="post" class="form-horizontal">
         <div class="modal-body">
           <div class="form-group row">
             <label class="col-sm-2 col-form-label">Username</label>
@@ -109,8 +106,7 @@
           <span aria-hidden="true">×</span>
         </button>
       </div>
-      <form id="editUser" action={{ api "/user" }} method="patch" class="form-horizontal">
-        <input id="editID" name="id" type="text" class="form-control" hidden>
+      <form id="editUser" method="patch" class="form-horizontal">
         <div class="modal-body">
           <div class="form-group row">
             <label class="col-sm-2 col-form-label">Username</label>
@@ -169,8 +165,6 @@
 <script nonce="{{ ._nonce }}">
   "use strict"
 
-  let deleteID = 0;
-
   const convUser = (d) => {
     switch (d["role"]) {
       case "User":
@@ -185,29 +179,26 @@
 
   $("[data-toggle='switch']").bootstrapSwitch();
   $("[data-operation='edit']").click((e) => {
-    $("#editID").val(e.target.getAttribute("data-editid"))
-    $("#editUsername").val(e.target.getAttribute("data-edituser"))
+    $("#editUser").attr("action", `/api/user/${e.target.getAttribute("data-userID")}`)
+    $("#editUsername").val(e.target.getAttribute("data-edituser"));
     $("#editRole").get(0).selectedIndex = e.target.getAttribute("data-editrole") - 1;
   })
   $("#editUser").submit((e) => {
     e.preventDefault();
     let form = document.getElementById("editUser");
-    let d = GetData(form);
-    d["id"] = parseInt(d["id"]);
-    d = convUser(d);
-    JSONPatch(GetUrl(form), d).done((d) => {
+    JSONPatch(GetUrl(form), convUser(GetData(form))).done((d) => {
       $('#modal-edit').modal('hide');
       DelayReload()(d);
     });
   })
   $("[data-operation='kick']").click((e) => {
-    JSONPatch({{ api "/user"}}, { "id": parseInt(e.target.getAttribute("data-kickid")) }).done(DelayReload());
+    JSONPatch(`/api/user/${e.target.getAttribute("data-userID")}`, {}).done(DelayReload());
   })
   $("[data-operation='delete']").click((e) => {
-    deleteID = parseInt(e.target.getAttribute("data-deleteid"));
+    $("#deleteConfirm").attr("data-userID", e.target.getAttribute("data-userID"));
   })
   $("#deleteConfirm").click((e) => {
-    JSONDelete({{ api "/user"}}, { "id": deleteID }).done((d) => {
+    JSONDelete(`/api/user/${e.target.getAttribute("data-userID")}`).done((d) => {
       $('#modal-delete').modal('hide');
       DelayReload()(d);
     });
@@ -215,9 +206,7 @@
   $("#addUser").submit((e) => {
     e.preventDefault();
     let form = document.getElementById("addUser");
-    let d = GetData(form);
-    d = convUser(d);
-    JSONPost(GetUrl(form), d).done((d) => {
+    JSONPost(GetUrl(form), convUser(GetData(form))).done((d) => {
       $('#modal-add').modal('hide');
       DelayReload()(d);
     });

@@ -38,13 +38,13 @@ func NewDB(ctx context.Context, param *DBConfig) sn.SNDB {
 		if err != nil {
 			log.Fatal("Failed to connect sqlite database")
 		}
-		ret.dbClient.AutoMigrate(&sn.Users{}, &sn.Settings{})
+		ret.dbClient.AutoMigrate(&sn.Users{}, &sn.Settings{}, &sn.Notifications{})
 	}
 
 	return &ret
 }
 
-func (c *DBClient) GetDB() interface{} {
+func (c *DBClient) Get() interface{} {
 	if c.dbClient == nil {
 		log.Fatal("DB not init")
 	}

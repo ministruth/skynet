@@ -4,6 +4,7 @@ import (
 	"errors"
 	"io/ioutil"
 	"skynet/sn"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
@@ -34,7 +35,7 @@ func APIAddUser(c *gin.Context, u *sn.Users) (int, error) {
 	if err != nil {
 		return 500, err
 	}
-	_, err = sn.Skynet.User.AddUser(param.Username, param.Password, content, param.Role)
+	_, err = sn.Skynet.User.New(param.Username, param.Password, content, param.Role)
 	if err != nil {
 		return 500, err
 	}
@@ -43,27 +44,30 @@ func APIAddUser(c *gin.Context, u *sn.Users) (int, error) {
 	return 0, nil
 }
 
-type userEditParam struct {
-	ID       int32       `form:"id" binding:"required"`
+type userUpdateParam struct {
 	Username string      `form:"username" binding:"max=32"`
 	Password string      `form:"password"`
 	Role     sn.UserRole `form:"role"`
 	Avatar   string      `form:"avatar"`
 }
 
-func APIEditUser(c *gin.Context, u *sn.Users) (int, error) {
-	var param userEditParam
+func APIUpdateUser(c *gin.Context, u *sn.Users) (int, error) {
+	var param userUpdateParam
 	err := c.ShouldBind(&param)
 	if err != nil {
+		return 400, err
+	}
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil || id <= 0 {
 		return 400, err
 	}
 	fields := log.Fields{
 		"ip":       c.ClientIP(),
 		"id":       u.ID,
-		"targetID": param.ID,
+		"targetID": id,
 	}
 
-	if u.ID != param.ID && u.Role < sn.RoleAdmin {
+	if int(u.ID) != id && u.Role < sn.RoleAdmin {
 		log.WithFields(fields).Warn("Edit user permission denied")
 		c.JSON(200, gin.H{"code": 2, "msg": "Permission denied"})
 		return 0, nil
@@ -80,7 +84,7 @@ func APIEditUser(c *gin.Context, u *sn.Users) (int, error) {
 		}
 		avatar = tmp.Data
 	}
-	err = sn.Skynet.User.EditUser(int(param.ID), param.Username, param.Password, param.Role, avatar, u.ID != param.ID)
+	err = sn.Skynet.User.Update(id, param.Username, param.Password, param.Role, avatar, int(u.ID) != id)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		log.WithFields(fields).Warn("Edit user not exist")
 		c.JSON(200, gin.H{"code": 1, "msg": "User not exists"})
@@ -99,12 +103,12 @@ func APIEditUser(c *gin.Context, u *sn.Users) (int, error) {
 }
 
 type userDeleteParam struct {
-	ID int32 `form:"id" binding:"required"`
+	ID int32 `uri:"id" binding:"required,min=1"`
 }
 
 func APIDeleteUser(c *gin.Context, u *sn.Users) (int, error) {
 	var param userDeleteParam
-	err := c.ShouldBind(&param)
+	err := c.ShouldBindUri(&param)
 	if err != nil {
 		return 400, err
 	}
@@ -114,7 +118,7 @@ func APIDeleteUser(c *gin.Context, u *sn.Users) (int, error) {
 		"targetID": param.ID,
 	}
 
-	res, err := sn.Skynet.User.DelUser(int(param.ID))
+	res, err := sn.Skynet.User.Delete(int(param.ID))
 	if err != nil {
 		return 500, err
 	}

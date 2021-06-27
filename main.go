@@ -8,6 +8,7 @@ import (
 
 func init() {
 	sn.Skynet.User = handler.NewUser()
+	sn.Skynet.Notification = handler.NewNotification()
 }
 
 func main() {

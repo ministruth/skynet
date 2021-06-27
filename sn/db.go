@@ -1,5 +1,5 @@
 package sn
 
 type SNDB interface {
-	GetDB() interface{}
+	Get() interface{}
 }

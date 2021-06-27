@@ -14,6 +14,7 @@ import (
 
 	logrus_stack "github.com/Gurpartap/logrus-stack"
 	"github.com/denisbrodbeck/machineid"
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/kballard/go-shellquote"
 	log "github.com/sirupsen/logrus"
@@ -33,7 +34,7 @@ var rootCmd = &cobra.Command{
 	Run:   run,
 }
 
-const pluginPath = "/v1/plugin/2eb2e1a5-66b4-45f9-ad24-3c4f05c858aa"
+const pluginPath = "/api/plugin/2eb2e1a5-66b4-45f9-ad24-3c4f05c858aa/ws"
 
 var sleepTime = 1
 var maxTime int
@@ -144,6 +145,14 @@ func deadloop(u string) error {
 				log.Info("Run command: ", data.Data)
 				RunCommand(c, data.UID, w[0], w[1:]...)
 			}
+		case msg.OPCMDKill:
+			uid, err := uuid.Parse(res.Data)
+			if err != nil {
+				log.Warn("Msg format error")
+				continue
+			}
+			log.Warn("Cancel command: ", uid)
+			KillCommand(uid)
 		}
 	}
 	log.Warn("lost connection")

@@ -10,29 +10,28 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type editPluginParam struct {
-	ID     string `form:"id" binding:"required,uuid"`
-	Enable bool   `form:"enable"`
+type updatePluginParam struct {
+	Enable bool `form:"enable"`
 }
 
-func APIEditPlugin(c *gin.Context, u *sn.Users) (int, error) {
-	var param editPluginParam
+func APIUpdatePlugin(c *gin.Context, u *sn.Users) (int, error) {
+	var param updatePluginParam
 	err := c.ShouldBind(&param)
+	if err != nil {
+		return 400, err
+	}
+	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		return 400, err
 	}
 	fields := log.Fields{
 		"ip":     c.ClientIP(),
 		"id":     u.ID,
-		"plugin": param.ID,
-	}
-	id, err := uuid.Parse(param.ID)
-	if err != nil {
-		return 400, err
+		"plugin": id,
 	}
 
 	if param.Enable {
-		err = sn.Skynet.Plugin.EnablePlugin(id)
+		err = sn.Skynet.Plugin.Enable(id)
 		if err != nil {
 			log.WithFields(fields).Warn("Enable plugin fail")
 			c.JSON(200, gin.H{"code": 1, "msg": err.Error()})
@@ -41,7 +40,7 @@ func APIEditPlugin(c *gin.Context, u *sn.Users) (int, error) {
 		log.WithFields(fields).Info("Enable plugin success")
 		c.JSON(200, gin.H{"code": 0, "msg": "Enable plugin success"})
 	} else {
-		err = sn.Skynet.Plugin.DisablePlugin(id)
+		err = sn.Skynet.Plugin.Disable(id)
 		if err != nil {
 			log.WithFields(fields).Warn("Disable plugin fail")
 			c.JSON(200, gin.H{"code": 1, "msg": err.Error()})

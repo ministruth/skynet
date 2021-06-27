@@ -1,6 +1,6 @@
 {{define "content"}}
 <div class="container-fluid">
-  <div class="card card-success">
+  <div class="card card-primary">
     <div class="card-header">
       <h3 class="card-title">Agent Status</h3>
     </div>
@@ -136,7 +136,7 @@
   }
 
   function update() {
-    JSONGet("{{ api .agentAPI }}" + "?page=" + sp[0] + "&size=" + sp[1]).done((e) => {
+    JSONGet(`/api/plugin/2eb2e1a5-66b4-45f9-ad24-3c4f05c858aa/agent?page=${sp[0]}&size=${sp[1]}`).done((e) => {
       $.each(e.data, function (_, e) {
         updateTable(e);
       });

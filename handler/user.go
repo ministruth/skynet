@@ -2,6 +2,7 @@ package handler
 
 import (
 	"context"
+	"fmt"
 	"skynet/sn"
 	"skynet/sn/utils"
 )
@@ -12,7 +13,7 @@ func NewUser() sn.SNUser {
 	return &siteUser{}
 }
 
-func (u *siteUser) AddUser(username string, password string, avatar []byte, role sn.UserRole) (string, error) {
+func (u *siteUser) New(username string, password string, avatar []byte, role sn.UserRole) (string, error) {
 	var newpass string
 	if password == "" {
 		newpass = utils.RandString(8)
@@ -35,10 +36,14 @@ func (u *siteUser) AddUser(username string, password string, avatar []byte, role
 	if err != nil {
 		return "", err
 	}
+	err = sn.Skynet.Notification.New(sn.NotifySuccess, "User operation", "Add new user "+username+" success")
+	if err != nil {
+		return "", err
+	}
 	return newpass, nil
 }
 
-func (u *siteUser) EditUser(id int, username string, password string, role sn.UserRole, avatar []byte, kick bool) error {
+func (u *siteUser) Update(id int, username string, password string, role sn.UserRole, avatar []byte, kick bool) error {
 	var err error
 	if kick {
 		err = utils.DeleteSessionsByID(id)
@@ -78,7 +83,7 @@ func (u *siteUser) EditUser(id int, username string, password string, role sn.Us
 	return utils.GetDB().Save(&rec).Error
 }
 
-func (u *siteUser) DelUser(id int) (bool, error) {
+func (u *siteUser) Delete(id int) (bool, error) {
 	// kick first
 	err := utils.DeleteSessionsByID(id)
 	if err != nil {
@@ -91,12 +96,34 @@ func (u *siteUser) DelUser(id int) (bool, error) {
 	} else if res.Error != nil {
 		return false, err
 	}
+	err = sn.Skynet.Notification.New(sn.NotifyWarning, "User operation", fmt.Sprintf("Delete user id %v success", id))
+	if err != nil {
+		return false, err
+	}
 	return true, nil
 }
 
-func (u *siteUser) ResetUser(username string) (string, error) {
+func (u *siteUser) GetByUsername(username string) (*sn.Users, error) {
 	var rec sn.Users
 	err := utils.GetDB().Where("username = ?", username).First(&rec).Error
+	if err != nil {
+		return nil, err
+	}
+	return &rec, nil
+}
+
+func (u *siteUser) GetByID(id int) (*sn.Users, error) {
+	var rec sn.Users
+	err := utils.GetDB().First(&rec, id).Error
+	if err != nil {
+		return nil, err
+	}
+	return &rec, nil
+}
+
+func (u *siteUser) Reset(id int) (string, error) {
+	var rec sn.Users
+	err := utils.GetDB().First(&rec, id).Error
 	if err != nil {
 		return "", err
 	}
@@ -113,11 +140,14 @@ func (u *siteUser) ResetUser(username string) (string, error) {
 	if err != nil {
 		return "", err
 	}
-
+	err = sn.Skynet.Notification.New(sn.NotifyWarning, "User operation", fmt.Sprintf("Reset user id %v success", id))
+	if err != nil {
+		return "", err
+	}
 	return newpass, nil
 }
 
-func (u *siteUser) ResetAllUser() (map[string]string, error) {
+func (u *siteUser) ResetAll() (map[string]string, error) {
 	var rec []sn.Users
 	ret := make(map[string]string)
 	err := utils.GetDB().Find(&rec).Error
@@ -147,11 +177,7 @@ func (u *siteUser) ResetAllUser() (map[string]string, error) {
 	return ret, nil
 }
 
-func (u *siteUser) GetUser() ([]sn.Users, error) {
-	var users []sn.Users
-	err := utils.GetDB().Find(&users).Error
-	if err != nil {
-		return nil, err
-	}
-	return users, nil
+func (u *siteUser) GetAll(cond *sn.SNCondition) ([]*sn.Users, error) {
+	var ret []*sn.Users
+	return ret, utils.DBParseCondition(cond).Find(&ret).Error
 }

@@ -15,8 +15,11 @@ var (
 )
 
 type CMDRes struct {
-	Data string
-	End  bool
+	Data     string
+	Code     int
+	Complete bool
+	End      bool
+	DataChan chan string
 }
 
 type AgentInfo struct {
@@ -46,7 +49,8 @@ type AgentInfo struct {
 }
 
 type PluginShared interface {
+	KillCMD(id int, uid uuid.UUID) error
 	GetCMDRes(id int, uid uuid.UUID) (*CMDRes, error)
-	RunCMD(id int, cmd string) (uuid.UUID, error)
+	RunCMD(id int, cmd string) (uuid.UUID, chan string, error)
 	GetAgents() map[int]*AgentInfo
 }

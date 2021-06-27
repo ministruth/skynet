@@ -24,16 +24,21 @@ func NewSetting() (sn.SNSetting, error) {
 	return &ret, nil
 }
 
-func (s *siteSetting) Get() map[string]string {
+func (s *siteSetting) GetAll(cond *sn.SNCondition) ([]*sn.Settings, error) {
+	var ret []*sn.Settings
+	return ret, utils.DBParseCondition(cond).Find(&ret).Error
+}
+
+func (s *siteSetting) GetCache() map[string]string {
 	return s.setting
 }
 
-func (s *siteSetting) GetSetting(name string) (string, bool) {
+func (s *siteSetting) Get(name string) (string, bool) {
 	ret, exist := s.setting[name]
 	return ret, exist
 }
 
-func (s *siteSetting) AddSetting(name string, value string) error {
+func (s *siteSetting) New(name string, value string) error {
 	if i, exist := s.setting[name]; !exist || i != value {
 		err := utils.GetDB().Create(&sn.Settings{
 			Name:  name,
@@ -47,10 +52,10 @@ func (s *siteSetting) AddSetting(name string, value string) error {
 	return nil
 }
 
-func (s *siteSetting) EditSetting(name string, value string) error {
+func (s *siteSetting) Update(name string, value string) error {
 	v, exist := s.setting[name]
 	if !exist {
-		return s.AddSetting(name, value)
+		return s.New(name, value)
 	} else {
 		if v != value {
 			s.setting[name] = value
@@ -63,7 +68,7 @@ func (s *siteSetting) EditSetting(name string, value string) error {
 	return nil
 }
 
-func (s *siteSetting) DelSetting(name string) error {
+func (s *siteSetting) Delete(name string) error {
 	if _, exist := s.setting[name]; exist {
 		delete(s.setting, name)
 		err := utils.GetDB().Where("name = ?", name).Delete(&sn.Settings{}).Error

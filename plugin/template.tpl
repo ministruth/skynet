@@ -12,24 +12,33 @@ var Config = plugins.PluginConfig{
 	Name:          "myplugin",            // change to your plugin name
 	Dependency:    []plugins.PluginDep{}, // if your plugin need dependency, write here
 	Version:       "1.0.0",               // plugin version, better follow https://semver.org/
-	SkynetVersion: ">= 1.0",              // skynet version constraints using https://github.com/hashicorp/go-version
+	SkynetVersion: ">= 1.0, < 1.1",       // skynet version constraints using https://github.com/hashicorp/go-version
 	Priority:      0,                     // priority to run PluginInit   
 }
 
-// Delete function below as you wish if you do not need
+type PluginInstance struct{}
+
+// New plugin factory, do NOT change the function name
+func NewPlugin() plugins.PluginInterface {
+	return &PluginInstance{}
+}
 
 // PluginInit will be executed after plugin loaded or enabled, return error to stop skynet run or plugin enable
-// Note that dependency PluginInit may NOT execute previously
-func PluginInit() error {
+func (p *PluginInstance) PluginInit() error {
 	return nil
 }
 
 // PluginEnable will be executed when trigger plugin enabled
-func PluginEnable() error {
+func (p *PluginInstance) PluginEnable() error {
 	return nil
 }
 
 // PluginDisable will be executed when trigger plugin disabled, skynet will be reloaded after disabled
-func PluginDisable() error {
+func (p *PluginInstance) PluginDisable() error {
+	return nil
+}
+
+// PluginFini will be executed after plugin disabled or skynet exit
+func (p *PluginInstance) PluginFini() error {
 	return nil
 }

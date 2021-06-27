@@ -59,8 +59,8 @@ func (r *sitePage) RenderSingle(c *gin.Context, u *sn.Users, p *sn.SNPageItem) {
 	p.Param["_csrftoken"] = csrf.Token(c.Request)
 
 	ret := true
-	if p.BeforeReturn != nil {
-		ret = p.BeforeReturn(c, u, p)
+	if p.AfterRenderPrepare != nil {
+		ret = p.AfterRenderPrepare(c, u, p)
 	}
 	if ret {
 		c.HTML(http.StatusOK, p.TplName, p.Param)
@@ -91,6 +91,18 @@ func (r *sitePage) Render(c *gin.Context, u *sn.Users, p *sn.SNPageItem) {
 		return false
 	}
 	activateLink(tmpNav)
+	var navPrepare func(i []*sn.SNNavItem)
+	navPrepare = func(i []*sn.SNNavItem) {
+		for _, v := range i {
+			if v.RenderPrepare != nil {
+				if !v.RenderPrepare(c, v, i) {
+					return
+				}
+			}
+			navPrepare(v.Child)
+		}
+	}
+	navPrepare(tmpNav)
 
 	p.Param["_title"] = p.Title
 	p.Param["_name"] = p.Name

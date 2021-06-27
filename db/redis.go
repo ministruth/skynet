@@ -33,7 +33,7 @@ func NewRedis(ctx context.Context, param *RedisConfig) sn.SNDB {
 	return &ret
 }
 
-func (c *RedisClient) GetDB() interface{} {
+func (c *RedisClient) Get() interface{} {
 	if c.redisClient == nil {
 		log.Fatal("Redis not init")
 	}

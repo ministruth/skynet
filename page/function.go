@@ -6,7 +6,6 @@ import (
 	"html/template"
 	"math"
 	"reflect"
-	"skynet/api"
 	"strconv"
 	"time"
 
@@ -16,7 +15,6 @@ import (
 
 var defaultFunc = template.FuncMap{
 	// TODO: Add page functions
-	"api":     apiVersion,
 	"time":    formatTime,
 	"since":   sinceTime,
 	"bytes":   formatBytes,
@@ -53,10 +51,6 @@ func templateDict(values ...interface{}) (map[string]interface{}, error) {
 
 	}
 	return dict, nil
-}
-
-func apiVersion(in string) string {
-	return api.APIVERSION + in
 }
 
 func formatTime(t time.Time) string {

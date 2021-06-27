@@ -1,10 +1,12 @@
 package page
 
 import (
+	"fmt"
 	"skynet/sn"
 	"skynet/sn/utils"
 
 	"github.com/gin-gonic/gin"
+	"github.com/jinzhu/copier"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
@@ -72,7 +74,7 @@ var pages = []*sn.SNPageItem{
 			},
 		}),
 		BeforeRender: func(c *gin.Context, u *sn.Users, v *sn.SNPageItem) bool {
-			v.Param["plugins"] = sn.Skynet.Plugin.GetAllPlugin()
+			v.Param["plugins"] = sn.Skynet.Plugin.GetAll()
 			return true
 		},
 	},
@@ -121,7 +123,7 @@ var pages = []*sn.SNPageItem{
 			},
 		}),
 		BeforeRender: func(c *gin.Context, u *sn.Users, v *sn.SNPageItem) bool {
-			users, err := sn.Skynet.User.GetUser()
+			users, err := sn.Skynet.User.GetAll(nil)
 			if err != nil {
 				log.Error(err)
 				c.AbortWithStatus(500)
@@ -140,10 +142,59 @@ var pages = []*sn.SNPageItem{
 					c.AbortWithStatus(500)
 					return false
 				}
-				param[i].Users = users[i]
+				copier.Copy(&param[i].Users, users[i])
 				param[i].Online = len(s) != 0
 			}
 			v.Param["users"] = param
+			return true
+		},
+	},
+	{
+		TplName: "notification",
+		Files:   withLayerFiles("notification"),
+		FuncMap: defaultFunc,
+		Title:   "Skynet | Notification",
+		Name:    "Notification",
+		Link:    "/notification",
+		Role:    sn.RoleUser,
+		Path: defaultPath.WithChild([]*sn.SNPathItem{
+			{
+				Name:   "Notification",
+				Active: true,
+			},
+		}),
+		AfterRenderPrepare: func(c *gin.Context, u *sn.Users, v *sn.SNPageItem) bool {
+			count, err := sn.Skynet.Notification.Count(nil)
+			if err != nil {
+				log.Error(err)
+				c.AbortWithStatus(500)
+				return false
+			}
+			low, high, ok := utils.PreSplitFunc(c, v, int(count), 10, []int{5, 10, 20, 50})
+			if !ok {
+				return false
+			}
+			if low == -1 {
+				v.Param["notifications"] = []*sn.Notifications{}
+			} else {
+				rec, err := sn.Skynet.Notification.GetAll(&sn.SNCondition{
+					Order:  []interface{}{"id desc"},
+					Limit:  high - low,
+					Offset: low,
+				})
+				if err != nil {
+					log.Error(err)
+					c.AbortWithStatus(500)
+					return false
+				}
+				v.Param["notifications"] = rec
+			}
+			err = sn.Skynet.Notification.MarkAllRead()
+			if err != nil {
+				log.Error(err)
+				c.AbortWithStatus(500)
+				return false
+			}
 			return true
 		},
 	},
@@ -158,18 +209,18 @@ var navbar = []*sn.SNNavItem{
 		Role:     sn.RoleUser,
 	},
 	{
-		Priority: 1,
+		Priority: 16,
 		Name:     "Service",
 		Link:     "#",
 		Icon:     "fa-briefcase",
 		Role:     sn.RoleUser,
 	},
 	{
-		Priority: 2,
+		Priority: 32,
 		Name:     "Plugin",
 		Link:     "#",
 		Icon:     "fa-plug",
-		Role:     sn.RoleUser,
+		Role:     sn.RoleAdmin,
 		Child: []*sn.SNNavItem{
 			{
 				Priority: 0,
@@ -180,14 +231,35 @@ var navbar = []*sn.SNNavItem{
 		},
 	},
 	{
-		Priority: 3,
+		Priority:   48,
+		Name:       "Notification",
+		Link:       "/notification",
+		Icon:       "fa-bell",
+		Role:       sn.RoleUser,
+		BadgeClass: "badge-warning",
+		RenderPrepare: func(c *gin.Context, s *sn.SNNavItem, l []*sn.SNNavItem) bool {
+			count, err := sn.Skynet.Notification.Count(false)
+			if err != nil {
+				log.Error(err)
+				c.AbortWithStatus(500)
+				return false
+			}
+			c.Set("_notification_unread", count)
+			if count != 0 && !s.Active {
+				s.Badge = fmt.Sprint(count)
+			}
+			return true
+		},
+	},
+	{
+		Priority: 64,
 		Name:     "User",
 		Link:     "/user",
 		Icon:     "fa-user",
 		Role:     sn.RoleAdmin,
 	},
 	{
-		Priority: 4,
+		Priority: 80,
 		Name:     "Setting",
 		Link:     "/setting",
 		Icon:     "fa-cog",

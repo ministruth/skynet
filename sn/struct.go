@@ -34,3 +34,22 @@ type Settings struct {
 	Value string `gorm:"type:varchar(1024);not null"`
 	Track Track  `gorm:"embedded"`
 }
+
+type NotifyLevel int
+
+const (
+	NotifyInfo NotifyLevel = iota
+	NotifySuccess
+	NotifyWarning
+	NotifyError
+	NotifyFatal
+)
+
+type Notifications struct {
+	ID      int32       `gorm:"primaryKey;not null"`
+	Level   NotifyLevel `gorm:"default:0;not null"`
+	Name    string      `gorm:"type:varchar(256)"`
+	Message string      `gorm:"type:varchar(1024)"`
+	Read    int32       `gorm:"default:0;not null"`
+	Track   Track       `gorm:"embedded"`
+}

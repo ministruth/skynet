@@ -10,6 +10,7 @@ type PluginDep struct {
 	ID      uuid.UUID
 	Name    string
 	Version string
+	Option  bool
 }
 
 type PluginConfig struct {
@@ -20,6 +21,17 @@ type PluginConfig struct {
 	Version       string
 	SkynetVersion string
 	Priority      int
+}
+
+type PluginInterface interface {
+	PluginInit() error
+	PluginEnable() error
+	PluginDisable() error
+	PluginFini() error
+}
+
+func SPWithIDPrefixPath(c *PluginConfig, p string) string {
+	return "/plugin/" + c.ID.String() + p
 }
 
 func SPWithIDPrefix(c *PluginConfig, n string) string {

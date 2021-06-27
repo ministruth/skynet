@@ -16,6 +16,7 @@ const (
 	OPStat
 	OPCMD
 	OPCMDRes
+	OPCMDKill
 )
 
 type CommonMsg struct {
@@ -39,9 +40,11 @@ type InfoMsg struct {
 }
 
 type CMDMsg struct {
-	UID  uuid.UUID
-	Data string
-	End  bool
+	UID      uuid.UUID
+	Data     string
+	Code     int
+	Complete bool
+	End      bool
 }
 
 type StatMsg struct {

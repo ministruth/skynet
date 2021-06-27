@@ -18,6 +18,7 @@ var conf string
 var verbose bool
 
 var defaultSettings = map[string]interface{}{
+	"debug":                 false,
 	"redis.address":         "127.0.0.1:6379",
 	"redis.password":        "",
 	"redis.db":              0,

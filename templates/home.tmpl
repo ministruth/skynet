@@ -17,16 +17,6 @@
       </ul>
 
       <ul class="navbar-nav ml-auto">
-        <li class="nav-item dropdown">
-          <a class="nav-link" data-toggle="dropdown" href="#">
-            <i class="far fa-bell"></i>
-          </a>
-          <div class="dropdown-menu dropdown-menu-lg dropdown-menu-right">
-            <span class="dropdown-item dropdown-header">0 Notifications</span>
-            <div class="dropdown-divider"></div>
-            <a href="#" class="dropdown-item dropdown-footer">See All Notifications</a>
-          </div>
-        </li>
         <li class="nav-item">
           <a class="nav-link" data-widget="fullscreen" href="#" role="button">
             <i class="fas fa-expand-arrows-alt"></i>
@@ -73,10 +63,11 @@
                   <p>{{ .Name }}
                     {{if .Child}}
                     <i class="fas fa-angle-left right"></i>
+                    {{end}}
+                    {{if ne .Badge ""}}
+                    <span class="badge {{.BadgeClass}} right">{{ .Badge }}</span>
+                    {{end}}
                   </p>
-                  {{else}}
-                  </p>
-                  {{end}}
                 </a>
                 {{if .Child}}
                 <ul class="nav nav-treeview">
@@ -134,7 +125,7 @@
     "use strict"
 
     $("#signout").click(function () {
-      $.get({{ api "/signout" }}).fail(function (d) {
+      $.get("/api/signout").fail(function (d) {
         if (d.responseText == undefined) toastr.error("Connect error");
         else toastr.error(d.responseText);
       }).done(function (d) {

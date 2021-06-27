@@ -26,6 +26,7 @@ proxy:
   enable: false # if skynet is behind proxy, enable to get correct ip
   header: "X-Forwarded-For" # ip header set by proxy server
 
+debug: true
 csrf_secret: "01234567890123456789012345678912" # csrf secret
 log_file: "" # log file path, empty for disable
 default_avatar: "default.webp" # default avatar

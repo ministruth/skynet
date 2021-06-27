@@ -1,6 +1,7 @@
 {{define "content"}}
 <div class="container-fluid">
-  <form id="monitorForm" action={{ api .settingAPI }} method="patch" class="form-horizontal">
+  <form id="monitorForm" action="/api/plugin/2eb2e1a5-66b4-45f9-ad24-3c4f05c858aa/setting" method="patch"
+    class="form-horizontal">
     <div class="card card-primary">
       <div class="card-header">
         <h3 class="card-title">Monitor Setting</h3>
@@ -60,10 +61,10 @@
             <td>{{ .Machine }}</td>
             <td>{{ time .LastLogin }}</td>
             <td>
-              <button id="rename" data-agentid="{{ .ID }}" data-agentname="{{ .Name }}" type="button"
-                class="btn btn-outline-primary" data-operation="rename" data-toggle="modal"
+              <button data-agentID="{{ .ID }}" data-agentName="{{ .Name }}" type="button"
+                class="btn btn-outline-primary mr-1" data-operation="rename" data-toggle="modal"
                 data-target="#modal-rename">Rename</button>
-              <button data-operation="delete" data-deleteid="{{ .ID }}" type="button" class="btn btn-outline-danger"
+              <button data-operation="delete" data-agentID="{{ .ID }}" type="button" class="btn btn-outline-danger"
                 data-toggle="modal" data-target="#modal-delete">Delete</button>
             </td>
           </tr>
@@ -83,8 +84,7 @@
           <span aria-hidden="true">×</span>
         </button>
       </div>
-      <form id="renameForm" action={{ api .agentAPI }} method="patch" class="form-horizontal">
-        <input id="renameID" name="id" type="text" class="form-control" hidden>
+      <form id="renameForm" method="patch" class="form-horizontal">
         <div class="modal-body">
           <div class="form-group row">
             <label class="col-sm-2 col-form-label">Name</label>
@@ -171,26 +171,23 @@
   })
 
   $("[data-operation='rename']").click((e) => {
-    $("#renameID").val(e.target.getAttribute("data-agentid"));
-    $("#editName").val(e.target.getAttribute("data-agentname"));
+    $("#renameForm").attr("action", `/api/plugin/2eb2e1a5-66b4-45f9-ad24-3c4f05c858aa/agent/${e.target.getAttribute("data-agentID")}`)
+    $("#editName").val(e.target.getAttribute("data-agentName"));
   })
   $("#renameForm").submit((e) => {
     e.preventDefault();
     let form = document.getElementById("renameForm");
-    let d = GetData(form);
-    d["id"] = parseInt(d["id"]);
-    JSONPatch(GetUrl(form), d).done((d) => {
+    JSONPatch(GetUrl(form), GetData(form)).done((d) => {
       $('#modal-rename').modal('hide');
       DelayReload()(d);
     });
   })
 
-  let deleteID = 0;
   $("[data-operation='delete']").click((e) => {
-    deleteID = parseInt(e.target.getAttribute("data-deleteid"));
+    $("#deleteConfirm").attr("data-agentID", e.target.getAttribute("data-agentID"));
   })
   $("#deleteConfirm").click((e) => {
-    JSONDelete({{ api .agentAPI }}, { "id": deleteID }).done((d) => {
+    JSONDelete(`/api/plugin/2eb2e1a5-66b4-45f9-ad24-3c4f05c858aa/agent/${e.target.getAttribute("data-agentID")}`).done((d) => {
       $('#modal-delete').modal('hide');
       DelayReload()(d);
     });

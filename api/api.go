@@ -8,8 +8,6 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-const APIVERSION = "/v1"
-
 type siteAPI struct {
 	router *gin.RouterGroup
 	api    []*sn.SNAPIItem

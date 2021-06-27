@@ -1,7 +1,6 @@
 {{define "content"}}
 <div class="container-fluid">
-  <form id="userSettingForm" action={{ api "/user" }} method="patch" class="form-horizontal">
-    <input name="id" type="text" class="form-control" value="{{ ._id }}" hidden>
+  <form id="userSettingForm" action="/api/user/{{._id}}" method="patch" class="form-horizontal">
     <div class="card card-primary">
       <div class="card-header">
         <h3 class="card-title">User Setting</h3>
@@ -45,7 +44,6 @@
     e.preventDefault();
     let form = document.getElementById("userSettingForm");
     let d = GetData(form);
-    d["id"] = parseInt(d["id"]);
     delete d["avatar"];
 
     var file = $('input[type=file]')[0].files[0];

@@ -39,7 +39,7 @@ th.th-op3 {
 }
 
 th.th-op2 {
-  width: 180px;
+  width: 190px;
 }
 
 th.th-op1 {
@@ -59,4 +59,16 @@ th.th-op1 {
   padding: 0.25rem 0.5rem !important;
   height: auto !important;
   margin-left: 0.5rem;
+}
+
+.page-link:hover {
+  cursor: pointer;
+}
+
+.cardbtn {
+  margin-bottom: 10px;
+}
+
+td {
+  vertical-align: middle !important;
 }

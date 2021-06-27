@@ -16,10 +16,10 @@ var api = []*sn.SNAPIItem{
 		Func:   APISignOut,
 	},
 	{
-		Path:   "/user",
+		Path:   "/user/:id",
 		Method: sn.APIPatch,
 		Role:   sn.RoleUser,
-		Func:   APIEditUser,
+		Func:   APIUpdateUser,
 	},
 	{
 		Path:   "/user",
@@ -28,7 +28,7 @@ var api = []*sn.SNAPIItem{
 		Func:   APIAddUser,
 	},
 	{
-		Path:   "/user",
+		Path:   "/user/:id",
 		Method: sn.APIDelete,
 		Role:   sn.RoleAdmin,
 		Func:   APIDeleteUser,
@@ -40,9 +40,21 @@ var api = []*sn.SNAPIItem{
 		Func:   APIReload,
 	},
 	{
-		Path:   "/plugin",
+		Path:   "/plugin/:id",
 		Method: sn.APIPatch,
 		Role:   sn.RoleAdmin,
-		Func:   APIEditPlugin,
+		Func:   APIUpdatePlugin,
+	},
+	{
+		Path:   "/notification",
+		Method: sn.APIGet,
+		Role:   sn.RoleUser,
+		Func:   APIGetNotification,
+	},
+	{
+		Path:   "/notification",
+		Method: sn.APIDelete,
+		Role:   sn.RoleAdmin,
+		Func:   APIDeleteNotification,
 	},
 }

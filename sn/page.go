@@ -25,24 +25,27 @@ type SNPathItem struct {
 	Child  *SNPathItem
 }
 
-func (i *SNPathItem) WithChild(c []*SNPathItem) *SNPathItem {
-	cur := i
+func (i SNPathItem) WithChild(c []*SNPathItem) *SNPathItem {
+	cur := &i
 	for _, v := range c {
 		cur.Child = v
 		cur = cur.Child
 	}
-	return i
+	return &i
 }
 
 type SNNavItem struct {
-	Priority int
-	Name     string
-	Active   bool
-	Open     bool
-	Link     string
-	Icon     string
-	Role     UserRole
-	Child    []*SNNavItem
+	Priority      int
+	Name          string
+	Active        bool
+	Open          bool
+	Link          string
+	Icon          string
+	Role          UserRole
+	Badge         string
+	BadgeClass    string
+	RenderPrepare func(*gin.Context, *SNNavItem, []*SNNavItem) bool
+	Child         []*SNNavItem
 }
 
 func (i *SNNavItem) SortChild() {
@@ -64,21 +67,21 @@ func (s SNNavSort) Len() int           { return len(s) }
 func (s SNNavSort) Less(i, j int) bool { return s[i].Priority < s[j].Priority }
 func (s SNNavSort) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 
-type SNRenderHookFunc func(c *gin.Context, u *Users, v *SNPageItem) bool
+type SNRenderHookFunc func(*gin.Context, *Users, *SNPageItem) bool
 type SNPageItem struct {
-	TplName      string
-	Files        []string
-	FuncMap      template.FuncMap
-	Title        string
-	Name         string
-	Link         string
-	Path         *SNPathItem
-	Role         UserRole
-	BeforeRender SNRenderHookFunc
-	BeforeReturn SNRenderHookFunc
-	AfterRender  SNRenderHookFunc
-	QueryParam   []string
-	Param        gin.H
+	TplName            string
+	Files              []string
+	FuncMap            template.FuncMap
+	Title              string
+	Name               string
+	Link               string
+	Path               *SNPathItem
+	Role               UserRole
+	BeforeRender       SNRenderHookFunc
+	AfterRenderPrepare SNRenderHookFunc
+	AfterRender        SNRenderHookFunc
+	QueryParam         []string
+	Param              gin.H
 }
 
 func (i *SNPageItem) Render(c *gin.Context) {

@@ -18,7 +18,8 @@ type pluginLoad struct {
 	plugins.PluginConfig
 	Enable        bool
 	DisableReason string
-	Instance      *plugin.Plugin
+	Instance      plugins.PluginInterface
+	Loader        *plugin.Plugin
 }
 
 type pluginLoadSort []*pluginLoad
@@ -27,53 +28,50 @@ func (s pluginLoadSort) Len() int           { return len(s) }
 func (s pluginLoadSort) Less(i, j int) bool { return s[i].Priority < s[j].Priority }
 func (s pluginLoadSort) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 
-func (p *pluginLoad) CallPlugin(n string) error {
-	pSymbol, err := p.Instance.Lookup(n)
-	if err == nil {
-		return pSymbol.(func() error)()
-	}
-	return nil
-}
-
 type sitePlugin struct {
 	priority pluginLoadSort
 	plugin   map[uuid.UUID]*pluginLoad
 }
 
-func NewPlugin(base string) (sn.SNPlugin, error) {
-	var ret sitePlugin
-	ret.plugin = make(map[uuid.UUID]*pluginLoad)
-
+func (p *sitePlugin) readPlugin(base string) error {
 	files, err := ioutil.ReadDir(base)
 	if err != nil {
-		return nil, err
+		return err
 	}
 
 	for _, f := range files {
 		if f.IsDir() {
-			pfiles, err := ioutil.ReadDir(base + "/" + f.Name())
+			dirFile, err := ioutil.ReadDir(base + "/" + f.Name())
 			if err != nil {
-				return nil, err
+				return err
 			}
-			for _, pf := range pfiles {
-				if strings.HasSuffix(pf.Name(), ".so") {
-					p, err := plugin.Open(base + "/" + f.Name() + "/" + pf.Name())
+			for _, df := range dirFile {
+				if strings.HasSuffix(df.Name(), ".so") {
+					soFile := base + "/" + f.Name() + "/" + df.Name()
+					pPlugin, err := plugin.Open(soFile)
 					if err != nil {
-						log.Error("Error loading plugin: ", base+"/"+f.Name()+"/"+pf.Name())
-						return nil, err
+						log.Error("Can't open plugin file: ", soFile)
+						return err
 					}
-					pSymbol, err := p.Lookup("Config")
+					pSymbol, err := pPlugin.Lookup("Config")
 					if err != nil {
-						log.Error("Error loading plugin: ", base+"/"+f.Name()+"/"+pf.Name())
-						return nil, err
+						log.Error("Can't locate plugin config: ", soFile)
+						return err
 					}
 					pConfig := *pSymbol.(*plugins.PluginConfig)
-					ret.plugin[pConfig.ID] = &pluginLoad{
+					pSymbol, err = pPlugin.Lookup("NewPlugin")
+					if err != nil {
+						log.Error("Can't locate plugin entry: ", soFile)
+						return err
+					}
+					pInstance := pSymbol.(func() plugins.PluginInterface)()
+					p.plugin[pConfig.ID] = &pluginLoad{
 						PluginConfig: pConfig,
 						Enable:       false,
-						Instance:     p,
+						Instance:     pInstance,
+						Loader:       pPlugin,
 					}
-					ret.priority = append(ret.priority, ret.plugin[pConfig.ID])
+					p.priority = append(p.priority, p.plugin[pConfig.ID])
 					log.WithFields(log.Fields{
 						"id":      pConfig.ID,
 						"name":    pConfig.Name,
@@ -84,85 +82,145 @@ func NewPlugin(base string) (sn.SNPlugin, error) {
 		}
 	}
 
-	sort.Stable(ret.priority)
+	sort.Stable(p.priority)
+	return nil
+}
 
+func (p *sitePlugin) cleanPlugin() error {
+	setting := sn.Skynet.Setting.GetCache()
 	// setting enable cleanup
-	for k, v := range sn.Skynet.Setting.Get() {
+	for k, v := range setting {
 		if strings.HasPrefix(k, "plugin_") && v == "1" {
-			sn.Skynet.Setting.Get()[k] = "-1"
+			setting[k] = "-1"
 		}
 	}
 
-	for _, v := range ret.priority {
-		if status, exist := sn.Skynet.Setting.GetSetting("plugin_" + v.ID.String()); exist {
+	for _, v := range p.priority {
+		if status, exist := setting["plugin_"+v.ID.String()]; exist {
 			v.Enable = status == "-1"
 			if v.Enable {
-				sn.Skynet.Setting.Get()["plugin_"+v.ID.String()] = "1"
+				setting["plugin_"+v.ID.String()] = "1"
 			}
 		} else {
-			err := sn.Skynet.Setting.AddSetting("plugin_"+v.ID.String(), "0")
+			err := sn.Skynet.Setting.New("plugin_"+v.ID.String(), "0")
 			if err != nil {
-				return nil, err
+				return err
 			}
 		}
 	}
 
-	for k, v := range sn.Skynet.Setting.Get() {
+	for k, v := range setting {
 		if strings.HasPrefix(k, "plugin_") && v == "-1" {
-			err := sn.Skynet.Setting.DelSetting(k)
+			err := sn.Skynet.Setting.Delete(k)
 			if err != nil {
-				return nil, err
+				return err
 			}
 		}
 	}
+	return nil
+}
 
-	// skynet version check
-	for _, v := range ret.priority {
+func (p *sitePlugin) checkVersion(showLog bool) error {
+	for _, v := range p.priority {
 		c, err := utils.CheckSkynetVersion(v.SkynetVersion)
 		if err != nil {
-			return nil, err
+			return err
 		}
 		if !c {
 			v.Enable = false
 			v.DisableReason = "Skynet version mismatch, need " + v.SkynetVersion
-			sn.Skynet.Setting.EditSetting("plugin_"+v.ID.String(), "0")
-			log.Errorf("Plugin %v need skynet version %v, disable now.", v.Name, v.SkynetVersion)
-		}
-	}
-
-	// dependency check
-	for _, v := range ret.priority {
-		for _, p := range v.Dependency {
-			if dp, exist := ret.plugin[p.ID]; exist {
-				if dp.Enable == false && v.Enable == true {
-					v.Enable = false
-					v.DisableReason = "Need to enable dependency " + p.Name + "(" + p.ID.String() + ")"
-					sn.Skynet.Setting.EditSetting("plugin_"+v.ID.String(), "0")
-					log.Warnf("Plugin %v need dependency %v to be enabled, disable now.", v.Name, p.Name)
-				}
-				c, err := utils.CheckVersion(dp.Version, p.Version)
-				if err != nil {
-					return nil, err
-				}
-				if !c {
-					v.Enable = false
-					v.DisableReason = "Need dependency " + p.Name + " version " + p.Version
-					sn.Skynet.Setting.EditSetting("plugin_"+v.ID.String(), "0")
-					log.Warnf("Plugin %v need dependency %v version %v, disable now.", v.Name, p.Name, p.Version)
-				}
-			} else {
-				v.Enable = false
-				v.DisableReason = "Need install dependency " + p.Name + "(" + p.ID.String() + ")"
-				sn.Skynet.Setting.EditSetting("plugin_"+v.ID.String(), "0")
-				log.Errorf("Plugin %v need dependency %v(%v), disable now.", v.Name, p.Name, p.ID.String())
+			sn.Skynet.Setting.Update("plugin_"+v.ID.String(), "0")
+			if showLog {
+				log.Errorf("Plugin %v need skynet version %v, disable now.", v.Name, v.SkynetVersion)
 			}
 		}
+	}
+	return nil
+}
+
+func (p *sitePlugin) checkDependency(showLog bool) error {
+	// dependency check
+	for _, v := range p.priority {
+		if v.DisableReason == "" {
+			for _, dep := range v.Dependency {
+				if depPlugin, exist := p.plugin[dep.ID]; exist {
+					if depPlugin.Enable == false {
+						if dep.Option {
+							if v.Enable == true && showLog {
+								log.Warnf("Plugin %v recommand enable dependency %v version %v to get full experience.", v.Name, dep.Name, dep.Version)
+							}
+						} else {
+							v.Enable = false
+							v.DisableReason = "Need to enable dependency " + dep.Name + "(" + dep.ID.String() + ")"
+							sn.Skynet.Setting.Update("plugin_"+v.ID.String(), "0")
+							if showLog {
+								log.Warnf("Plugin %v need dependency %v to be enabled, disable now.", v.Name, dep.Name)
+							}
+							break
+						}
+					}
+					c, err := utils.CheckVersion(depPlugin.Version, dep.Version)
+					if err != nil {
+						return err
+					}
+					if !c {
+						v.Enable = false
+						v.DisableReason = "Need dependency " + dep.Name + " version " + dep.Version
+						sn.Skynet.Setting.Update("plugin_"+v.ID.String(), "0")
+						if showLog {
+							log.Warnf("Plugin %v need dependency %v version %v, disable now.", v.Name, dep.Name, dep.Version)
+						}
+						break
+					}
+				} else {
+					if dep.Option {
+						if v.Enable == true && showLog {
+							log.Warnf("Plugin %v recommand install dependency %v version %v to get full experience.", v.Name, dep.Name, dep.Version)
+						}
+					} else {
+						v.Enable = false
+						v.DisableReason = "Need install dependency " + dep.Name + "(" + dep.ID.String() + ")"
+						sn.Skynet.Setting.Update("plugin_"+v.ID.String(), "0")
+						if showLog {
+							log.Errorf("Plugin %v need dependency %v(%v), disable now.", v.Name, dep.Name, dep.ID.String())
+						}
+						break
+					}
+				}
+			}
+		}
+	}
+	return nil
+}
+
+func NewPlugin(base string) (sn.SNPlugin, error) {
+	var ret sitePlugin
+	ret.plugin = make(map[uuid.UUID]*pluginLoad)
+
+	err := ret.readPlugin(base)
+	if err != nil {
+		return nil, err
+	}
+
+	err = ret.cleanPlugin()
+	if err != nil {
+		return nil, err
+	}
+
+	err = ret.checkVersion(true)
+	if err != nil {
+		return nil, err
+	}
+
+	err = ret.checkDependency(true)
+	if err != nil {
+		return nil, err
 	}
 
 	// plugin init
 	for _, v := range ret.priority {
 		if v.Enable {
-			err = v.CallPlugin("PluginInit")
+			err = v.Instance.PluginInit()
 			if err != nil {
 				return nil, err
 			}
@@ -172,11 +230,11 @@ func NewPlugin(base string) (sn.SNPlugin, error) {
 	return &ret, nil
 }
 
-func (p *sitePlugin) GetAllPlugin() interface{} {
+func (p *sitePlugin) GetAll() interface{} {
 	return p.plugin
 }
 
-func (p *sitePlugin) GetPlugin(id uuid.UUID) interface{} {
+func (p *sitePlugin) Get(id uuid.UUID) interface{} {
 	v, exist := p.plugin[id]
 	if !exist {
 		return nil
@@ -184,35 +242,73 @@ func (p *sitePlugin) GetPlugin(id uuid.UUID) interface{} {
 	return v
 }
 
-func (p *sitePlugin) DisablePlugin(id uuid.UUID) error {
+func (p *sitePlugin) Disable(id uuid.UUID) error {
 	if v, exist := p.plugin[id]; exist {
-		err := v.CallPlugin("PluginDisable")
+		if !v.Enable {
+			return nil
+		}
+		err := v.Instance.PluginDisable()
+		if err != nil {
+			return err
+		}
+		err = v.Instance.PluginFini()
 		if err != nil {
 			return err
 		}
 		v.Enable = false
-		sn.Skynet.Setting.EditSetting("plugin_"+v.ID.String(), "0")
+		sn.Skynet.Setting.Update("plugin_"+v.ID.String(), "0")
 		return nil
 	}
 	return errors.New("Plugin not found")
 }
 
-func (p *sitePlugin) EnablePlugin(id uuid.UUID) error {
+func (p *sitePlugin) Enable(id uuid.UUID) error {
 	if v, exist := p.plugin[id]; exist {
+		if v.Enable {
+			return nil
+		}
 		if v.DisableReason != "" {
 			return errors.New(v.DisableReason)
 		}
-		err := v.CallPlugin("PluginEnable")
+		for _, dp := range v.Dependency {
+			err := p.Enable(dp.ID)
+			if err != nil {
+				return err
+			}
+		}
+		err := v.Instance.PluginEnable()
 		if err != nil {
 			return err
 		}
-		err = v.CallPlugin("PluginInit")
+		err = v.Instance.PluginInit()
 		if err != nil {
 			return err
 		}
 		v.Enable = true
-		sn.Skynet.Setting.EditSetting("plugin_"+v.ID.String(), "1")
+		sn.Skynet.Setting.Update("plugin_"+v.ID.String(), "1")
+		for _, v := range p.priority {
+			v.DisableReason = ""
+		}
+		err = p.checkVersion(false)
+		if err != nil {
+			return err
+		}
+		err = p.checkDependency(false)
+		if err != nil {
+			return err
+		}
 		return nil
 	}
 	return errors.New("Plugin not found")
+}
+
+func (p *sitePlugin) Fini() {
+	for i := len(p.priority) - 1; i >= 0; i-- {
+		if p.priority[i].Enable {
+			err := p.priority[i].Instance.PluginFini()
+			if err != nil {
+				log.Warnf("Plugin %v fini error: %v", p.priority[i].Name, err)
+			}
+		}
+	}
 }

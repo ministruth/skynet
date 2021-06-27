@@ -5,6 +5,7 @@ import (
 	"skynet/sn"
 	"skynet/sn/utils"
 	"sort"
+	"strconv"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
@@ -12,17 +13,17 @@ import (
 )
 
 type getAgentParam struct {
-	Page int `form:"page"`
+	Page int `form:"page" binding:"min=0"`
 	Size int `form:"size" binding:"oneof=5 10 20 50"`
 }
 
-func APIGetAgent(c *gin.Context, u *sn.Users) (int, error) {
+func APIGetAllAgent(c *gin.Context, u *sn.Users) (int, error) {
 	var param getAgentParam
 	err := c.ShouldBindQuery(&param)
 	if err != nil {
 		return 400, err
 	}
-	if param.Page <= 0 {
+	if param.Page == 0 {
 		param.Page = 1
 	}
 
@@ -54,7 +55,7 @@ func APISaveSetting(c *gin.Context, u *sn.Users) (int, error) {
 		"ip": c.ClientIP(),
 	}
 
-	err = sn.Skynet.Setting.EditSetting(plugins.SPWithIDPrefix(&Config, "token"), param.Token)
+	err = sn.Skynet.Setting.Update(plugins.SPWithIDPrefix(&Config, "token"), param.Token)
 	if err != nil {
 		return 500, err
 	}
@@ -71,7 +72,6 @@ func APISaveSetting(c *gin.Context, u *sn.Users) (int, error) {
 }
 
 type saveAgentParam struct {
-	ID   int    `form:"id" binding:"required"`
 	Name string `form:"name" binding:"required,max=32"`
 }
 
@@ -81,19 +81,23 @@ func APISaveAgent(c *gin.Context, u *sn.Users) (int, error) {
 	if err != nil {
 		return 400, err
 	}
+	id, err := strconv.Atoi(c.Param("id"))
+	if err != nil || id <= 0 {
+		return 400, err
+	}
 	fields := log.Fields{
 		"ip": c.ClientIP(),
-		"id": param.ID,
+		"id": id,
 	}
 
-	if _, ok := agents[param.ID]; !ok {
+	if _, ok := agents[id]; !ok {
 		log.WithFields(defaultField).WithFields(fields).Warn("Agent not exist")
 		c.JSON(200, gin.H{"code": 1, "msg": "Agent not exist"})
 		return 0, nil
 	}
 
 	var rec PluginMonitorAgent
-	err = utils.GetDB().First(&rec, param.ID).Error
+	err = utils.GetDB().First(&rec, id).Error
 	if err != nil {
 		return 500, err
 	}
@@ -102,7 +106,7 @@ func APISaveAgent(c *gin.Context, u *sn.Users) (int, error) {
 	if err != nil {
 		return 500, err
 	}
-	agents[param.ID].Name = param.Name
+	agents[id].Name = param.Name
 
 	log.WithFields(defaultField).WithFields(fields).Info("Set name success")
 	c.JSON(200, gin.H{"code": 0, "msg": "Set name success"})
@@ -110,12 +114,12 @@ func APISaveAgent(c *gin.Context, u *sn.Users) (int, error) {
 }
 
 type deleteAgentParam struct {
-	ID int `form:"id" binding:"required"`
+	ID int `uri:"id" binding:"required,min=1"`
 }
 
 func APIDelAgent(c *gin.Context, u *sn.Users) (int, error) {
 	var param deleteAgentParam
-	err := c.ShouldBind(&param)
+	err := c.ShouldBindUri(&param)
 	if err != nil {
 		return 400, err
 	}

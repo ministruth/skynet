@@ -47,9 +47,9 @@ var (
 			}
 
 			if roleuser {
-				newpass, err = sn.Skynet.User.AddUser(args[0], newpass, content, sn.RoleUser)
+				newpass, err = sn.Skynet.User.New(args[0], newpass, content, sn.RoleUser)
 			} else {
-				newpass, err = sn.Skynet.User.AddUser(args[0], newpass, content, sn.RoleAdmin)
+				newpass, err = sn.Skynet.User.New(args[0], newpass, content, sn.RoleAdmin)
 				log.Warn("By default the user has admin permission, use -u/--user to force user permission")
 			}
 
@@ -85,10 +85,14 @@ var (
 					log.Fatal("No user specified")
 				}
 
-				newpass, err := sn.Skynet.User.ResetUser(args[0])
+				uid, err := sn.Skynet.User.GetByUsername(args[0])
 				if errors.Is(err, gorm.ErrRecordNotFound) {
 					log.Fatalf("User %v not found", args[0])
 				} else if err != nil {
+					log.Fatal("Database error: ", err)
+				}
+				newpass, err := sn.Skynet.User.Reset(int(uid.ID))
+				if err != nil {
 					log.Fatal("Database error: ", err)
 				}
 				log.Info("New pass: ", newpass)
@@ -97,7 +101,7 @@ var (
 					log.Fatal("Remove --all if you want to reset specific user")
 				}
 
-				newpass, err := sn.Skynet.User.ResetAllUser()
+				newpass, err := sn.Skynet.User.ResetAll()
 				if err != nil {
 					log.Fatal("Database error: ", err)
 				}
