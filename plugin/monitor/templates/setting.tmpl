@@ -45,32 +45,14 @@
             <th class="th-op2">Operation</th>
           </tr>
         </thead>
-        <tbody>
-          {{range .agents}}
-          <tr>
-            <td>{{ .ID }}</td>
-            <td>{{ .Name }}</td>
-            {{ if .Online }}
-            <td><span class="badge bg-success">ONLINE</span></td>
-            {{ else }}
-            <td><span class="badge bg-secondary">OFFLINE</span></td>
-            {{ end }}
-            <td>{{ .HostName }}</td>
-            <td>{{ .IP }}</td>
-            <td>{{ .System }}</td>
-            <td>{{ .Machine }}</td>
-            <td>{{ time .LastLogin }}</td>
-            <td>
-              <button data-agentID="{{ .ID }}" data-agentName="{{ .Name }}" type="button"
-                class="btn btn-outline-primary mr-1" data-operation="rename" data-toggle="modal"
-                data-target="#modal-rename">Rename</button>
-              <button data-operation="delete" data-agentID="{{ .ID }}" type="button" class="btn btn-outline-danger"
-                data-toggle="modal" data-target="#modal-delete">Delete</button>
-            </td>
-          </tr>
-          {{end}}
+        <tbody id="agent">
         </tbody>
       </table>
+    </div>
+    <div class="card-footer clearfix">
+      <ul data-page="agent" data-total="{{ ._total }}"
+        class="pagination pagination-sm m-0 d-flex justify-content-center">
+      </ul>
     </div>
   </div>
 </div>
@@ -159,6 +141,66 @@
     return b.join("");
   }
 
+  const ParseData = (d) => {
+    return `
+      <tr>
+        <td>${d.ID}</td>
+        <td>${d.Name}</td>
+        <td>${d.Online ? '<span class="badge bg-success">ONLINE</span>' :
+        '<span class="badge bg-secondary">OFFLINE</span>'}</td>
+        <td>${d.HostName}</td>
+        <td>${d.IP}</td>
+        <td>${d.System}</td>
+        <td>${d.Machine}</td>
+        <td>${new Date(d.LastLogin).Format("yyyy-MM-dd hh:mm:ss")}</td>
+        <td>
+          <button data-agentID="${d.ID}" data-agentName="${d.Name}" type="button"
+            class="btn btn-outline-primary mr-1" data-operation="rename" data-toggle="modal"
+            data-target="#modal-rename">Rename</button>
+          <button data-operation="delete" data-agentID="${d.ID}" type="button" class="btn btn-outline-danger"
+            data-toggle="modal" data-target="#modal-delete">Delete</button>
+        </td>
+      </tr>
+    `;
+  };
+
+  const ParseFunc = (obj, page, size) => {
+    JSONGet(`/api/plugin/2eb2e1a5-66b4-45f9-ad24-3c4f05c858aa/agent?page=${page}&size=${size}`).done((e) => {
+      if (UpdateTotal("agent", e.total, ParseFunc))
+        return;
+      if (JSON.stringify(e.data) !== JSON.stringify(obj.data)) {
+        $("#agent").empty();
+        $.each(e.data, function (_, e) {
+          $("#agent").append(ParseData(e));
+        });
+        $("[data-operation='rename']").click((e) => {
+          $("#renameForm").attr("action", `/api/plugin/2eb2e1a5-66b4-45f9-ad24-3c4f05c858aa/agent/${e.target.getAttribute("data-agentID")}`)
+          $("#editName").val(e.target.getAttribute("data-agentName"));
+        })
+        $("#renameForm").submit((e) => {
+          e.preventDefault();
+          let form = document.getElementById("renameForm");
+          JSONPatch(GetUrl(form), GetData(form)).done((d) => {
+            $('#modal-rename').modal('hide');
+            DelayReload()(d);
+          });
+        })
+
+        $("[data-operation='delete']").click((e) => {
+          $("#deleteConfirm").attr("data-agentID", e.target.getAttribute("data-agentID"));
+        })
+        $("#deleteConfirm").click((e) => {
+          JSONDelete(`/api/plugin/2eb2e1a5-66b4-45f9-ad24-3c4f05c858aa/agent/${e.target.getAttribute("data-agentID")}`).done((d) => {
+            $('#modal-delete').modal('hide');
+            DelayReload()(d);
+          });
+        })
+        obj.data = e.data;
+      }
+    })
+  };
+  ParsePage("agent", 10, [5, 10, 20, 50], ParseFunc, 0);
+
   $("#generate").click((e) => {
     $("#token").val(rand_token(32));
   })
@@ -166,29 +208,6 @@
     let form = document.getElementById("monitorForm");
     JSONPatch(GetUrl(form), GetData(form)).done((d) => {
       $('#modal-save').modal('hide');
-      DelayReload()(d);
-    });
-  })
-
-  $("[data-operation='rename']").click((e) => {
-    $("#renameForm").attr("action", `/api/plugin/2eb2e1a5-66b4-45f9-ad24-3c4f05c858aa/agent/${e.target.getAttribute("data-agentID")}`)
-    $("#editName").val(e.target.getAttribute("data-agentName"));
-  })
-  $("#renameForm").submit((e) => {
-    e.preventDefault();
-    let form = document.getElementById("renameForm");
-    JSONPatch(GetUrl(form), GetData(form)).done((d) => {
-      $('#modal-rename').modal('hide');
-      DelayReload()(d);
-    });
-  })
-
-  $("[data-operation='delete']").click((e) => {
-    $("#deleteConfirm").attr("data-agentID", e.target.getAttribute("data-agentID"));
-  })
-  $("#deleteConfirm").click((e) => {
-    JSONDelete(`/api/plugin/2eb2e1a5-66b4-45f9-ad24-3c4f05c858aa/agent/${e.target.getAttribute("data-agentID")}`).done((d) => {
-      $('#modal-delete').modal('hide');
       DelayReload()(d);
     });
   })

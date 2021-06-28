@@ -3,6 +3,9 @@ package main
 import (
 	plugins "skynet/plugin"
 	"skynet/sn"
+	"time"
+
+	task "skynet/plugin/task/shared"
 
 	"github.com/google/uuid"
 )
@@ -67,15 +70,14 @@ func (p *PluginInstance) PluginInit() error {
 		},
 	})
 	// return nil
-	// go func() {
-	// 	time.Sleep(10 * time.Second)
-	// 	log.Warn("STARTING!!!")
-	// 	t := sn.Skynet.SharedData["plugin_c1e81895-1f75-4988-9f10-52786b875ec7"].(task.PluginShared)
-	// 	_, err := t.NewCommand(1, "sleep 10", "aaa", "bbb")
-	// 	if err != nil {
-	// 		panic(err)
-	// 	}
-	// }()
+	go func() {
+		time.Sleep(10 * time.Second)
+		t := sn.Skynet.SharedData["plugin_c1e81895-1f75-4988-9f10-52786b875ec7"].(task.PluginShared)
+		_, err := t.NewCommand(1, "sleep 10", "aaa", "bbb")
+		if err != nil {
+			panic(err)
+		}
+	}()
 	return nil
 }
 

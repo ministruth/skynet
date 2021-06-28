@@ -4,14 +4,53 @@ import (
 	"errors"
 	"io/ioutil"
 	"skynet/sn"
+	"skynet/sn/utils"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
+	"github.com/jinzhu/copier"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/vincent-petithory/dataurl"
 	"gorm.io/gorm"
 )
+
+func APIGetUser(c *gin.Context, u *sn.Users) (int, error) {
+	var param paginationParam
+	err := c.ShouldBindQuery(&param)
+	if err != nil {
+		return 400, err
+	}
+
+	rec, err := sn.Skynet.User.GetAll(&sn.SNCondition{
+		Order:  []interface{}{"id " + param.Order},
+		Limit:  param.Size,
+		Offset: (param.Page - 1) * param.Size,
+	})
+	if err != nil {
+		return 500, err
+	}
+	count, err := sn.Skynet.User.Count()
+	if err != nil {
+		return 500, err
+	}
+
+	type userInfo struct {
+		sn.Users
+		Online bool
+	}
+	ret := make([]userInfo, len(rec))
+	for i := range rec {
+		s, err := utils.FindSessionsByID(int(rec[i].ID))
+		if err != nil {
+			return 500, err
+		}
+		copier.Copy(&ret[i].Users, rec[i])
+		ret[i].Online = len(s) != 0
+	}
+	c.JSON(200, gin.H{"code": 0, "msg": "Get all user success", "data": ret, "total": count})
+	return 0, nil
+}
 
 type userAddParam struct {
 	Username string      `form:"username" binding:"required,max=32"`

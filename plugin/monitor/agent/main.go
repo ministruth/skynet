@@ -6,7 +6,6 @@ import (
 	"crypto/tls"
 	"encoding/json"
 	"io"
-	"math"
 	"os"
 	"skynet/plugin/monitor/msg"
 	"skynet/sn/utils"
@@ -43,7 +42,7 @@ func sleep() {
 	log.Warnf("Retry in %v seconds...", sleepTime)
 	time.Sleep(time.Second * time.Duration(sleepTime))
 	if sleepTime < maxTime {
-		sleepTime = int(math.Min(float64(sleepTime*2), float64(maxTime)))
+		sleepTime = utils.IntMin(sleepTime*2, maxTime)
 	}
 }
 

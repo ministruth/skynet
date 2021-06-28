@@ -65,3 +65,9 @@ func NewAPI(r *gin.RouterGroup) sn.SNAPI {
 	ret.AddAPIItem(api)
 	return &ret
 }
+
+type paginationParam struct {
+	Order string `form:"order,default=asc" binding:"oneof=asc desc"`
+	Page  int    `form:"page,default=1" binding:"min=1"`
+	Size  int    `form:"size,default=10"`
+}

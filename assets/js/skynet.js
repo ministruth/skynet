@@ -42,6 +42,7 @@ function JSONPatch(url, d) {
 function JSONGet(url) {
   return $.get(url).fail(function (d) {
     if (d.responseText == undefined) toastr.error("Connect error");
+    else if (d.responseText == "") toastr.error(d.statusText);
     else toastr.error(d.responseText);
   });
 }
@@ -57,23 +58,6 @@ function DelayReload(t = 1000) {
         },
       });
   };
-}
-
-function TimeSince(date) {
-  var seconds = Math.floor((new Date() - date) / 1000);
-  var interval = Math.floor(seconds / 31536000);
-
-  if (interval > 1) return interval + " years";
-  interval = Math.floor(seconds / 2592000);
-  if (interval > 1) return interval + " months";
-  interval = Math.floor(seconds / 86400);
-  if (interval > 1) return interval + " days";
-  interval = Math.floor(seconds / 3600);
-  if (interval > 1) return interval + " hours";
-  interval = Math.floor(seconds / 60);
-  if (interval > 1) return interval + " minutes";
-  if (Math.floor(seconds) >= 5) return Math.floor(seconds) + " seconds";
-  else return "Just now";
 }
 
 function SizeString(bytes, decimals = 2) {
@@ -109,19 +93,163 @@ function InsertParam(key, value) {
   document.location.search = params;
 }
 
-function GetPageSize(s, sl) {
+function SplitPage(size, tot) {
+  if (tot == 0) return 1;
+  if (tot % size == 0) return tot / size;
+  return parseInt(tot / size) + 1;
+}
+
+function ParsePageItem(page, totPage) {
+  let ret = [];
+  ret = ret.concat("«");
+  if (totPage <= 5) {
+    for (let i = 1; i <= totPage; i++) ret = ret.concat(i.toString());
+  } else {
+    let low = parseInt(Math.max(page - 2, 1));
+    let high = parseInt(Math.min(page + 2, totPage));
+    if (low == 1) {
+      ret = ret.concat(["1", "2", "3", "4", "...", totPage.toString()]);
+    } else if (high == totPage) {
+      ret = ret.concat(["1", "..."]);
+      for (let i = totPage - 3; i <= totPage; i++)
+        ret = ret.concat(i.toString());
+    } else {
+      ret = ret.concat(["1", "..."]);
+      for (let i = page - 1; i <= page + 1; i++) ret = ret.concat(i.toString());
+      ret = ret.concat(["...", totPage.toString()]);
+    }
+  }
+  ret = ret.concat("»");
+  return ret;
+}
+
+let _page_status = {};
+
+function ParsePage(pid, defSize, defSizeList, dataFunc, loopTime) {
+  let tot = parseInt($(`ul[data-page="${pid}"]`).attr("data-total"));
+  let url = ParseURLParam(pid, defSize, defSizeList);
+  let size = url[1];
+  let totPage = SplitPage(size, tot);
+  let page = Math.min(url[0], totPage);
+  _page_status[pid] = {
+    size: size,
+    page: page,
+    totPage: totPage,
+    dirty: true,
+    data: "",
+  };
+  RenderPage(pid, dataFunc);
+  if (loopTime != 0)
+    setInterval(() => {
+      RenderPage(pid, dataFunc);
+    }, loopTime);
+}
+
+function UpdateTotal(pid, tot, dataFunc) {
+  if (tot != $(`ul[data-page="${pid}"]`).attr("data-total")) {
+    $(`ul[data-page="${pid}"]`).attr("data-total", tot.toString());
+    let totPage = SplitPage(_page_status[pid].size, tot);
+    _page_status[pid].page = Math.min(_page_status[pid].page, totPage);
+    _page_status[pid].totPage = totPage;
+    _page_status[pid].dirty = true;
+    RenderPage(pid, dataFunc);
+    return true;
+  }
+  return false;
+}
+
+function RenderPage(pid, dataFunc) {
+  if (_page_status[pid].dirty) {
+    _page_status[pid].dirty = false;
+    let ul = $(`ul[data-page="${pid}"]`);
+    ul.empty();
+    let item = ParsePageItem(_page_status[pid].page, _page_status[pid].totPage);
+    item.forEach((i) => {
+      let str = "";
+      if (i == "«") {
+        if (_page_status[pid].page == 1)
+          str += `<li class="page-item disabled"><a class="page-link" data-page="${pid}">${i}</a></li>`;
+        else
+          str += `<li class="page-item"><a class="page-link" data-page="${pid}" data-pageNumber="${
+            _page_status[pid].page - 1
+          }">${i}</a></li>`;
+      } else if (i == "»") {
+        if (_page_status[pid].page == _page_status[pid].totPage)
+          str += `<li class="page-item disabled"><a class="page-link" data-page="${pid}">${i}</a></li>`;
+        else
+          str += `<li class="page-item"><a class="page-link" data-page="${pid}" data-pageNumber="${
+            _page_status[pid].page + 1
+          }">${i}</a></li>`;
+      } else if (i == _page_status[pid].page) {
+        str += `<li class="page-item active"><a class="page-link" data-page="${pid}" data-pageNumber="${i}">${i}</a></li>`;
+      } else if (i == "...") {
+        str += `<li class="page-item disabled"><a class="page-link" data-page="${pid}">${i}</a></li>`;
+      } else {
+        str += `<li class="page-item"><a class="page-link" data-page="${pid}" data-pageNumber="${i}">${i}</a></li>`;
+      }
+      ul.append(str);
+    });
+    ul.append(
+      `<li>
+          <select class="form-control pagebtn" data-page="${pid}">
+            <option value="5">5 / page</option>
+            <option value="10">10 / page</option>
+            <option value="20">20 / page</option>
+            <option value="50">50 / page</option>
+          </select>
+      </li>`
+    );
+    $(`select[data-page="${pid}"]`).val(_page_status[pid].size.toString());
+    $(`.page-link[data-page="${pid}"]`).click((e) => {
+      _page_status[pid].dirty = true;
+      _page_status[pid].page = parseInt(
+        e.target.getAttribute("data-pageNumber")
+      );
+      RenderPage(pid, dataFunc);
+    });
+    $(`select[data-page="${pid}"]`).on("change", function () {
+      let tot = parseInt($(`ul[data-page="${pid}"]`).attr("data-total"));
+      let totPage = SplitPage(parseInt(this.value), tot);
+      _page_status[pid].page = Math.min(_page_status[pid].page, totPage);
+      _page_status[pid].totPage = totPage;
+      _page_status[pid].size = parseInt(this.value);
+      _page_status[pid].dirty = true;
+      RenderPage(pid, dataFunc);
+    });
+  }
+  dataFunc(_page_status[pid], _page_status[pid].page, _page_status[pid].size);
+}
+
+function ParseURLParam(pid, defSize, defSizeList) {
   var urlParams = new URLSearchParams(window.location.search);
   let size = parseInt(urlParams.get("size"));
   let page = parseInt(urlParams.get("page"));
-  if (size == null || isNaN(size) || !sl.includes(size)) {
-    size = s;
-    $(".pagebtn").val(s);
+  if (size == null || isNaN(size) || !defSizeList.includes(size)) {
+    size = defSize;
+    $(`select[data-page="${pid}"]`).val(defSize);
   } else {
-    $(".pagebtn").val(size);
+    $(`select[data-page="${pid}"]`).val(size);
   }
   if (page == null || isNaN(page) || page <= 0) page = 1;
   return [page, size];
 }
+
+Date.prototype.TimeSince = function () {
+  var seconds = Math.floor((new Date() - this) / 1000);
+  var interval = Math.floor(seconds / 31536000);
+
+  if (interval > 1) return interval + " years";
+  interval = Math.floor(seconds / 2592000);
+  if (interval > 1) return interval + " months";
+  interval = Math.floor(seconds / 86400);
+  if (interval > 1) return interval + " days";
+  interval = Math.floor(seconds / 3600);
+  if (interval > 1) return interval + " hours";
+  interval = Math.floor(seconds / 60);
+  if (interval > 1) return interval + " minutes";
+  if (Math.floor(seconds) >= 5) return Math.floor(seconds) + " seconds";
+  else return "Just now";
+};
 
 Date.prototype.Format = function (fmt) {
   //author: meizz

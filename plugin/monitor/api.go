@@ -2,6 +2,7 @@ package main
 
 import (
 	plugins "skynet/plugin"
+	"skynet/plugin/monitor/shared"
 	"skynet/sn"
 	"skynet/sn/utils"
 	"sort"
@@ -12,31 +13,24 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type getAgentParam struct {
-	Page int `form:"page" binding:"min=0"`
-	Size int `form:"size" binding:"oneof=5 10 20 50"`
-}
-
 func APIGetAllAgent(c *gin.Context, u *sn.Users) (int, error) {
-	var param getAgentParam
+	var param plugins.SPPaginationParam
 	err := c.ShouldBindQuery(&param)
 	if err != nil {
 		return 400, err
 	}
-	if param.Page == 0 {
-		param.Page = 1
-	}
 
-	var sortedAgents AgentSort
-	for _, v := range agents {
-		sortedAgents = append(sortedAgents, v)
-	}
-	sort.Stable(sortedAgents)
-	low, high := utils.GetSplitPage(len(sortedAgents), param.Page, param.Size)
-	if low == -1 {
-		c.JSON(200, gin.H{"code": 0, "msg": "Get stat success", "data": sortedAgents})
+	count := len(agents)
+	if len(agents) > 0 && (param.Page-1)*param.Size < len(agents) {
+		var sortedAgents AgentSort
+		for _, v := range agents {
+			sortedAgents = append(sortedAgents, v)
+		}
+		sort.Stable(sortedAgents)
+		c.JSON(200, gin.H{"code": 0, "msg": "Get stat success",
+			"data": sortedAgents[(param.Page-1)*param.Size : utils.IntMin(param.Page*param.Size, len(sortedAgents))], "total": count})
 	} else {
-		c.JSON(200, gin.H{"code": 0, "msg": "Get stat success", "data": sortedAgents[low:high]})
+		c.JSON(200, gin.H{"code": 0, "msg": "Get stat success", "data": []*shared.AgentInfo{}, "total": count})
 	}
 	return 0, nil
 }

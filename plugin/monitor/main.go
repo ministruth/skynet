@@ -6,7 +6,6 @@ import (
 	"skynet/plugin/monitor/shared"
 	"skynet/sn"
 	"skynet/sn/utils"
-	"sort"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -109,8 +108,11 @@ func (p *PluginInstance) PluginInit() error {
 				},
 			}),
 			Param: gin.H{
-				"token":  &token,
-				"agents": agents,
+				"token": &token,
+			},
+			BeforeRender: func(c *gin.Context, u *sn.Users, v *sn.SNPageItem) bool {
+				v.Param["_total"] = len(agents)
+				return true
 			},
 		},
 		{
@@ -131,21 +133,8 @@ func (p *PluginInstance) PluginInit() error {
 					Active: true,
 				},
 			}),
-			AfterRenderPrepare: func(c *gin.Context, u *sn.Users, v *sn.SNPageItem) bool {
-				var sortedAgents AgentSort
-				for _, v := range agents {
-					sortedAgents = append(sortedAgents, v)
-				}
-				sort.Stable(sortedAgents)
-				low, high, ok := utils.PreSplitFunc(c, v, len(sortedAgents), 10, []int{5, 10, 20, 50})
-				if !ok {
-					return false
-				}
-				if low == -1 {
-					v.Param["agents"] = sortedAgents
-				} else {
-					v.Param["agents"] = sortedAgents[low:high]
-				}
+			BeforeRender: func(c *gin.Context, u *sn.Users, v *sn.SNPageItem) bool {
+				v.Param["_total"] = len(agents)
 				return true
 			},
 		},

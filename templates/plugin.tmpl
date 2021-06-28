@@ -16,31 +16,14 @@
             <th class="th-op1">Operation</th>
           </tr>
         </thead>
-        <tbody>
-          {{range .plugins}}
-          <tr>
-            <td>{{ .ID }}</td>
-            <td>{{ .Name }}</td>
-            <td>{{ .Version }}</td>
-            {{ if .Enable }}
-            <td><span class="badge bg-success">ENABLED</span></td>
-            {{ else }}
-            <td><span class="badge bg-danger">DISABLED</span></td>
-            {{ end }}
-            <td>{{ .DisableReason }}</td>
-            <td>
-              {{ if .Enable }}
-              <button data-operation="disable" data-pluginID="{{ .ID }}" type="button"
-                class="btn btn-outline-warning">Disable</button>
-              {{ else }}
-              <button data-operation="enable" data-pluginID="{{ .ID }}" type="button"
-                class="btn btn-outline-primary">Enable</button>
-              {{ end }}
-            </td>
-          </tr>
-          {{end}}
+        <tbody id="plugin">
         </tbody>
       </table>
+    </div>
+    <div class="card-footer clearfix">
+      <ul data-page="plugin" data-total="{{ ._total }}"
+        class="pagination pagination-sm m-0 d-flex justify-content-center">
+      </ul>
     </div>
   </div>
   <button id="reload" class="btn btn-primary">Reload Skynet</button>
@@ -52,17 +35,48 @@
 <script nonce="{{ ._nonce }}">
   "use strict"
 
-  $("[data-operation='enable']").click((e) => {
-    JSONPatch(`/api/plugin/${e.target.getAttribute("data-pluginID")}`, {
-      "enable": true,
-    }).done(DelayReload());
-  });
+  const ParseData = (d) => {
+    return `
+      <tr>
+        <td>${d.ID}</td>
+        <td>${d.Name}</td>
+        <td>${d.Version}</td>
+        <td>${d.Enable ? '<span class="badge bg-success">ENABLED</span>' : '<span class="badge bg-danger">DISABLED</span>'}</td>
+        <td>${d.DisableReason}</td>
+        <td>
+          ${d.Enable ? '<button data-operation="disable" data-pluginID="' + d.ID + '" type="button" class="btn btn-outline-warning">Disable</button>' :
+        '<button data-operation="enable" data-pluginID="' + d.ID + '" type="button" class="btn btn-outline-primary">Enable</button>'}
+        </td>
+      </tr>
+    `;
+  };
 
-  $("[data-operation='disable']").click((e) => {
-    JSONPatch(`/api/plugin/${e.target.getAttribute("data-pluginID")}`, {
-      "enable": false,
-    }).done(DelayReload(5000));
-  });
+  const ParseFunc = (obj, page, size) => {
+    JSONGet(`/api/plugin?page=${page}&size=${size}`).done((e) => {
+      if (UpdateTotal("plugin", e.total, ParseFunc))
+        return;
+      if (JSON.stringify(e.data) !== JSON.stringify(obj.data)) {
+        $("#plugin").empty();
+        $.each(e.data, function (_, e) {
+          $("#plugin").append(ParseData(e));
+        });
+
+        $("[data-operation='enable']").click((e) => {
+          JSONPatch(`/api/plugin/${e.target.getAttribute("data-pluginID")}`, {
+            "enable": true,
+          }).done(DelayReload());
+        });
+
+        $("[data-operation='disable']").click((e) => {
+          JSONPatch(`/api/plugin/${e.target.getAttribute("data-pluginID")}`, {
+            "enable": false,
+          }).done(DelayReload(5000));
+        });
+        obj.data = e.data;
+      }
+    })
+  };
+  ParsePage("plugin", 10, [5, 10, 20, 50], ParseFunc, 0);
 
   $("#reload").click((e) => {
     JSONGet("/api/reload").done(DelayReload(5000));

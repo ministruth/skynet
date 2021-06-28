@@ -20,37 +20,14 @@
             <th class="th-op3">Operation</th>
           </tr>
         </thead>
-        <tbody>
-          {{range .users}}
-          <tr>
-            <td>{{ .ID }}</td>
-            <td>{{ .Username }}</td>
-            {{ if .Online }}
-            <td><span class="badge bg-success">ONLINE</span></td>
-            {{ else }}
-            <td><span class="badge bg-secondary">OFFLINE</span></td>
-            {{ end }}
-            {{ if eq .Role 2 }}
-            <td><span class="badge bg-orange">Admin</span></td>
-            {{ else }}
-            <td><span class="badge bg-secondary">User</span></td>
-            {{ end }}
-            <td>{{ time .Track.CreatedAt }}</td>
-            <td>{{ time .LastLogin }}</td>
-            <td>{{ .LastIP }}</td>
-            <td>
-              <button data-operation="edit" data-userID="{{ .ID }}" data-edituser="{{ .Username }}"
-                data-editrole="{{ .Role }}" type="button" class="btn btn-outline-primary mr-1" data-toggle="modal"
-                data-target="#modal-edit">Edit</button>
-              <button data-operation="kick" data-userID="{{ .ID }}" type="button"
-                class="btn btn-outline-warning mr-1">Kick</button>
-              <button data-operation="delete" data-userID="{{ .ID }}" type="button" class="btn btn-outline-danger"
-                data-toggle="modal" data-target="#modal-delete">Delete</button>
-            </td>
-          </tr>
-          {{end}}
+        <tbody id="user">
         </tbody>
       </table>
+    </div>
+    <div class="card-footer clearfix">
+      <ul data-page="user" data-total="{{ ._total }}"
+        class="pagination pagination-sm m-0 d-flex justify-content-center">
+      </ul>
     </div>
   </div>
 </div>
@@ -165,6 +142,29 @@
 <script nonce="{{ ._nonce }}">
   "use strict"
 
+  const ParseData = (d) => {
+    return `
+      <tr>
+        <td>${d.ID}</td>
+        <td>${d.Username}</td>
+        <td>${d.Online ? '<span class="badge bg-success">ONLINE</span>' : '<span class="badge bg-secondary">OFFLINE</span>'}</td>
+        <td>${d.Role == 2 ? '<span class="badge bg-orange">Admin</span>' : '<span class="badge bg-secondary">User</span>'}</td>
+        <td>${new Date(d.Track.CreatedAt).Format("yyyy-MM-dd hh:mm:ss")}</td>
+        <td>${new Date(d.LastLogin).Format("yyyy-MM-dd hh:mm:ss")}</td>
+        <td>${d.LastIP}</td>
+        <td>
+          <button data-operation="edit" data-userID="${d.ID}" data-edituser="${d.Username}"
+            data-editrole="${d.Role}" type="button" class="btn btn-outline-primary mr-1" data-toggle="modal"
+            data-target="#modal-edit">Edit</button>
+          <button data-operation="kick" data-userID="${d.ID}" type="button"
+            class="btn btn-outline-warning mr-1">Kick</button>
+          <button data-operation="delete" data-userID="${d.ID}" type="button" class="btn btn-outline-danger"
+            data-toggle="modal" data-target="#modal-delete">Delete</button>
+        </td>
+      </tr>
+    `;
+  };
+
   const convUser = (d) => {
     switch (d["role"]) {
       case "User":
@@ -177,39 +177,53 @@
     return d;
   }
 
-  $("[data-toggle='switch']").bootstrapSwitch();
-  $("[data-operation='edit']").click((e) => {
-    $("#editUser").attr("action", `/api/user/${e.target.getAttribute("data-userID")}`)
-    $("#editUsername").val(e.target.getAttribute("data-edituser"));
-    $("#editRole").get(0).selectedIndex = e.target.getAttribute("data-editrole") - 1;
-  })
-  $("#editUser").submit((e) => {
-    e.preventDefault();
-    let form = document.getElementById("editUser");
-    JSONPatch(GetUrl(form), convUser(GetData(form))).done((d) => {
-      $('#modal-edit').modal('hide');
-      DelayReload()(d);
-    });
-  })
-  $("[data-operation='kick']").click((e) => {
-    JSONPatch(`/api/user/${e.target.getAttribute("data-userID")}`, {}).done(DelayReload());
-  })
-  $("[data-operation='delete']").click((e) => {
-    $("#deleteConfirm").attr("data-userID", e.target.getAttribute("data-userID"));
-  })
-  $("#deleteConfirm").click((e) => {
-    JSONDelete(`/api/user/${e.target.getAttribute("data-userID")}`).done((d) => {
-      $('#modal-delete').modal('hide');
-      DelayReload()(d);
-    });
-  })
-  $("#addUser").submit((e) => {
-    e.preventDefault();
-    let form = document.getElementById("addUser");
-    JSONPost(GetUrl(form), convUser(GetData(form))).done((d) => {
-      $('#modal-add').modal('hide');
-      DelayReload()(d);
-    });
-  });
+  const ParseFunc = (obj, page, size) => {
+    JSONGet(`/api/user?page=${page}&size=${size}`).done((e) => {
+      if (UpdateTotal("user", e.total, ParseFunc))
+        return;
+      if (JSON.stringify(e.data) !== JSON.stringify(obj.data)) {
+        $("#user").empty();
+        $.each(e.data, function (_, e) {
+          $("#user").append(ParseData(e));
+        });
+
+        $("[data-operation='edit']").click((e) => {
+          $("#editUser").attr("action", `/api/user/${e.target.getAttribute("data-userID")}`)
+          $("#editUsername").val(e.target.getAttribute("data-edituser"));
+          $("#editRole").get(0).selectedIndex = e.target.getAttribute("data-editrole") - 1;
+        })
+        $("#editUser").submit((e) => {
+          e.preventDefault();
+          let form = document.getElementById("editUser");
+          JSONPatch(GetUrl(form), convUser(GetData(form))).done((d) => {
+            $('#modal-edit').modal('hide');
+            DelayReload()(d);
+          });
+        })
+        $("[data-operation='kick']").click((e) => {
+          JSONPatch(`/api/user/${e.target.getAttribute("data-userID")}`, {}).done(DelayReload());
+        })
+        $("[data-operation='delete']").click((e) => {
+          $("#deleteConfirm").attr("data-userID", e.target.getAttribute("data-userID"));
+        })
+        $("#deleteConfirm").click((e) => {
+          JSONDelete(`/api/user/${e.target.getAttribute("data-userID")}`).done((d) => {
+            $('#modal-delete').modal('hide');
+            DelayReload()(d);
+          });
+        })
+        $("#addUser").submit((e) => {
+          e.preventDefault();
+          let form = document.getElementById("addUser");
+          JSONPost(GetUrl(form), convUser(GetData(form))).done((d) => {
+            $('#modal-add').modal('hide');
+            DelayReload()(d);
+          });
+        });
+        obj.data = e.data;
+      }
+    })
+  };
+  ParsePage("user", 10, [5, 10, 20, 50], ParseFunc, 0);
 </script>
 {{end}}

@@ -30,6 +30,12 @@ type PluginInterface interface {
 	PluginFini() error
 }
 
+type SPPaginationParam struct {
+	Order string `form:"order,default=asc" binding:"oneof=asc desc"`
+	Page  int    `form:"page,default=1" binding:"min=1"`
+	Size  int    `form:"size,default=10"`
+}
+
 func SPWithIDPrefixPath(c *PluginConfig, p string) string {
 	return "/plugin/" + c.ID.String() + p
 }

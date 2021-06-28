@@ -1,6 +1,7 @@
 package api
 
 import (
+	"skynet/handler"
 	"skynet/sn"
 	"skynet/sn/utils"
 	"time"
@@ -9,6 +10,28 @@ import (
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 )
+
+func APIGetPlugin(c *gin.Context, u *sn.Users) (int, error) {
+	var param paginationParam
+	err := c.ShouldBindQuery(&param)
+	if err != nil {
+		return 400, err
+	}
+
+	rec := sn.Skynet.Plugin.GetAll().(map[uuid.UUID]*handler.PluginLoad)
+	count := sn.Skynet.Plugin.Count()
+	if len(rec) > 0 && (param.Page-1)*param.Size < len(rec) {
+		var ret []*handler.PluginLoad
+		for i := range rec {
+			ret = append(ret, rec[i])
+		}
+		c.JSON(200, gin.H{"code": 0, "msg": "Get all plugin success", "data": ret[(param.Page-1)*param.Size : utils.IntMin(param.Page*param.Size, len(ret))],
+			"total": count})
+	} else {
+		c.JSON(200, gin.H{"code": 0, "msg": "Get all plugin success", "data": []*handler.PluginLoad{}, "total": count})
+	}
+	return 0, nil
+}
 
 type updatePluginParam struct {
 	Enable bool `form:"enable"`

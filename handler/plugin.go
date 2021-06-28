@@ -14,15 +14,15 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type pluginLoad struct {
+type PluginLoad struct {
 	plugins.PluginConfig
 	Enable        bool
 	DisableReason string
-	Instance      plugins.PluginInterface
-	Loader        *plugin.Plugin
+	Instance      plugins.PluginInterface `json:"-"`
+	Loader        *plugin.Plugin          `json:"-"`
 }
 
-type pluginLoadSort []*pluginLoad
+type pluginLoadSort []*PluginLoad
 
 func (s pluginLoadSort) Len() int           { return len(s) }
 func (s pluginLoadSort) Less(i, j int) bool { return s[i].Priority < s[j].Priority }
@@ -30,7 +30,7 @@ func (s pluginLoadSort) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 
 type sitePlugin struct {
 	priority pluginLoadSort
-	plugin   map[uuid.UUID]*pluginLoad
+	plugin   map[uuid.UUID]*PluginLoad
 }
 
 func (p *sitePlugin) readPlugin(base string) error {
@@ -65,7 +65,7 @@ func (p *sitePlugin) readPlugin(base string) error {
 						return err
 					}
 					pInstance := pSymbol.(func() plugins.PluginInterface)()
-					p.plugin[pConfig.ID] = &pluginLoad{
+					p.plugin[pConfig.ID] = &PluginLoad{
 						PluginConfig: pConfig,
 						Enable:       false,
 						Instance:     pInstance,
@@ -195,7 +195,7 @@ func (p *sitePlugin) checkDependency(showLog bool) error {
 
 func NewPlugin(base string) (sn.SNPlugin, error) {
 	var ret sitePlugin
-	ret.plugin = make(map[uuid.UUID]*pluginLoad)
+	ret.plugin = make(map[uuid.UUID]*PluginLoad)
 
 	err := ret.readPlugin(base)
 	if err != nil {
@@ -311,4 +311,8 @@ func (p *sitePlugin) Fini() {
 			}
 		}
 	}
+}
+
+func (p *sitePlugin) Count() int64 {
+	return int64(len(p.plugin))
 }

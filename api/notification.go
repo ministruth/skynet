@@ -7,30 +7,26 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-type getNotificationParam struct {
-	Page int `form:"page" binding:"min=0"`
-	Size int `form:"size" binding:"oneof=5 10 20 50"`
-}
-
 func APIGetNotification(c *gin.Context, u *sn.Users) (int, error) {
-	var param getNotificationParam
+	var param paginationParam
 	err := c.ShouldBindQuery(&param)
 	if err != nil {
 		return 400, err
 	}
-	if param.Page == 0 {
-		param.Page = 1
-	}
 
 	rec, err := sn.Skynet.Notification.GetAll(&sn.SNCondition{
-		Order:  []interface{}{"id desc"},
+		Order:  []interface{}{"id " + param.Order},
 		Limit:  param.Size,
 		Offset: (param.Page - 1) * param.Size,
 	})
 	if err != nil {
 		return 500, err
 	}
-	c.JSON(200, gin.H{"code": 0, "msg": "Get all notification success", "data": rec})
+	count, err := sn.Skynet.Notification.Count(nil)
+	if err != nil {
+		return 500, err
+	}
+	c.JSON(200, gin.H{"code": 0, "msg": "Get all notification success", "data": rec, "total": count})
 	return 0, nil
 }
 

@@ -1,6 +1,7 @@
 package main
 
 import (
+	plugins "skynet/plugin"
 	"skynet/plugin/task/shared"
 	"skynet/sn"
 	"skynet/sn/utils"
@@ -9,22 +10,18 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type getAllTaskParam struct {
-	Page int `form:"page" binding:"min=0"`
-	Size int `form:"size" binding:"oneof=5 10 20 50"`
-}
-
 func APIGetAllTask(c *gin.Context, u *sn.Users) (int, error) {
-	var param getAllTaskParam
+	var param plugins.SPPaginationParam
 	err := c.ShouldBindQuery(&param)
 	if err != nil {
 		return 400, err
 	}
-	if param.Page == 0 {
-		param.Page = 1
-	}
 
-	rec, err := pluginAPI.GetAll([]interface{}{"id desc"}, param.Size, (param.Page-1)*param.Size, nil)
+	rec, err := pluginAPI.GetAll([]interface{}{"id " + param.Order}, param.Size, (param.Page-1)*param.Size, nil)
+	if err != nil {
+		return 500, err
+	}
+	count, err := pluginAPI.Count()
 	if err != nil {
 		return 500, err
 	}
@@ -32,7 +29,7 @@ func APIGetAllTask(c *gin.Context, u *sn.Users) (int, error) {
 		s := strings.Split(strings.TrimSpace(rec[i].Output), "\n")
 		rec[i].Output = s[len(s)-1]
 	}
-	c.JSON(200, gin.H{"code": 0, "msg": "Get all task success", "data": rec})
+	c.JSON(200, gin.H{"code": 0, "msg": "Get all task success", "data": rec, "total": count})
 	return 0, nil
 }
 

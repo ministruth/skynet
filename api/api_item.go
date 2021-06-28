@@ -16,6 +16,12 @@ var api = []*sn.SNAPIItem{
 		Func:   APISignOut,
 	},
 	{
+		Path:   "/user",
+		Method: sn.APIGet,
+		Role:   sn.RoleAdmin,
+		Func:   APIGetUser,
+	},
+	{
 		Path:   "/user/:id",
 		Method: sn.APIPatch,
 		Role:   sn.RoleUser,
@@ -38,6 +44,12 @@ var api = []*sn.SNAPIItem{
 		Method: sn.APIGet,
 		Role:   sn.RoleAdmin,
 		Func:   APIReload,
+	},
+	{
+		Path:   "/plugin",
+		Method: sn.APIGet,
+		Role:   sn.RoleAdmin,
+		Func:   APIGetPlugin,
 	},
 	{
 		Path:   "/plugin/:id",

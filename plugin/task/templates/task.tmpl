@@ -24,31 +24,13 @@
             {{end}}
           </tr>
         </thead>
-        <tbody id="tasks">
+        <tbody id="task">
         </tbody>
       </table>
     </div>
     <div class="card-footer clearfix">
-      <ul class="pagination pagination-sm m-0 d-flex justify-content-center">
-        {{range split ._page ._totpage}}
-        {{if .Active}}
-        <li class="page-item active"><a class="page-link" page="{{.Number}}">{{.Text}}</a></li>
-        {{else}}
-        {{if .Disabled}}
-        <li class="page-item disabled"><a class="page-link" page="{{.Number}}">{{.Text}}</a></li>
-        {{else}}
-        <li class="page-item"><a class="page-link" page="{{.Number}}">{{.Text}}</a></li>
-        {{end}}
-        {{end}}
-        {{end}}
-        <li>
-          <select class="form-control pagebtn">
-            <option value="5">5 / page</option>
-            <option value="10">10 / page</option>
-            <option value="20">20 / page</option>
-            <option value="50">50 / page</option>
-          </select>
-        </li>
+      <ul data-page="task" data-total="{{ ._total }}"
+        class="pagination pagination-sm m-0 d-flex justify-content-center">
       </ul>
     </div>
   </div>
@@ -144,35 +126,6 @@
 <script nonce="{{ ._nonce }}">
   "use strict"
 
-  let sp = GetPageSize(10, [5, 10, 20, 50]);
-
-  $(".pagebtn").on("change", function () {
-    InsertParam("size", this.value);
-  });
-
-  $(".page-item").click((e) => {
-    InsertParam("page", e.target.getAttribute("page"));
-  });
-
-  $("#modal-detail").attrchange({
-    trackValues: true,
-    callback: function (evt) {
-      if (evt.attributeName == "aria-hidden" && evt.newValue == undefined)
-        $("#detailOutput").scrollTop($("#detailOutput")[0].scrollHeight);
-    }
-  });
-
-  $("#killConfirm").click((e) => {
-    JSONDelete(`/api/plugin/c1e81895-1f75-4988-9f10-52786b875ec7/task/${e.target.getAttribute("data-taskID")}`).done((d) => {
-      $('#modal-kill').modal('hide');
-      DelayReload()(d);
-    });
-  })
-
-  $("#deleteInactive").click((e) => {
-    JSONDelete("/api/plugin/c1e81895-1f75-4988-9f10-52786b875ec7/task").done(DelayReload());
-  });
-
   const getColor = (s) => {
     let bgcolor;
     let badge;
@@ -202,45 +155,45 @@
     return [bgcolor, badge];
   }
 
-  function parseTable(r) {
-    let color = getColor(r.Status);
+  const ParseData = (d) => {
+    let color = getColor(d.Status);
 
     return `
     <tr>
-      <td>${r.ID}</td>
-      <td>${r.Name}</td>
+      <td>${d.ID}</td>
+      <td>${d.Name}</td>
       <td>
         <span class="badge ${color[0]}">${color[1]}</span>
       </td>
       <td>
         <div class="progress">
           <div class="progress-bar ${color[0]}"
-           role="progressbar" aria-valuenow="${r.Percent}"
+           role="progressbar" aria-valuenow="${d.Percent}"
            aria-valuemin="0" aria-valuemax="100"></div>
         </div>
       </td>
-      <td>${r.Output}</td>
-      <td>${TimeSince(new Date(r.Track.UpdatedAt))} ago</td>
+      <td>${d.Output}</td>
+      <td>${new Date(d.Track.UpdatedAt).TimeSince()} ago</td>
       <td>
-        <button data-taskID="${r.ID}" data-toggle="modal" 
+        <button data-taskID="${d.ID}" data-toggle="modal" 
           data-target="#modal-detail" type="button"
-          class="btn btn-outline-primary ${$("deleteInactive").length == 0 ? "" : "mr-1"}">Detail</button>
-        <button data-taskID="${r.ID}" data-toggle="modal" 
+          class="btn btn-outline-primary ${$("#deleteInactive").length == 0 ? "" : "mr-1"}">Detail</button>
+        <button data-taskID="${d.ID}" data-toggle="modal" 
           data-target="#modal-kill" type="button"
-          class="btn btn-outline-danger" ${$("deleteInactive").length == 0 ? "hidden" : ""} ${["IDLE", "RUNNING"].includes(color[1]) ? "" : "disabled"}>Kill</button>
+          class="btn btn-outline-danger" ${$("#deleteInactive").length == 0 ? "hidden" : ""} ${["IDLE", "RUNNING"].includes(color[1]) ? "" : "disabled"}>Kill</button>
       </td>
     </tr>
     `;
-  }
+  };
 
-  let data;
-  function update() {
-    JSONGet(`/api/plugin/c1e81895-1f75-4988-9f10-52786b875ec7/task?page=${sp[0]}&size=${sp[1]}`).done((e) => {
-      if (JSON.stringify(e.data) !== JSON.stringify(data)) {
-        data = e.data;
-        $("#tasks").empty();
+  const ParseFunc = (obj, page, size) => {
+    JSONGet(`/api/plugin/c1e81895-1f75-4988-9f10-52786b875ec7/task?page=${page}&size=${size}`).done((e) => {
+      if (UpdateTotal("task", e.total, ParseFunc))
+        return;
+      if (JSON.stringify(e.data) !== JSON.stringify(obj.data)) {
+        $("#task").empty();
         $.each(e.data, function (_, e) {
-          $("#tasks").append(parseTable(e));
+          $("#task").append(ParseData(e));
         });
         updateProgress();
         $("[data-target='#modal-kill']").click((e) => {
@@ -267,11 +220,29 @@
             updateProgress();
           });
         })
+        obj.data = e.data;
       }
-    });
-  }
+    })
+  };
+  ParsePage("task", 10, [5, 10, 20, 50], ParseFunc, 1000);
 
-  update();
-  setInterval(update, 1000);
+  $("#modal-detail").attrchange({
+    trackValues: true,
+    callback: function (evt) {
+      if (evt.attributeName == "aria-hidden" && evt.newValue == undefined)
+        $("#detailOutput").scrollTop($("#detailOutput")[0].scrollHeight);
+    }
+  });
+
+  $("#killConfirm").click((e) => {
+    JSONDelete(`/api/plugin/c1e81895-1f75-4988-9f10-52786b875ec7/task/${e.target.getAttribute("data-taskID")}`).done((d) => {
+      $('#modal-kill').modal('hide');
+      DelayReload()(d);
+    });
+  })
+
+  $("#deleteInactive").click((e) => {
+    JSONDelete("/api/plugin/c1e81895-1f75-4988-9f10-52786b875ec7/task").done(DelayReload());
+  });
 </script>
 {{end}}

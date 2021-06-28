@@ -3,10 +3,8 @@ package page
 import (
 	"fmt"
 	"skynet/sn"
-	"skynet/sn/utils"
 
 	"github.com/gin-gonic/gin"
-	"github.com/jinzhu/copier"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
@@ -74,7 +72,7 @@ var pages = []*sn.SNPageItem{
 			},
 		}),
 		BeforeRender: func(c *gin.Context, u *sn.Users, v *sn.SNPageItem) bool {
-			v.Param["plugins"] = sn.Skynet.Plugin.GetAll()
+			v.Param["_total"] = sn.Skynet.Plugin.Count()
 			return true
 		},
 	},
@@ -123,29 +121,13 @@ var pages = []*sn.SNPageItem{
 			},
 		}),
 		BeforeRender: func(c *gin.Context, u *sn.Users, v *sn.SNPageItem) bool {
-			users, err := sn.Skynet.User.GetAll(nil)
+			count, err := sn.Skynet.User.Count()
 			if err != nil {
 				log.Error(err)
 				c.AbortWithStatus(500)
 				return false
 			}
-
-			type userParam struct {
-				sn.Users
-				Online bool
-			}
-			param := make([]userParam, len(users))
-			for i := range users {
-				s, err := utils.FindSessionsByID(int(users[i].ID))
-				if err != nil {
-					log.Error(err)
-					c.AbortWithStatus(500)
-					return false
-				}
-				copier.Copy(&param[i].Users, users[i])
-				param[i].Online = len(s) != 0
-			}
-			v.Param["users"] = param
+			v.Param["_total"] = count
 			return true
 		},
 	},
@@ -170,25 +152,7 @@ var pages = []*sn.SNPageItem{
 				c.AbortWithStatus(500)
 				return false
 			}
-			low, high, ok := utils.PreSplitFunc(c, v, int(count), 10, []int{5, 10, 20, 50})
-			if !ok {
-				return false
-			}
-			if low == -1 {
-				v.Param["notifications"] = []*sn.Notifications{}
-			} else {
-				rec, err := sn.Skynet.Notification.GetAll(&sn.SNCondition{
-					Order:  []interface{}{"id desc"},
-					Limit:  high - low,
-					Offset: low,
-				})
-				if err != nil {
-					log.Error(err)
-					c.AbortWithStatus(500)
-					return false
-				}
-				v.Param["notifications"] = rec
-			}
+			v.Param["_total"] = count
 			err = sn.Skynet.Notification.MarkAllRead()
 			if err != nil {
 				log.Error(err)

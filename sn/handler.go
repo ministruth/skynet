@@ -29,6 +29,7 @@ type SNUser interface {
 	GetAll(cond *SNCondition) ([]*Users, error)
 	GetByUsername(username string) (*Users, error)
 	GetByID(id int) (*Users, error)
+	Count() (int64, error)
 }
 
 type SNNotification interface {
@@ -43,6 +44,7 @@ type SNNotification interface {
 }
 
 type SNPlugin interface {
+	Count() int64
 	Enable(id uuid.UUID) error
 	Disable(id uuid.UUID) error
 	GetAll() interface{}

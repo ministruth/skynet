@@ -18,54 +18,13 @@
             <th class="th-170">Time</th>
           </tr>
         </thead>
-        <tbody id="notifications">
-          {{range .notifications}}
-          <tr>
-            <td>{{ .ID }}</td>
-            {{if eq .Level 0}}
-            <td><span class="badge bg-primary">INFO</span></td>
-            {{end}}
-            {{if eq .Level 1}}
-            <td><span class="badge bg-success">SUCCESS</span></td>
-            {{end}}
-            {{if eq .Level 2}}
-            <td><span class="badge bg-warning">WARNING</span></td>
-            {{end}}
-            {{if eq .Level 3}}
-            <td><span class="badge bg-danger">ERROR</span></td>
-            {{end}}
-            {{if eq .Level 4}}
-            <td><span class="badge bg-orange">FATAL</span></td>
-            {{end}}
-            <td>{{ .Name }}</td>
-            <td>{{ .Message }}</td>
-            <td>{{ time .Track.CreatedAt }}</td>
-          </tr>
-          {{end}}
+        <tbody id="notification">
         </tbody>
       </table>
     </div>
     <div class="card-footer clearfix">
-      <ul class="pagination pagination-sm m-0 d-flex justify-content-center">
-        {{range split ._page ._totpage}}
-        {{if .Active}}
-        <li class="page-item active"><a class="page-link" page="{{.Number}}">{{.Text}}</a></li>
-        {{else}}
-        {{if .Disabled}}
-        <li class="page-item disabled"><a class="page-link" page="{{.Number}}">{{.Text}}</a></li>
-        {{else}}
-        <li class="page-item"><a class="page-link" page="{{.Number}}">{{.Text}}</a></li>
-        {{end}}
-        {{end}}
-        {{end}}
-        <li>
-          <select class="form-control pagebtn">
-            <option value="5">5 / page</option>
-            <option value="10">10 / page</option>
-            <option value="20">20 / page</option>
-            <option value="50">50 / page</option>
-          </select>
-        </li>
+      <ul data-page="notification" data-total="{{ ._total }}"
+        class="pagination pagination-sm m-0 d-flex justify-content-center">
       </ul>
     </div>
   </div>
@@ -76,15 +35,50 @@
 <script nonce="{{ ._nonce }}">
   "use strict"
 
-  let sp = GetPageSize(10, [5, 10, 20, 50]);
+  const ParseData = (d) => {
+    let level = "";
+    switch (d.Level) {
+      case 0:
+        level = '<span class="badge bg-primary">INFO</span>';
+        break;
+      case 1:
+        level = '<span class="badge bg-success">SUCCESS</span>';
+        break;
+      case 2:
+        level = '<span class="badge bg-warning">WARNING</span>';
+        break;
+      case 3:
+        level = '<span class="badge bg-danger">ERROR</span>';
+        break;
+      case 4:
+        level = '<span class="badge bg-orange">FATAL</span>';
+        break;
+    }
+    return `
+      <tr>
+        <td>${d.ID}</td>
+        <td>${level}</td>
+        <td>${d.Name}</td>
+        <td>${d.Message}</td>
+        <td>${new Date(d.Track.CreatedAt).Format("yyyy-MM-dd hh:mm:ss")}</td>
+      </tr>
+    `;
+  };
 
-  $(".pagebtn").on("change", function () {
-    InsertParam("size", this.value)
-  });
-
-  $(".page-item").click((e) => {
-    InsertParam("page", e.target.getAttribute("page"))
-  })
+  const ParseFunc = (obj, page, size) => {
+    JSONGet(`/api/notification?page=${page}&size=${size}&order=desc`).done((e) => {
+      if (UpdateTotal("notification", e.total, ParseFunc))
+        return;
+      if (JSON.stringify(e.data) !== JSON.stringify(obj.data)) {
+        $("#notification").empty();
+        $.each(e.data, function (_, e) {
+          $("#notification").append(ParseData(e));
+        });
+        obj.data = e.data;
+      }
+    })
+  };
+  ParsePage("notification", 10, [5, 10, 20, 50], ParseFunc, 0);
 
   $("#deleteAll").click((e) => {
     JSONDelete("/api/notification").done(DelayReload());

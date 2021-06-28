@@ -2,9 +2,7 @@ package page
 
 import (
 	"errors"
-	"fmt"
 	"html/template"
-	"math"
 	"reflect"
 	"strconv"
 	"time"
@@ -20,7 +18,6 @@ var defaultFunc = template.FuncMap{
 	"bytes":   formatBytes,
 	"percent": formatPercent,
 	"dict":    templateDict,
-	"split":   splitPage,
 }
 
 func templateDict(values ...interface{}) (map[string]interface{}, error) {
@@ -69,106 +66,4 @@ func formatBytes(n uint64) string {
 
 func formatPercent(p float64, c int) string {
 	return strconv.FormatFloat(p, 'f', c, 64)
-}
-
-type pagination struct {
-	Text     string
-	Number   int
-	Active   bool
-	Disabled bool
-}
-
-func splitPage(p int, n int) []*pagination {
-	var ret []*pagination
-
-	ret = append(ret, &pagination{
-		Text:     "«",
-		Number:   int(math.Max(1, float64(p-1))),
-		Disabled: p == 1,
-	})
-	if n <= 5 {
-		for i := 1; i <= n; i++ {
-			ret = append(ret, &pagination{
-				Text:   fmt.Sprint(i),
-				Number: i,
-				Active: i == p,
-			})
-		}
-	} else {
-		low := int(math.Max(float64(p-2), 1))
-		high := int(math.Min(float64(p+2), float64(n)))
-		if low == 1 {
-			for i := 1; i <= 4; i++ {
-				ret = append(ret, &pagination{
-					Text:   fmt.Sprint(i),
-					Number: i,
-					Active: i == p,
-				})
-			}
-			ret = append(ret, &pagination{
-				Text:     "...",
-				Number:   0,
-				Disabled: true,
-			})
-			ret = append(ret, &pagination{
-				Text:   fmt.Sprint(n),
-				Number: n,
-			})
-		} else if high == n {
-			ret = append(ret, &pagination{
-				Text:   "1",
-				Number: 1,
-			})
-			ret = append(ret, &pagination{
-				Text:     "...",
-				Number:   0,
-				Disabled: true,
-			})
-			for i := n - 3; i <= n; i++ {
-				ret = append(ret, &pagination{
-					Text:   fmt.Sprint(i),
-					Number: i,
-					Active: i == p,
-				})
-			}
-		} else {
-			ret = append(ret, &pagination{
-				Text:   "1",
-				Number: 1,
-			})
-			ret = append(ret, &pagination{
-				Text:     "...",
-				Number:   0,
-				Disabled: true,
-			})
-			ret = append(ret, &pagination{
-				Text:   fmt.Sprint(p - 1),
-				Number: p - 1,
-			})
-			ret = append(ret, &pagination{
-				Text:   fmt.Sprint(p),
-				Number: p,
-				Active: true,
-			})
-			ret = append(ret, &pagination{
-				Text:   fmt.Sprint(p + 1),
-				Number: p + 1,
-			})
-			ret = append(ret, &pagination{
-				Text:     "...",
-				Number:   0,
-				Disabled: true,
-			})
-			ret = append(ret, &pagination{
-				Text:   fmt.Sprint(n),
-				Number: n,
-			})
-		}
-	}
-	ret = append(ret, &pagination{
-		Text:     "»",
-		Number:   int(math.Min(float64(p+1), float64(n))),
-		Disabled: p == n,
-	})
-	return ret
 }

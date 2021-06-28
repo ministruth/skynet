@@ -5,7 +5,6 @@ import (
 	"skynet/plugin/task/shared"
 	"skynet/sn"
 	"skynet/sn/utils"
-	"strings"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -105,32 +104,14 @@ func (p *PluginInstance) PluginInit() error {
 					Active: true,
 				},
 			}),
-			AfterRenderPrepare: func(c *gin.Context, u *sn.Users, v *sn.SNPageItem) bool {
+			BeforeRender: func(c *gin.Context, u *sn.Users, v *sn.SNPageItem) bool {
 				count, err := pluginAPI.Count()
 				if err != nil {
 					log.Error(err)
 					c.AbortWithStatus(500)
 					return false
 				}
-				low, high, ok := utils.PreSplitFunc(c, v, int(count), 10, []int{5, 10, 20, 50})
-				if !ok {
-					return false
-				}
-				if low == -1 {
-					v.Param["tasks"] = []*shared.PluginTasks{}
-				} else {
-					rec, err := pluginAPI.GetAll([]interface{}{"id desc"}, high-low, low, nil)
-					if err != nil {
-						log.Error(err)
-						c.AbortWithStatus(500)
-						return false
-					}
-					for i := range rec {
-						s := strings.Split(rec[i].Output, "\n")
-						rec[i].Output = s[len(s)-1]
-					}
-					v.Param["tasks"] = rec
-				}
+				v.Param["_total"] = count
 				return true
 			},
 		},

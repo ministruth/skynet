@@ -22,68 +22,13 @@
             <th class="th-70">Latency</th>
           </tr>
         </thead>
-        <tbody id="agents">
-          {{range .agents}}
-          <tr data-widget="expandable-table" aria-expanded="false">
-            <td>{{ .ID }}</td>
-            <td>{{ .Name }}</td>
-            {{if .Online}}
-            <td id="agent_{{ .ID }}_status"><span class="badge bg-success">ONLINE</span></td>
-            {{else}}
-            <td id="agent_{{ .ID }}_status"><span class="badge bg-secondary">OFFLINE</span></td>
-            {{end}}
-            <td>{{ .IP }}</td>
-            <td id="agent_{{ .ID }}_onlinetime"></td>
-            <td id="agent_{{ .ID }}_load1"></td>
-            <td id="agent_{{ .ID }}_net"></td>
-            <td id="agent_{{ .ID }}_band"></td>
-            <td id="agent_{{ .ID }}_cpu"></td>
-            <td id="agent_{{ .ID }}_mem"></td>
-            <td id="agent_{{ .ID }}_disk"></td>
-            <td id="agent_{{ .ID }}_latency"></td>
-          </tr>
-          <tr class="expandable-body d-none">
-            <td colspan="12">
-              <div class="row mt-0 pt-0 mb-0 pb-0">
-                <div class="col-sm">
-                  <p class="mt-1 pt-0 mb-0 pb-0">Hostname: {{ .HostName }}</p>
-                  <p class="mt-1 pt-0 mb-0 pb-0">System: {{ .System }}</p>
-                  <p class="mt-1 pt-0 mb-0 pb-0">Machine: {{ .Machine }}</p>
-                  <p class="mt-1 pt-0 mb-1 pb-0">Last Connect: {{ time .LastLogin }}</p>
-                </div>
-                <div class="col-sm">
-                  <p id="agent_{{ .ID }}_d_mem" class="mt-1 pt-0 mb-0 pb-0">Memory:</p>
-                  <p id="agent_{{ .ID }}_d_disk" class="mt-1 pt-0 mb-0 pb-0">Disk:</p>
-                  <p id="agent_{{ .ID }}_d_update" class="mt-1 pt-0 mb-1 pb-0">Last Update:</p>
-                </div>
-              </div>
-            </td>
-          </tr>
-          {{end}}
+        <tbody id="agent">
         </tbody>
       </table>
     </div>
     <div class="card-footer clearfix">
-      <ul class="pagination pagination-sm m-0 d-flex justify-content-center">
-        {{range split ._page ._totpage}}
-        {{if .Active}}
-        <li class="page-item active"><a class="page-link" page="{{.Number}}">{{.Text}}</a></li>
-        {{else}}
-        {{if .Disabled}}
-        <li class="page-item disabled"><a class="page-link" page="{{.Number}}">{{.Text}}</a></li>
-        {{else}}
-        <li class="page-item"><a class="page-link" page="{{.Number}}">{{.Text}}</a></li>
-        {{end}}
-        {{end}}
-        {{end}}
-        <li>
-          <select class="form-control pagebtn">
-            <option value="5">5 / page</option>
-            <option value="10">10 / page</option>
-            <option value="20">20 / page</option>
-            <option value="50">50 / page</option>
-          </select>
-        </li>
+      <ul data-page="agent" data-total="{{ ._total }}"
+        class="pagination pagination-sm m-0 d-flex justify-content-center">
       </ul>
     </div>
   </div>
@@ -94,21 +39,63 @@
 <script nonce="{{ ._nonce }}">
   "use strict"
 
-  let sp = GetPageSize(10, [5, 10, 20, 50]);
+  const ParseData = (d) => {
+    return `
+      <tr data-widget="expandable-table" aria-expanded="false">
+        <td>${d.ID}</td>
+        <td>${d.Name}</td>
+        ${d.Online ? '<td id="agent_' + d.ID + '_status"><span class="badge bg-success">ONLINE</span></td>' :
+        '<td id="agent_' + d.ID + '_status"><span class="badge bg-secondary">OFFLINE</span></td>'}
+        <td>${d.IP}</td>
+        <td id="agent_${d.ID}_onlinetime">${d.Online ? new Date(d.LastLogin).TimeSince() : ''}</td>
+        <td id="agent_${d.ID}_load1">${d.Online ? d.Load1 : ''}</td>
+        <td id="agent_${d.ID}_net">${d.Online ? SizeString(d.NetUp, 1) + " | " + SizeString(d.NetDown, 1) : ''}</td>
+        <td id="agent_${d.ID}_band">${d.Online ? SizeString(d.BandUp, 1) + " | " + SizeString(d.BandDown, 1) : ''}</td>
+        <td id="agent_${d.ID}_cpu">${d.Online ? d.CPU.toFixed(1) + "%" : ''}</td>
+        <td id="agent_${d.ID}_mem">${d.Online ? (d.Mem * 100 / d.TotalMem).toFixed(1) + "%" : ''}</td>
+        <td id="agent_${d.ID}_disk">${d.Online ? (d.Disk * 100 / d.TotalDisk).toFixed(1) + "%" : ''}</td>
+        <td id="agent_${d.ID}_latency">${d.Online ? d.Latency + " ms" : ''}</td>
+      </tr>
+      <tr class="expandable-body d-none">
+        <td colspan="12">
+          <div class="row mt-0 pt-0 mb-0 pb-0">
+            <div class="col-sm">
+              <p class="mt-1 pt-0 mb-0 pb-0">Hostname: ${d.HostName}</p>
+              <p class="mt-1 pt-0 mb-0 pb-0">System: ${d.System}</p>
+              <p class="mt-1 pt-0 mb-0 pb-0">Machine: ${d.Machine}</p>
+              <p class="mt-1 pt-0 mb-1 pb-0">Last Connect: ${new Date(d.LastLogin).Format("yyyy-MM-dd hh:mm:ss")}</p>
+            </div>
+            <div class="col-sm">
+              <p id="agent_${d.ID}_d_mem" class="mt-1 pt-0 mb-0 pb-0">Memory: ${d.Online ? SizeString(d.Mem, 1) + " / " + SizeString(d.TotalMem, 1) : ''}</p>
+              <p id="agent_${d.ID}_d_disk" class="mt-1 pt-0 mb-0 pb-0">Disk: ${d.Online ? SizeString(d.Disk, 1) + " / " + SizeString(d.TotalDisk, 1) : ''}</p>
+              <p id="agent_${d.ID}_d_update" class="mt-1 pt-0 mb-1 pb-0">Last Update: ${d.Online ? new Date(d.LastRsp).TimeSince() : ''}</p>
+            </div>
+          </div>
+        </td>
+      </tr>
+    `;
+  };
 
-  $(".pagebtn").on("change", function () {
-    InsertParam("size", this.value)
-  });
-
-  $(".page-item").click((e) => {
-    InsertParam("page", e.target.getAttribute("page"))
-  })
+  const ParseFunc = (obj, page, size) => {
+    JSONGet(`/api/plugin/2eb2e1a5-66b4-45f9-ad24-3c4f05c858aa/agent?page=${page}&size=${size}`).done((e) => {
+      if (UpdateTotal("agent", e.total, ParseFunc))
+        return;
+      if (JSON.stringify(e.data) !== JSON.stringify(obj.data)) {
+        $("#agent").empty();
+        $.each(e.data, function (_, e) {
+          $("#agent").append(ParseData(e));
+        });
+        obj.data = e.data;
+      }
+    })
+  };
+  ParsePage("agent", 10, [5, 10, 20, 50], ParseFunc, 0);
 
   function updateTable(r) {
     $('#agent_' + r.ID + '_status').empty();
     if (r.Online) {
       $('#agent_' + r.ID + '_status').append('<span class="badge bg-success">ONLINE</span>');
-      $('#agent_' + r.ID + '_onlinetime').text(TimeSince(new Date(r.LastLogin)));
+      $('#agent_' + r.ID + '_onlinetime').text(new Date(r.LastLogin).TimeSince());
       $('#agent_' + r.ID + '_load1').text(r.Load1);
       $('#agent_' + r.ID + '_net').text(SizeString(r.NetUp, 1) + " | " + SizeString(r.NetDown, 1));
       $('#agent_' + r.ID + '_band').text(SizeString(r.BandUp, 1) + " | " + SizeString(r.BandDown, 1));
@@ -118,7 +105,7 @@
       $('#agent_' + r.ID + '_latency').text(r.Latency + " ms");
       $('#agent_' + r.ID + '_d_mem').text("Memory: " + SizeString(r.Mem, 1) + " / " + SizeString(r.TotalMem, 1));
       $('#agent_' + r.ID + '_d_disk').text("Disk: " + SizeString(r.Disk, 1) + " / " + SizeString(r.TotalDisk, 1));
-      $('#agent_' + r.ID + '_d_update').text("Last Update: " + TimeSince(new Date(r.LastRsp)));
+      $('#agent_' + r.ID + '_d_update').text("Last Update: " + new Date(r.LastRsp).TimeSince());
     } else {
       $('#agent_' + r.ID + '_status').append('<span class="badge bg-secondary">OFFLINE</span>');
       $('#agent_' + r.ID + '_onlinetime').empty();
@@ -135,8 +122,9 @@
     }
   }
 
+  let props = _page_status["agent"];
   function update() {
-    JSONGet(`/api/plugin/2eb2e1a5-66b4-45f9-ad24-3c4f05c858aa/agent?page=${sp[0]}&size=${sp[1]}`).done((e) => {
+    JSONGet(`/api/plugin/2eb2e1a5-66b4-45f9-ad24-3c4f05c858aa/agent?page=${props.page}&size=${props.size}`).done((e) => {
       $.each(e.data, function (_, e) {
         updateTable(e);
       });

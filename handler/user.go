@@ -13,6 +13,12 @@ func NewUser() sn.SNUser {
 	return &siteUser{}
 }
 
+func (u *siteUser) Count() (int64, error) {
+	var count int64
+	err := utils.GetDB().Model(&sn.Users{}).Count(&count).Error
+	return count, err
+}
+
 func (u *siteUser) New(username string, password string, avatar []byte, role sn.UserRole) (string, error) {
 	var newpass string
 	if password == "" {
