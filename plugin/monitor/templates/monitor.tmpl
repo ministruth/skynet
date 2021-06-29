@@ -44,8 +44,8 @@
       <tr data-widget="expandable-table" aria-expanded="false">
         <td>${d.ID}</td>
         <td>${d.Name}</td>
-        ${d.Online ? '<td id="agent_' + d.ID + '_status"><span class="badge bg-success">ONLINE</span></td>' :
-        '<td id="agent_' + d.ID + '_status"><span class="badge bg-secondary">OFFLINE</span></td>'}
+        <td id="agent_' + d.ID + '_status">${d.Online ? '<span class="badge bg-success">ONLINE</span></td>' :
+        '<span class="badge bg-secondary">OFFLINE</span>'}</td>
         <td>${d.IP}</td>
         <td id="agent_${d.ID}_onlinetime">${d.Online ? new Date(d.LastLogin).TimeSince() : ''}</td>
         <td id="agent_${d.ID}_load1">${d.Online ? d.Load1 : ''}</td>

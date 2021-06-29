@@ -22,22 +22,22 @@ func SaveCTXSession(c *gin.Context) error {
 	return sessions.Save(c.Request, c.Writer)
 }
 
-func WithAdmin(f func(c *gin.Context, u *sn.Users), re bool) func(c *gin.Context) {
-	return WithAdminErr(func(c *gin.Context, u *sn.Users) (int, error) {
+func WithAdmin(f func(c *gin.Context, u *sn.User), re bool) func(c *gin.Context) {
+	return WithAdminErr(func(c *gin.Context, u *sn.User) (int, error) {
 		f(c, u)
 		return 0, nil
 	}, re)
 }
 
-func WithSignIn(f func(c *gin.Context, u *sn.Users), re bool) func(c *gin.Context) {
-	return WithSignInErr(func(c *gin.Context, u *sn.Users) (int, error) {
+func WithSignIn(f func(c *gin.Context, u *sn.User), re bool) func(c *gin.Context) {
+	return WithSignInErr(func(c *gin.Context, u *sn.User) (int, error) {
 		f(c, u)
 		return 0, nil
 	}, re)
 }
 
 func WithAdminErr(f sn.SNAPIFunc, re bool) func(c *gin.Context) {
-	return WithSignInErr(func(c *gin.Context, u *sn.Users) (int, error) {
+	return WithSignInErr(func(c *gin.Context, u *sn.User) (int, error) {
 		if u.Role == sn.RoleAdmin {
 			return f(c, u)
 		} else {
@@ -60,7 +60,7 @@ func WithSignInErr(f sn.SNAPIFunc, re bool) func(c *gin.Context) {
 			return
 		}
 		if res {
-			var u sn.Users
+			var u sn.User
 			err := GetDB().First(&u, c.MustGet("id")).Error
 			if err != nil {
 				log.Error(err)

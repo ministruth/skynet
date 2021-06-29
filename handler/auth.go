@@ -14,7 +14,7 @@ func HashPass(pass string) string {
 	return utils.MD5(viper.GetString("database.salt_prefix") + pass + viper.GetString("database.salt_suffix"))
 }
 
-func CheckUserPass(user string, pass string) (*sn.Users, int, error) {
+func CheckUserPass(user string, pass string) (*sn.User, int, error) {
 	rec, err := sn.Skynet.User.GetByUsername(user)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, 1, nil

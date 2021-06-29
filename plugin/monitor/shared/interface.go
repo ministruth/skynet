@@ -2,6 +2,9 @@ package shared
 
 import (
 	"errors"
+	"os"
+	plugins "skynet/plugin"
+	"skynet/sn"
 	"time"
 
 	"github.com/google/uuid"
@@ -12,7 +15,28 @@ var (
 	AgentNotExistError  = errors.New("Agent not exist")
 	AgentNotOnlineError = errors.New("Agent not online")
 	UIDNotFoundError    = errors.New("Command UID not found")
+	OPTimeoutError      = errors.New("Operation timeout")
 )
+
+type PluginMonitorAgent struct {
+	ID        int32  `gorm:"primaryKey;not null"`
+	UID       string `gorm:"uniqueIndex;type:char(32);not null"`
+	Name      string `gorm:"type:varchar(32);not null"`
+	Hostname  string `gorm:"type:varchar(256)"`
+	LastIP    string `gorm:"type:varchar(64)"`
+	System    string `gorm:"type:varchar(128)"`
+	Machine   string `gorm:"type:varchar(32)"`
+	LastLogin time.Time
+	Track     sn.Track `gorm:"embedded"`
+}
+
+type PluginMonitorAgentSetting struct {
+	ID      int32    `gorm:"primaryKey;not null"`
+	AgentID int32    `gorm:"not null"`
+	Name    string   `gorm:"type:varchar(256);not null"`
+	Value   string   `gorm:"type:varchar(1024);not null"`
+	Track   sn.Track `gorm:"embedded"`
+}
 
 type CMDRes struct {
 	Data     string
@@ -49,8 +73,17 @@ type AgentInfo struct {
 }
 
 type PluginShared interface {
-	KillCMD(id int, uid uuid.UUID) error
+	GetPluginPath(c *plugins.PluginConfig, p string) string
+	DeleteAllSetting(id int) error
+	DeleteSetting(id int, name string) error
+	GetAllSetting(id int) ([]*PluginMonitorAgentSetting, error)
+	GetSetting(id int, name string) (*PluginMonitorAgentSetting, error)
+	NewSetting(id int, name string, value string) error
+	UpdateSetting(id int, name string, value string) error
+	WriteFile(id int, path string, file string, recursive bool, override bool, perm os.FileMode, timeout time.Duration) error
+	KillCMD(id int, uid uuid.UUID, isReturn bool) error
 	GetCMDRes(id int, uid uuid.UUID) (*CMDRes, error)
-	RunCMD(id int, cmd string) (uuid.UUID, chan string, error)
+	RunCMDAsync(id int, cmd string) (uuid.UUID, chan string, error)
+	RunCMDSync(id int, cmd string, timeout time.Duration) (uuid.UUID, string, error)
 	GetAgents() map[int]*AgentInfo
 }

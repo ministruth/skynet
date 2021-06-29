@@ -15,7 +15,7 @@ func NewUser() sn.SNUser {
 
 func (u *siteUser) Count() (int64, error) {
 	var count int64
-	err := utils.GetDB().Model(&sn.Users{}).Count(&count).Error
+	err := utils.GetDB().Model(&sn.User{}).Count(&count).Error
 	return count, err
 }
 
@@ -32,7 +32,7 @@ func (u *siteUser) New(username string, password string, avatar []byte, role sn.
 		return "", err
 	}
 
-	user := sn.Users{
+	user := sn.User{
 		Username: username,
 		Password: HashPass(newpass),
 		Avatar:   webpAvatar.Data(),
@@ -69,7 +69,7 @@ func (u *siteUser) Update(id int, username string, password string, role sn.User
 		}
 	}
 
-	var rec sn.Users
+	var rec sn.User
 	err = utils.GetDB().First(&rec, id).Error
 	if err != nil {
 		return err
@@ -96,7 +96,7 @@ func (u *siteUser) Delete(id int) (bool, error) {
 		return false, err
 	}
 
-	res := utils.GetDB().Delete(&sn.Users{}, id)
+	res := utils.GetDB().Delete(&sn.User{}, id)
 	if res.RowsAffected == 0 {
 		return false, nil
 	} else if res.Error != nil {
@@ -109,8 +109,8 @@ func (u *siteUser) Delete(id int) (bool, error) {
 	return true, nil
 }
 
-func (u *siteUser) GetByUsername(username string) (*sn.Users, error) {
-	var rec sn.Users
+func (u *siteUser) GetByUsername(username string) (*sn.User, error) {
+	var rec sn.User
 	err := utils.GetDB().Where("username = ?", username).First(&rec).Error
 	if err != nil {
 		return nil, err
@@ -118,8 +118,8 @@ func (u *siteUser) GetByUsername(username string) (*sn.Users, error) {
 	return &rec, nil
 }
 
-func (u *siteUser) GetByID(id int) (*sn.Users, error) {
-	var rec sn.Users
+func (u *siteUser) GetByID(id int) (*sn.User, error) {
+	var rec sn.User
 	err := utils.GetDB().First(&rec, id).Error
 	if err != nil {
 		return nil, err
@@ -128,7 +128,7 @@ func (u *siteUser) GetByID(id int) (*sn.Users, error) {
 }
 
 func (u *siteUser) Reset(id int) (string, error) {
-	var rec sn.Users
+	var rec sn.User
 	err := utils.GetDB().First(&rec, id).Error
 	if err != nil {
 		return "", err
@@ -154,7 +154,7 @@ func (u *siteUser) Reset(id int) (string, error) {
 }
 
 func (u *siteUser) ResetAll() (map[string]string, error) {
-	var rec []sn.Users
+	var rec []sn.User
 	ret := make(map[string]string)
 	err := utils.GetDB().Find(&rec).Error
 	if err != nil {
@@ -183,7 +183,7 @@ func (u *siteUser) ResetAll() (map[string]string, error) {
 	return ret, nil
 }
 
-func (u *siteUser) GetAll(cond *sn.SNCondition) ([]*sn.Users, error) {
-	var ret []*sn.Users
+func (u *siteUser) GetAll(cond *sn.SNCondition) ([]*sn.User, error) {
+	var ret []*sn.User
 	return ret, utils.DBParseCondition(cond).Find(&ret).Error
 }

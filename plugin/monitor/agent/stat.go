@@ -50,7 +50,7 @@ func UploadStat(ctx context.Context, c *websocket.Conn) {
 				log.Warn("Could not determine net usage")
 			}
 
-			d, _ := json.Marshal(msg.StatMsg{
+			d, err := json.Marshal(msg.StatMsg{
 				CPU:       cpuUsage[0],
 				Mem:       memUsage.Used,
 				TotalMem:  memUsage.Total,
@@ -61,7 +61,10 @@ func UploadStat(ctx context.Context, c *websocket.Conn) {
 				BandUp:    netUsage[0].BytesSent,
 				BandDown:  netUsage[0].BytesRecv,
 			})
-			err = msg.SendReq(c, msg.OPStat, string(d))
+			if err != nil {
+				log.Fatal(err)
+			}
+			_, err = msg.SendReq(c, msg.OPStat, string(d))
 			if err != nil {
 				log.Warn(err)
 			}

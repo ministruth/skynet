@@ -17,7 +17,7 @@ type authParam struct {
 	Remember bool   `form:"remember"`
 }
 
-func APISignIn(c *gin.Context, u *sn.Users) (int, error) {
+func APISignIn(c *gin.Context, u *sn.User) (int, error) {
 	var param authParam
 	err := c.ShouldBind(&param)
 	if err != nil {
@@ -65,7 +65,7 @@ func APISignIn(c *gin.Context, u *sn.Users) (int, error) {
 	return 0, nil
 }
 
-func APISignOut(c *gin.Context, u *sn.Users) (int, error) {
+func APISignOut(c *gin.Context, u *sn.User) (int, error) {
 	fields := log.Fields{
 		"ip": c.ClientIP(),
 		"id": u.ID,
@@ -84,7 +84,7 @@ func APISignOut(c *gin.Context, u *sn.Users) (int, error) {
 	return 0, nil
 }
 
-func APIReload(c *gin.Context, u *sn.Users) (int, error) {
+func APIReload(c *gin.Context, u *sn.User) (int, error) {
 	c.JSON(200, gin.H{"code": 0, "msg": "Restarting skynet..."})
 	go func() {
 		time.Sleep(time.Second * 2)

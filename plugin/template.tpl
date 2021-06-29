@@ -7,7 +7,7 @@ import (
 )
 
 // Plugin config, do NOT change the variable name
-var Config = plugins.PluginConfig{
+var Config = &plugins.PluginConfig{
 	ID:            uuid.MustParse("..."), // go https://www.uuidgenerator.net/ to generate your plugin uuid
 	Name:          "myplugin",            // change to your plugin name
 	Dependency:    []plugins.PluginDep{}, // if your plugin need dependency, write here

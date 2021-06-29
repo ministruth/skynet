@@ -173,7 +173,7 @@
         </div>
       </td>
       <td>${d.Output}</td>
-      <td>${new Date(d.Track.UpdatedAt).TimeSince()} ago</td>
+      <td>${new Date(d.Track.UpdatedAt).TimeSince()}</td>
       <td>
         <button data-taskID="${d.ID}" data-toggle="modal" 
           data-target="#modal-detail" type="button"
@@ -187,7 +187,7 @@
   };
 
   const ParseFunc = (obj, page, size) => {
-    JSONGet(`/api/plugin/c1e81895-1f75-4988-9f10-52786b875ec7/task?page=${page}&size=${size}`).done((e) => {
+    JSONGet(`/api/plugin/c1e81895-1f75-4988-9f10-52786b875ec7/task?page=${page}&size=${size}&order=desc`).done((e) => {
       if (UpdateTotal("task", e.total, ParseFunc))
         return;
       if (JSON.stringify(e.data) !== JSON.stringify(obj.data)) {
@@ -237,12 +237,12 @@
   $("#killConfirm").click((e) => {
     JSONDelete(`/api/plugin/c1e81895-1f75-4988-9f10-52786b875ec7/task/${e.target.getAttribute("data-taskID")}`).done((d) => {
       $('#modal-kill').modal('hide');
-      DelayReload()(d);
+      DelayHide()(d);
     });
   })
 
   $("#deleteInactive").click((e) => {
-    JSONDelete("/api/plugin/c1e81895-1f75-4988-9f10-52786b875ec7/task").done(DelayReload());
+    JSONDelete("/api/plugin/c1e81895-1f75-4988-9f10-52786b875ec7/task").done(DelayHide());
   });
 </script>
 {{end}}

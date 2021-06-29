@@ -54,7 +54,7 @@ func (s *sitePage) AddNavItem(i []*sn.SNNavItem) {
 	sn.SNNavSort(s.navbar).Sort()
 }
 
-func (r *sitePage) RenderSingle(c *gin.Context, u *sn.Users, p *sn.SNPageItem) {
+func (r *sitePage) RenderSingle(c *gin.Context, u *sn.User, p *sn.SNPageItem) {
 	p.Param["_nonce"] = c.Keys["nonce"]
 	p.Param["_csrftoken"] = csrf.Token(c.Request)
 
@@ -67,7 +67,7 @@ func (r *sitePage) RenderSingle(c *gin.Context, u *sn.Users, p *sn.SNPageItem) {
 	}
 }
 
-func (r *sitePage) Render(c *gin.Context, u *sn.Users, p *sn.SNPageItem) {
+func (r *sitePage) Render(c *gin.Context, u *sn.User, p *sn.SNPageItem) {
 	avatar, err := utils.PicFromByte(u.Avatar)
 	if err != nil {
 		log.Fatal(err)
@@ -123,8 +123,8 @@ func (r *sitePage) Render(c *gin.Context, u *sn.Users, p *sn.SNPageItem) {
 func (s *sitePage) AddPageItem(i []*sn.SNPageItem) {
 	for _, v := range i {
 		s.renderer.AddFromFilesFuncs(v.TplName, v.FuncMap, v.Files...)
-		renderer := func(v *sn.SNPageItem) func(c *gin.Context, u *sn.Users) {
-			return func(c *gin.Context, u *sn.Users) {
+		renderer := func(v *sn.SNPageItem) func(c *gin.Context, u *sn.User) {
+			return func(c *gin.Context, u *sn.User) {
 				ret := true
 				if v.Param == nil {
 					v.Param = make(map[string]interface{})

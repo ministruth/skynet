@@ -1,0 +1,179 @@
+{{define "addonContent"}}
+<div class="container-fluid">
+  <div class="card card-primary">
+    <div class="card-header">
+      <h3 class="card-title">{{ ._simpleaddon_title }}</h3>
+    </div>
+    <div class="card-body">
+      <p id="version">{{ ._simpleaddon_tips }}Loading...</p>
+      <button id="installAll" class="btn btn-primary cardbtn mr-1">Install All</button>
+      <button id="reinstallAll" class="btn btn-warning cardbtn mr-1">Reinstall All</button>
+      <button id="uninstallAll" class="btn btn-danger cardbtn">Uninstall All</button>
+      <table class="table table-bordered">
+        <thead>
+          <tr>
+            <th>ID</th>
+            <th>Name</th>
+            <th class="th-70">Agent</th>
+            <th class="th-100">Status</th>
+            <th>Version</th>
+            <th class="th-170">Install Time</th>
+            <th class="th-200">Operation</th>
+          </tr>
+        </thead>
+        <tbody id="addon">
+        </tbody>
+      </table>
+    </div>
+    <div class="card-footer clearfix">
+      <ul data-page="addon" data-total="{{ ._total }}"
+        class="pagination pagination-sm m-0 d-flex justify-content-center">
+      </ul>
+    </div>
+  </div>
+</div>
+
+<div class="modal fade" id="modal-alarm" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content bg-danger">
+      <div class="modal-header">
+        <h4 class="modal-title">Title</h4>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">×</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p id="modal-content">Content</p>
+      </div>
+      <div class="modal-footer justify-content-between">
+        <button type="button" class="btn btn-outline-light" data-dismiss="modal">Cancel</button>
+        <button id="confirm" type="button" class="btn btn-outline-light">Confirm</button>
+      </div>
+    </div>
+  </div>
+</div>
+{{end}}
+
+{{define "addonJS"}}
+<script nonce="{{ ._nonce }}">
+  "use strict"
+
+  $("#installAll").click((e) => {
+    $(".modal-title").text("Install all?")
+    $(".modal-content").attr("class", "modal-content bg-primary")
+    $("#modal-content").text("Are you sure to install addon to all agents? This may take a long time.")
+    $("#confirm").attr("data-model-operation", "install")
+    $("#modal-alarm").modal("show");
+  })
+
+  $("#uninstallAll").click((e) => {
+    $(".modal-title").text("Uninstall all?")
+    $(".modal-content").attr("class", "modal-content bg-danger")
+    $("#modal-content").text("Are you sure to uninstall addon in all agents? This may take a long time.")
+    $("#confirm").attr("data-model-operation", "uninstall")
+    $("#modal-alarm").modal("show");
+  })
+
+  $("#reinstallAll").click((e) => {
+    $(".modal-title").text("Reinstall all?")
+    $(".modal-content").attr("class", "modal-content bg-warning")
+    $("#modal-content").text("Are you sure to reinstall addon in all agents? This may take a long time.")
+    $("#confirm").attr("data-model-operation", "reinstall")
+    $("#modal-alarm").modal("show");
+  })
+
+  $("#confirm").click((e) => {
+    switch (e.target.getAttribute("data-model-operation")) {
+      case "install":
+        JSONPost("/api/plugin/{{ ._simpleaddon_id }}/agent").done(DelayHide());
+        break;
+      case "uninstall":
+        JSONDelete("/api/plugin/{{ ._simpleaddon_id }}/agent").done(DelayHide());
+        break;
+      case "reinstall":
+        JSONPatch("/api/plugin/{{ ._simpleaddon_id }}/agent").done(DelayHide());
+        break;
+    }
+    $("#modal-alarm").modal("hide");
+  });
+
+  let version = "";
+
+  const ParseData = (d) => {
+    let level = "";
+    let operation = "";
+    if (version != "" && d.Status == 2 && d.Version != version)
+      d.Status = 3;
+    switch (d.Status) {
+      case 0:
+        level = '<span class="badge bg-secondary">Not Install</span>';
+        operation = `<button data-operation="install" data-addonID="${d.ID}" type="button" 
+          class="btn btn-outline-primary" ${d.Online ? "" : "disabled"}>Install</button>`;
+        break;
+      case 1:
+        level = '<span class="badge bg-orange">Installing</span>';
+        operation = `<button type="button" class="btn btn-outline-primary"><a href="/plugin/c1e81895-1f75-4988-9f10-52786b875ec7">Task</a></button>`;
+        break;
+      case 2:
+        level = '<span class="badge bg-success">Install</span>';
+        operation = `<button data-operation="reinstall" data-addonID="${d.ID}" type="button" 
+          class="btn btn-outline-warning mr-1" ${d.Online ? "" : "disabled"}>Reinstall</button>`;
+        operation += `<button data-operation="uninstall" data-addonID="${d.ID}" type="button" 
+          class="btn btn-outline-danger" ${d.Online ? "" : "disabled"}>Uninstall</button>`;
+        break;
+      case 3:
+        level = '<span class="badge bg-warning">Outdate</span>';
+        operation = `<button data-operation="reinstall" data-addonID="${d.ID}" type="button" 
+          class="btn btn-outline-warning mr-1" ${d.Online ? "" : "disabled"}>Update</button>`;
+        operation += `<button data-operation="uninstall" data-addonID="${d.ID}" type="button" 
+          class="btn btn-outline-danger" ${d.Online ? "" : "disabled"}>Uninstall</button>`;
+        break;
+      case 4:
+        level = '<span class="badge bg-orange">Uninstalling</span>';
+        operation = `<button type="button" class="btn btn-outline-primary"><a href="/plugin/c1e81895-1f75-4988-9f10-52786b875ec7">Task</a></button>`;
+        break;
+    }
+    return `
+      <tr>
+        <td>${d.ID}</td>
+        <td>${d.Name}</td>
+        <td>${d.Online ? '<span class="badge bg-success">ONLINE</span></td>' :
+        '<span class="badge bg-secondary">OFFLINE</span>'}</td>
+        <td>${level}</td>
+        <td>${d.Version}</td>
+        <td>${d.Status >= 2 && d.Status <= 4 ? new Date(d.InstallTime).Format("yyyy-MM-dd hh:mm:ss") : ""}</td>
+        <td>${operation}</td>
+      </tr>
+    `;
+  }
+
+  const ParseFunc = (obj, page, size) => {
+    JSONGet(`/api/plugin/{{ ._simpleaddon_id }}/agent?page=${page}&size=${size}`).done((e) => {
+      if (UpdateTotal("addon", e.total, ParseFunc))
+        return;
+      if (JSON.stringify(e.data) !== JSON.stringify(obj.data)) {
+        $("#addon").empty();
+        $.each(e.data, function (_, e) {
+          $("#addon").append(ParseData(e));
+        });
+        $("[data-operation='install']").click((e) => {
+          JSONPost(`/api/plugin/{{ ._simpleaddon_id }}/agent/${e.target.getAttribute("data-addonID")}`).done(DelayHide());
+        })
+        $("[data-operation='reinstall']").click((e) => {
+          JSONPatch(`/api/plugin/{{ ._simpleaddon_id }}/agent/${e.target.getAttribute("data-addonID")}`).done(DelayHide());
+        })
+        $("[data-operation='uninstall']").click((e) => {
+          JSONDelete(`/api/plugin/{{ ._simpleaddon_id }}/agent/${e.target.getAttribute("data-addonID")}`).done(DelayHide());
+        })
+        obj.data = e.data;
+      }
+    })
+  };
+  ParsePage("addon", 10, [5, 10, 20, 50], ParseFunc, 1000);
+
+  JSONGet(`/api/plugin/{{ ._simpleaddon_id }}/version`).done((e) => {
+    version = e.data.substr(1);
+    $("#version").text(`{{ ._simpleaddon_tips }}` + version);
+  });
+</script>
+{{end}}

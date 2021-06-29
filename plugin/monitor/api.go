@@ -13,7 +13,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func APIGetAllAgent(c *gin.Context, u *sn.Users) (int, error) {
+func APIGetAllAgent(c *gin.Context, u *sn.User) (int, error) {
 	var param plugins.SPPaginationParam
 	err := c.ShouldBindQuery(&param)
 	if err != nil {
@@ -27,10 +27,10 @@ func APIGetAllAgent(c *gin.Context, u *sn.Users) (int, error) {
 			sortedAgents = append(sortedAgents, v)
 		}
 		sort.Stable(sortedAgents)
-		c.JSON(200, gin.H{"code": 0, "msg": "Get stat success",
+		c.JSON(200, gin.H{"code": 0, "msg": "Get all agent success",
 			"data": sortedAgents[(param.Page-1)*param.Size : utils.IntMin(param.Page*param.Size, len(sortedAgents))], "total": count})
 	} else {
-		c.JSON(200, gin.H{"code": 0, "msg": "Get stat success", "data": []*shared.AgentInfo{}, "total": count})
+		c.JSON(200, gin.H{"code": 0, "msg": "Get all agent success", "data": []*shared.AgentInfo{}, "total": count})
 	}
 	return 0, nil
 }
@@ -39,7 +39,7 @@ type saveSettingParam struct {
 	Token string `form:"token" binding:"required,max=32"`
 }
 
-func APISaveSetting(c *gin.Context, u *sn.Users) (int, error) {
+func APISaveSetting(c *gin.Context, u *sn.User) (int, error) {
 	var param saveSettingParam
 	err := c.ShouldBind(&param)
 	if err != nil {
@@ -49,7 +49,7 @@ func APISaveSetting(c *gin.Context, u *sn.Users) (int, error) {
 		"ip": c.ClientIP(),
 	}
 
-	err = sn.Skynet.Setting.Update(plugins.SPWithIDPrefix(&Config, "token"), param.Token)
+	err = sn.Skynet.Setting.Update(plugins.SPWithIDPrefix(Config, "token"), param.Token)
 	if err != nil {
 		return 500, err
 	}
@@ -69,7 +69,7 @@ type saveAgentParam struct {
 	Name string `form:"name" binding:"required,max=32"`
 }
 
-func APISaveAgent(c *gin.Context, u *sn.Users) (int, error) {
+func APISaveAgent(c *gin.Context, u *sn.User) (int, error) {
 	var param saveAgentParam
 	err := c.ShouldBind(&param)
 	if err != nil {
@@ -90,7 +90,7 @@ func APISaveAgent(c *gin.Context, u *sn.Users) (int, error) {
 		return 0, nil
 	}
 
-	var rec PluginMonitorAgent
+	var rec shared.PluginMonitorAgent
 	err = utils.GetDB().First(&rec, id).Error
 	if err != nil {
 		return 500, err
@@ -111,7 +111,7 @@ type deleteAgentParam struct {
 	ID int `uri:"id" binding:"required,min=1"`
 }
 
-func APIDelAgent(c *gin.Context, u *sn.Users) (int, error) {
+func APIDelAgent(c *gin.Context, u *sn.User) (int, error) {
 	var param deleteAgentParam
 	err := c.ShouldBindUri(&param)
 	if err != nil {
@@ -128,7 +128,11 @@ func APIDelAgent(c *gin.Context, u *sn.Users) (int, error) {
 		return 0, nil
 	}
 
-	err = utils.GetDB().Delete(&PluginMonitorAgent{}, param.ID).Error
+	err = pluginAPI.DeleteAllSetting(param.ID)
+	if err != nil {
+		return 500, err
+	}
+	err = utils.GetDB().Delete(&shared.PluginMonitorAgent{}, param.ID).Error
 	if err != nil {
 		return 500, err
 	}

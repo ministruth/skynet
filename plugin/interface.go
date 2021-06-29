@@ -17,8 +17,8 @@ type PluginConfig struct {
 	ID            uuid.UUID
 	Name          string
 	Dependency    []PluginDep
-	Path          string
 	Version       string
+	Path          string
 	SkynetVersion string
 	Priority      int
 }
@@ -34,6 +34,10 @@ type SPPaginationParam struct {
 	Order string `form:"order,default=asc" binding:"oneof=asc desc"`
 	Page  int    `form:"page,default=1" binding:"min=1"`
 	Size  int    `form:"size,default=10"`
+}
+
+func SPWithIDPrefixTempPath(c *PluginConfig, p string) string {
+	return "temp/plugin/" + c.ID.String() + "/" + p
 }
 
 func SPWithIDPrefixPath(c *PluginConfig, p string) string {
@@ -57,10 +61,10 @@ func SPAddSubPath(root string, i []*sn.SNNavItem) {
 	}
 }
 
-func SPWithLayerFiles(pn string, n string) []string {
-	return []string{"templates/home.tmpl", "plugin/" + pn + "/templates/" + n + ".tmpl", "templates/header.tmpl", "templates/footer.tmpl"}
+func SPWithLayerFiles(c *PluginConfig, n string) []string {
+	return []string{"templates/home.tmpl", c.Path + "templates/" + n + ".tmpl", "templates/header.tmpl", "templates/footer.tmpl"}
 }
 
-func SPWithSingleFiles(pn string, n string) []string {
-	return []string{"plugin/" + pn + "/templates/" + n + ".tmpl", "templates/header.tmpl", "templates/footer.tmpl"}
+func SPWithSingleFiles(c *PluginConfig, n string) []string {
+	return []string{c.Path + "templates/" + n + ".tmpl", "templates/header.tmpl", "templates/footer.tmpl"}
 }

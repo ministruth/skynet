@@ -1,18 +1,7 @@
 {{define "content"}}
-<div class="container-fluid">
-  <div class="card card-primary">
-    <div class="card-header">
-      <h3 class="card-title">Shell</h3>
-    </div>
-    <div class="card-body">
-    </div>
-  </div>
-</div>
+{{block "addonContent" .}}{{end}}
 {{end}}
 
 {{define "js"}}
-<script nonce="{{ ._nonce }}">
-  "use strict"
-
-</script>
+{{block "addonJS" .}}{{end}}
 {{end}}

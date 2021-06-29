@@ -17,7 +17,7 @@ const (
 	RoleAdmin
 )
 
-type Users struct {
+type User struct {
 	ID        int32    `gorm:"primaryKey;not null"`
 	Username  string   `gorm:"uniqueIndex;type:varchar(32);not null"`
 	Password  string   `gorm:"type:char(32);not null" json:"-"`
@@ -28,7 +28,7 @@ type Users struct {
 	Track     Track  `gorm:"embedded"`
 }
 
-type Settings struct {
+type Setting struct {
 	ID    int32  `gorm:"primaryKey;not null"`
 	Name  string `gorm:"uniqueIndex;type:varchar(256);not null"`
 	Value string `gorm:"type:varchar(1024);not null"`
@@ -45,7 +45,7 @@ const (
 	NotifyFatal
 )
 
-type Notifications struct {
+type Notification struct {
 	ID      int32       `gorm:"primaryKey;not null"`
 	Level   NotifyLevel `gorm:"default:0;not null"`
 	Name    string      `gorm:"type:varchar(256)"`

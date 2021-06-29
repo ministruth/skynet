@@ -15,12 +15,16 @@ import (
 )
 
 type PluginLoad struct {
-	plugins.PluginConfig
+	*plugins.PluginConfig
 	Enable        bool
 	DisableReason string
 	Instance      plugins.PluginInterface `json:"-"`
 	Loader        *plugin.Plugin          `json:"-"`
 }
+
+var (
+	PluginNotFoundError = errors.New("Plugin not found")
+)
 
 type pluginLoadSort []*PluginLoad
 
@@ -58,7 +62,8 @@ func (p *sitePlugin) readPlugin(base string) error {
 						log.Error("Can't locate plugin config: ", soFile)
 						return err
 					}
-					pConfig := *pSymbol.(*plugins.PluginConfig)
+					pConfig := *pSymbol.(**plugins.PluginConfig)
+					pConfig.Path = base + "/" + f.Name() + "/"
 					pSymbol, err = pPlugin.Lookup("NewPlugin")
 					if err != nil {
 						log.Error("Can't locate plugin entry: ", soFile)
@@ -259,7 +264,7 @@ func (p *sitePlugin) Disable(id uuid.UUID) error {
 		sn.Skynet.Setting.Update("plugin_"+v.ID.String(), "0")
 		return nil
 	}
-	return errors.New("Plugin not found")
+	return PluginNotFoundError
 }
 
 func (p *sitePlugin) Enable(id uuid.UUID) error {
@@ -299,7 +304,7 @@ func (p *sitePlugin) Enable(id uuid.UUID) error {
 		}
 		return nil
 	}
-	return errors.New("Plugin not found")
+	return PluginNotFoundError
 }
 
 func (p *sitePlugin) Fini() {

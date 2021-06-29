@@ -78,10 +78,10 @@
       }
     })
   };
-  ParsePage("notification", 10, [5, 10, 20, 50], ParseFunc, 0);
+  ParsePage("notification", 10, [5, 10, 20, 50], ParseFunc, 1000);
 
   $("#deleteAll").click((e) => {
-    JSONDelete("/api/notification").done(DelayReload());
+    JSONDelete("/api/notification").done(DelayHide());
   })
 </script>
 {{end}}

@@ -13,7 +13,7 @@ func NewSetting() (sn.SNSetting, error) {
 	var ret siteSetting
 	ret.setting = make(map[string]string)
 
-	var rec []sn.Settings
+	var rec []sn.Setting
 	err := utils.GetDB().Find(&rec).Error
 	if err != nil {
 		return nil, err
@@ -24,8 +24,8 @@ func NewSetting() (sn.SNSetting, error) {
 	return &ret, nil
 }
 
-func (s *siteSetting) GetAll(cond *sn.SNCondition) ([]*sn.Settings, error) {
-	var ret []*sn.Settings
+func (s *siteSetting) GetAll(cond *sn.SNCondition) ([]*sn.Setting, error) {
+	var ret []*sn.Setting
 	return ret, utils.DBParseCondition(cond).Find(&ret).Error
 }
 
@@ -40,7 +40,7 @@ func (s *siteSetting) Get(name string) (string, bool) {
 
 func (s *siteSetting) New(name string, value string) error {
 	if i, exist := s.setting[name]; !exist || i != value {
-		err := utils.GetDB().Create(&sn.Settings{
+		err := utils.GetDB().Create(&sn.Setting{
 			Name:  name,
 			Value: value,
 		}).Error
@@ -59,7 +59,7 @@ func (s *siteSetting) Update(name string, value string) error {
 	} else {
 		if v != value {
 			s.setting[name] = value
-			err := utils.GetDB().Model(&sn.Settings{}).Where("name = ?", name).Update("value", value).Error
+			err := utils.GetDB().Model(&sn.Setting{}).Where("name = ?", name).Update("value", value).Error
 			if err != nil {
 				return err
 			}
@@ -71,7 +71,7 @@ func (s *siteSetting) Update(name string, value string) error {
 func (s *siteSetting) Delete(name string) error {
 	if _, exist := s.setting[name]; exist {
 		delete(s.setting, name)
-		err := utils.GetDB().Where("name = ?", name).Delete(&sn.Settings{}).Error
+		err := utils.GetDB().Where("name = ?", name).Delete(&sn.Setting{}).Error
 		if err != nil {
 			return err
 		}

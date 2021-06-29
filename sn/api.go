@@ -22,7 +22,7 @@ const (
 	APIAny
 )
 
-type SNAPIFunc func(c *gin.Context, u *Users) (int, error)
+type SNAPIFunc func(c *gin.Context, u *User) (int, error)
 
 type SNAPIItem struct {
 	Path   string

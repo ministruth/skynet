@@ -17,7 +17,7 @@ type SNSetting interface {
 	Delete(name string) error
 	Get(name string) (string, bool)
 	GetCache() map[string]string
-	GetAll(cond *SNCondition) ([]*Settings, error)
+	GetAll(cond *SNCondition) ([]*Setting, error)
 }
 
 type SNUser interface {
@@ -26,9 +26,9 @@ type SNUser interface {
 	Delete(id int) (bool, error)
 	Reset(id int) (string, error)
 	ResetAll() (map[string]string, error)
-	GetAll(cond *SNCondition) ([]*Users, error)
-	GetByUsername(username string) (*Users, error)
-	GetByID(id int) (*Users, error)
+	GetAll(cond *SNCondition) ([]*User, error)
+	GetByUsername(username string) (*User, error)
+	GetByID(id int) (*User, error)
 	Count() (int64, error)
 }
 
@@ -38,8 +38,8 @@ type SNNotification interface {
 	MarkAllRead() error
 	Delete(id int) error
 	DeleteAll() error
-	GetAll(cond *SNCondition) ([]*Notifications, error)
-	GetByID(id int) (*Notifications, error)
+	GetAll(cond *SNCondition) ([]*Notification, error)
+	GetByID(id int) (*Notification, error)
 	Count(read interface{}) (int64, error)
 }
 

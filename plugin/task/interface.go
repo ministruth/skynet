@@ -1,11 +1,14 @@
 package main
 
 import (
+	"context"
 	"errors"
 	monitor "skynet/plugin/monitor/shared"
 	"skynet/plugin/task/shared"
 	"skynet/sn"
 	"skynet/sn/utils"
+
+	log "github.com/sirupsen/logrus"
 )
 
 func NewShared() shared.PluginShared {
@@ -14,8 +17,13 @@ func NewShared() shared.PluginShared {
 
 type pluginShared struct{}
 
-func (s *pluginShared) New(name string, detail string, cancel func()) (int, error) {
-	rec := shared.PluginTasks{
+var (
+	MonitorPluginError        = errors.New("Monitor plugin not available")
+	TaskNotSupportCancelError = errors.New("Task not support cancel")
+)
+
+func (s *pluginShared) New(name string, detail string, cancel func() error) (int, error) {
+	rec := shared.PluginTask{
 		Name:   name,
 		Detail: detail,
 	}
@@ -23,18 +31,35 @@ func (s *pluginShared) New(name string, detail string, cancel func()) (int, erro
 	if err != nil {
 		return 0, err
 	}
-	taskCancel[int(rec.ID)] = cancel
+	if cancel != nil {
+		taskCancel[int(rec.ID)] = cancel
+	}
 	return int(rec.ID), nil
 }
 
-func (s *pluginShared) Cancel(id int) {
+func (s *pluginShared) Cancel(id int, msg string) error {
 	if c, exist := taskCancel[id]; exist {
-		c()
+		if msg != "" {
+			s.AppendOutputNewLine(id, msg)
+		}
+		return c()
 	}
+	return TaskNotSupportCancelError
 }
 
-func (s *pluginShared) Get(id int) (*shared.PluginTasks, error) {
-	var ret shared.PluginTasks
+func (s *pluginShared) CancelByUser(id int, msg string) error {
+	if c, exist := taskCancel[id]; exist {
+		s.UpdateStatus(id, shared.TaskStop)
+		if msg != "" {
+			s.AppendOutputNewLine(id, msg)
+		}
+		return c()
+	}
+	return TaskNotSupportCancelError
+}
+
+func (s *pluginShared) Get(id int) (*shared.PluginTask, error) {
+	var ret shared.PluginTask
 	err := utils.GetDB().First(&ret, id).Error
 	if err != nil {
 		return nil, err
@@ -42,8 +67,8 @@ func (s *pluginShared) Get(id int) (*shared.PluginTasks, error) {
 	return &ret, nil
 }
 
-func (s *pluginShared) GetAll(order []interface{}, limit interface{}, offset interface{}, where interface{}, args ...interface{}) ([]*shared.PluginTasks, error) {
-	var ret []*shared.PluginTasks
+func (s *pluginShared) GetAll(order []interface{}, limit interface{}, offset interface{}, where interface{}, args ...interface{}) ([]*shared.PluginTask, error) {
+	var ret []*shared.PluginTask
 	db := utils.GetDB()
 	for _, v := range order {
 		db = db.Order(v)
@@ -66,7 +91,7 @@ func (s *pluginShared) GetAll(order []interface{}, limit interface{}, offset int
 
 func (s *pluginShared) Count() (int64, error) {
 	var count int64
-	err := utils.GetDB().Model(&shared.PluginTasks{}).Count(&count).Error
+	err := utils.GetDB().Model(&shared.PluginTask{}).Count(&count).Error
 	if err != nil {
 		return 0, err
 	}
@@ -131,6 +156,19 @@ func (s *pluginShared) UpdateStatus(id int, status shared.TaskStatus) error {
 	return nil
 }
 
+func (s *pluginShared) AddPercent(id int, percent int) error {
+	rec, err := s.Get(id)
+	if err != nil {
+		return err
+	}
+	rec.Percent += int32(percent)
+	err = utils.GetDB().Save(rec).Error
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (s *pluginShared) UpdatePercent(id int, percent int) error {
 	rec, err := s.Get(id)
 	if err != nil {
@@ -147,15 +185,15 @@ func (s *pluginShared) UpdatePercent(id int, percent int) error {
 func (s *pluginShared) NewCommand(agentID int, cmd string, name string, detail string) (chan bool, error) {
 	m, exist := sn.Skynet.SharedData["plugin_2eb2e1a5-66b4-45f9-ad24-3c4f05c858aa"].(monitor.PluginShared)
 	if !exist {
-		return nil, errors.New("monitor plugin not available")
+		return nil, MonitorPluginError
 	}
-	uid, resChan, err := m.RunCMD(agentID, cmd)
+	uid, resChan, err := m.RunCMDAsync(agentID, cmd)
 	if err != nil {
 		return nil, err
 	}
 
-	tid, err := s.New(name, detail, func() {
-		m.KillCMD(agentID, uid)
+	tid, err := s.New(name, detail, func() error {
+		return m.KillCMD(agentID, uid, true)
 	})
 	if err != nil {
 		return nil, err
@@ -179,10 +217,7 @@ func (s *pluginShared) NewCommand(agentID int, cmd string, name string, detail s
 			close(fini)
 			return
 		}
-		if !res.Complete {
-			s.UpdateStatus(tid, shared.TaskStop)
-			s.AppendOutputNewLine(tid, "Task force killed by user")
-		} else {
+		if res.Complete {
 			if res.Code != 0 {
 				s.UpdateStatus(tid, shared.TaskFail)
 			} else {
@@ -193,4 +228,31 @@ func (s *pluginShared) NewCommand(agentID int, cmd string, name string, detail s
 		close(fini)
 	}()
 	return fini, nil
+}
+
+func (s *pluginShared) NewCustom(agentID int, name string, detail string, c func() error, f func(ctx context.Context, agentID int, taskID int) error) error {
+	ctx, cancel := context.WithCancel(context.Background())
+	tid, err := s.New(name, detail, func() error {
+		if c != nil {
+			c()
+		}
+		cancel()
+		return nil
+	})
+	if err != nil {
+		cancel()
+		return err
+	}
+	go func() {
+		err := f(ctx, agentID, tid)
+		if errors.Is(err, context.Canceled) {
+			s.CancelByUser(tid, "Task killed by user")
+		} else if err != nil {
+			log.Error(err)
+			s.Cancel(tid, "Task fail: "+err.Error())
+			s.UpdateStatus(tid, shared.TaskFail)
+		}
+		cancel()
+	}()
+	return nil
 }

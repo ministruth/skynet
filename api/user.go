@@ -15,7 +15,7 @@ import (
 	"gorm.io/gorm"
 )
 
-func APIGetUser(c *gin.Context, u *sn.Users) (int, error) {
+func APIGetUser(c *gin.Context, u *sn.User) (int, error) {
 	var param paginationParam
 	err := c.ShouldBindQuery(&param)
 	if err != nil {
@@ -36,7 +36,7 @@ func APIGetUser(c *gin.Context, u *sn.Users) (int, error) {
 	}
 
 	type userInfo struct {
-		sn.Users
+		sn.User
 		Online bool
 	}
 	ret := make([]userInfo, len(rec))
@@ -45,7 +45,7 @@ func APIGetUser(c *gin.Context, u *sn.Users) (int, error) {
 		if err != nil {
 			return 500, err
 		}
-		copier.Copy(&ret[i].Users, rec[i])
+		copier.Copy(&ret[i].User, rec[i])
 		ret[i].Online = len(s) != 0
 	}
 	c.JSON(200, gin.H{"code": 0, "msg": "Get all user success", "data": ret, "total": count})
@@ -58,7 +58,7 @@ type userAddParam struct {
 	Role     sn.UserRole `form:"role"`
 }
 
-func APIAddUser(c *gin.Context, u *sn.Users) (int, error) {
+func APIAddUser(c *gin.Context, u *sn.User) (int, error) {
 	var param userAddParam
 	err := c.ShouldBind(&param)
 	if err != nil {
@@ -90,7 +90,7 @@ type userUpdateParam struct {
 	Avatar   string      `form:"avatar"`
 }
 
-func APIUpdateUser(c *gin.Context, u *sn.Users) (int, error) {
+func APIUpdateUser(c *gin.Context, u *sn.User) (int, error) {
 	var param userUpdateParam
 	err := c.ShouldBind(&param)
 	if err != nil {
@@ -145,7 +145,7 @@ type userDeleteParam struct {
 	ID int32 `uri:"id" binding:"required,min=1"`
 }
 
-func APIDeleteUser(c *gin.Context, u *sn.Users) (int, error) {
+func APIDeleteUser(c *gin.Context, u *sn.User) (int, error) {
 	var param userDeleteParam
 	err := c.ShouldBindUri(&param)
 	if err != nil {

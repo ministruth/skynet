@@ -13,7 +13,7 @@ import (
 )
 
 // Plugin config, do NOT change the variable name
-var Config = plugins.PluginConfig{
+var Config = &plugins.PluginConfig{
 	ID:            uuid.MustParse("2eb2e1a5-66b4-45f9-ad24-3c4f05c858aa"), // go https://www.uuidgenerator.net/ to generate your plugin uuid
 	Name:          "monitor",                                              // change to your plugin name
 	Dependency:    []plugins.PluginDep{},                                  // if your plugin need dependency, write here
@@ -33,24 +33,28 @@ var defaultField = log.Fields{
 	"plugin": Config.ID,
 }
 
+var (
+	SettingTokenNotExistError = errors.New("Setting token not exist")
+)
+
 var token string
 
 var pluginAPI = NewShared()
 
 // PluginInit will be executed after plugin loaded or enabled, return error to stop skynet run or plugin enable
 func (p *PluginInstance) PluginInit() error {
-	sn.Skynet.Setting.New(plugins.SPWithIDPrefix(&Config, "token"), "")
+	sn.Skynet.Setting.New(plugins.SPWithIDPrefix(Config, "token"), "")
 
 	var exist bool
-	token, exist = sn.Skynet.Setting.Get(plugins.SPWithIDPrefix(&Config, "token"))
+	token, exist = sn.Skynet.Setting.Get(plugins.SPWithIDPrefix(Config, "token"))
 	if !exist {
 		log.WithFields(defaultField).Error("Setting token not exist")
-		return errors.New("Setting token not exist")
+		return SettingTokenNotExistError
 	}
 
-	utils.GetDB().AutoMigrate(&PluginMonitorAgent{})
+	utils.GetDB().AutoMigrate(&shared.PluginMonitorAgent{}, &shared.PluginMonitorAgentSetting{})
 
-	var rec []PluginMonitorAgent
+	var rec []shared.PluginMonitorAgent
 	err := utils.GetDB().Find(&rec).Error
 	if err != nil {
 		return err
@@ -69,7 +73,7 @@ func (p *PluginInstance) PluginInit() error {
 		}
 	}
 
-	sn.Skynet.SharedData[plugins.SPWithIDPrefix(&Config, "")] = pluginAPI
+	sn.Skynet.SharedData[plugins.SPWithIDPrefix(Config, "")] = pluginAPI
 
 	plugins.SPAddSubPath("Service", []*sn.SNNavItem{
 		{
@@ -90,8 +94,8 @@ func (p *PluginInstance) PluginInit() error {
 
 	sn.Skynet.Page.AddPageItem([]*sn.SNPageItem{
 		{
-			TplName: plugins.SPWithIDPrefix(&Config, "setting"),
-			Files:   plugins.SPWithLayerFiles("monitor", "setting"),
+			TplName: plugins.SPWithIDPrefix(Config, "setting"),
+			Files:   plugins.SPWithLayerFiles(Config, "setting"),
 			FuncMap: sn.Skynet.Page.GetDefaultFunc(),
 			Title:   "Skynet | Monitor",
 			Name:    "Monitor",
@@ -110,14 +114,14 @@ func (p *PluginInstance) PluginInit() error {
 			Param: gin.H{
 				"token": &token,
 			},
-			BeforeRender: func(c *gin.Context, u *sn.Users, v *sn.SNPageItem) bool {
+			BeforeRender: func(c *gin.Context, u *sn.User, v *sn.SNPageItem) bool {
 				v.Param["_total"] = len(agents)
 				return true
 			},
 		},
 		{
-			TplName: plugins.SPWithIDPrefix(&Config, "monitor"),
-			Files:   plugins.SPWithLayerFiles("monitor", "monitor"),
+			TplName: plugins.SPWithIDPrefix(Config, "monitor"),
+			Files:   plugins.SPWithLayerFiles(Config, "monitor"),
 			FuncMap: sn.Skynet.Page.GetDefaultFunc(),
 			Title:   "Skynet | Monitor",
 			Name:    "Monitor",
@@ -133,7 +137,7 @@ func (p *PluginInstance) PluginInit() error {
 					Active: true,
 				},
 			}),
-			BeforeRender: func(c *gin.Context, u *sn.Users, v *sn.SNPageItem) bool {
+			BeforeRender: func(c *gin.Context, u *sn.User, v *sn.SNPageItem) bool {
 				v.Param["_total"] = len(agents)
 				return true
 			},
@@ -142,34 +146,34 @@ func (p *PluginInstance) PluginInit() error {
 
 	sn.Skynet.API.AddAPIItem([]*sn.SNAPIItem{
 		{
-			Path:   plugins.SPWithIDPrefixPath(&Config, "/setting"),
+			Path:   plugins.SPWithIDPrefixPath(Config, "/setting"),
 			Method: sn.APIPatch,
 			Role:   sn.RoleAdmin,
 			Func:   APISaveSetting,
 		},
 		{
-			Path:   plugins.SPWithIDPrefixPath(&Config, "/agent"),
+			Path:   plugins.SPWithIDPrefixPath(Config, "/agent"),
 			Method: sn.APIGet,
 			Role:   sn.RoleUser,
 			Func:   APIGetAllAgent,
 		},
 		{
-			Path:   plugins.SPWithIDPrefixPath(&Config, "/agent/:id"),
+			Path:   plugins.SPWithIDPrefixPath(Config, "/agent/:id"),
 			Method: sn.APIPatch,
 			Role:   sn.RoleAdmin,
 			Func:   APISaveAgent,
 		},
 		{
-			Path:   plugins.SPWithIDPrefixPath(&Config, "/agent/:id"),
+			Path:   plugins.SPWithIDPrefixPath(Config, "/agent/:id"),
 			Method: sn.APIDelete,
 			Role:   sn.RoleAdmin,
 			Func:   APIDelAgent,
 		},
 		{
-			Path:   plugins.SPWithIDPrefixPath(&Config, "/ws"),
+			Path:   plugins.SPWithIDPrefixPath(Config, "/ws"),
 			Method: sn.APIGet,
 			Role:   sn.RoleEmpty,
-			Func: func(c *gin.Context, u *sn.Users) (int, error) {
+			Func: func(c *gin.Context, u *sn.User) (int, error) {
 				WSHandler(c.ClientIP(), c.Writer, c.Request)
 				return 0, nil
 			},

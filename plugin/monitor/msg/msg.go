@@ -1,36 +1,58 @@
 package msg
 
 import (
+	"context"
 	"encoding/json"
+	"errors"
+	"os"
+	"skynet/plugin/monitor/shared"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
+	log "github.com/sirupsen/logrus"
 )
 
 type OPCode int
 
 const (
 	OPLogin OPCode = iota + 1
+	OPRet
 	OPInfo
 	OPStat
-	OPCMD
 	OPCMDRes
+	OPCMD
 	OPCMDKill
+	OPFile
 )
 
 type CommonMsg struct {
+	ID     uuid.UUID
 	Opcode OPCode
 	Data   string
 }
+
 type RetMsg struct {
 	Code int
-	Msg  string
+	Data string
 }
 
 type LoginMsg struct {
 	UID   string
 	Token string
+}
+
+type FileMsg struct {
+	Path      string
+	File      []byte
+	Recursive bool
+	Override  bool
+	Perm      os.FileMode
+}
+
+type CMDKillMsg struct {
+	UID    uuid.UUID
+	Return bool
 }
 
 type InfoMsg struct {
@@ -40,6 +62,12 @@ type InfoMsg struct {
 }
 
 type CMDMsg struct {
+	UID     uuid.UUID
+	Payload string
+	Sync    bool
+}
+
+type CMDResMsg struct {
 	UID      uuid.UUID
 	Data     string
 	Code     int
@@ -59,31 +87,83 @@ type StatMsg struct {
 	BandDown  uint64 // bytes
 }
 
-func SendReq(c *websocket.Conn, o OPCode, d string) error {
-	data, _ := json.Marshal(CommonMsg{
+func SendReqWithID(c *websocket.Conn, id uuid.UUID, o OPCode, d string) error {
+	data, err := json.Marshal(CommonMsg{
+		ID:     id,
 		Opcode: o,
 		Data:   d,
 	})
+	if err != nil {
+		log.Fatal(err)
+	}
 	return c.WriteMessage(websocket.TextMessage, data)
 }
 
-func SendRsp(c *websocket.Conn, code int, msg string) error {
-	data, _ := json.Marshal(RetMsg{
-		Code: code,
-		Msg:  msg,
+func SendReq(c *websocket.Conn, o OPCode, d string) (uuid.UUID, error) {
+	id := uuid.New()
+	data, err := json.Marshal(CommonMsg{
+		ID:     id,
+		Opcode: o,
+		Data:   d,
 	})
+	if err != nil {
+		log.Fatal(err)
+	}
+	return id, c.WriteMessage(websocket.TextMessage, data)
+}
+
+func SendRsp(c *websocket.Conn, id uuid.UUID, code int, d string) error {
+	retData, err := json.Marshal(RetMsg{
+		Code: code,
+		Data: d,
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
+	data, err := json.Marshal(CommonMsg{
+		ID:     id,
+		Opcode: OPRet,
+		Data:   string(retData),
+	})
+	if err != nil {
+		log.Fatal(err)
+	}
 	return c.WriteMessage(websocket.TextMessage, data)
 }
 
-func Recv(c *websocket.Conn) (*RetMsg, error) {
-	_, m, err := c.ReadMessage()
+func Recv(c *websocket.Conn) (*CommonMsg, []byte, error) {
+	_, msgRead, err := c.ReadMessage()
 	if err != nil {
-		return nil, err
+		return nil, nil, err
 	}
-	var ret RetMsg
-	err = json.Unmarshal(m, &ret)
+	var res CommonMsg
+	err = json.Unmarshal(msgRead, &res)
 	if err != nil {
-		return nil, err
+		return nil, msgRead, err
 	}
-	return &ret, nil
+	return &res, msgRead, nil
+}
+
+func CtxChan(ctx context.Context, c chan RetMsg) (*RetMsg, bool) {
+	select {
+	case <-ctx.Done():
+		return nil, false
+	case ret := <-c:
+		return &ret, true
+	}
+}
+
+func RecvRsp(id uuid.UUID, recvChan map[uuid.UUID]chan RetMsg, timeout time.Duration) (*RetMsg, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
+	recvChan[id] = make(chan RetMsg)
+	defer delete(recvChan, id)
+	ret, ok := CtxChan(ctx, recvChan[id])
+	if !ok {
+		return nil, shared.OPTimeoutError
+	}
+	if ret.Code == -1 {
+		return ret, errors.New(ret.Data)
+	}
+	return ret, nil
 }

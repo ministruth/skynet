@@ -7,7 +7,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func APIGetNotification(c *gin.Context, u *sn.Users) (int, error) {
+func APIGetNotification(c *gin.Context, u *sn.User) (int, error) {
 	var param paginationParam
 	err := c.ShouldBindQuery(&param)
 	if err != nil {
@@ -30,7 +30,7 @@ func APIGetNotification(c *gin.Context, u *sn.Users) (int, error) {
 	return 0, nil
 }
 
-func APIDeleteNotification(c *gin.Context, u *sn.Users) (int, error) {
+func APIDeleteNotification(c *gin.Context, u *sn.User) (int, error) {
 	fields := log.Fields{
 		"ip": c.ClientIP(),
 	}

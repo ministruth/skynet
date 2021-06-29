@@ -45,7 +45,7 @@ var pages = []*sn.SNPageItem{
 		Title:   "Skynet",
 		Link:    "/",
 		Role:    sn.RoleEmpty,
-		BeforeRender: func(c *gin.Context, u *sn.Users, v *sn.SNPageItem) bool {
+		BeforeRender: func(c *gin.Context, u *sn.User, v *sn.SNPageItem) bool {
 			if data, err := c.Cookie(viper.GetString("session.cookie")); err == nil && data != "" {
 				c.Redirect(302, "/dashboard")
 				return false
@@ -71,7 +71,7 @@ var pages = []*sn.SNPageItem{
 				Active: true,
 			},
 		}),
-		BeforeRender: func(c *gin.Context, u *sn.Users, v *sn.SNPageItem) bool {
+		BeforeRender: func(c *gin.Context, u *sn.User, v *sn.SNPageItem) bool {
 			v.Param["_total"] = sn.Skynet.Plugin.Count()
 			return true
 		},
@@ -120,7 +120,7 @@ var pages = []*sn.SNPageItem{
 				Active: true,
 			},
 		}),
-		BeforeRender: func(c *gin.Context, u *sn.Users, v *sn.SNPageItem) bool {
+		BeforeRender: func(c *gin.Context, u *sn.User, v *sn.SNPageItem) bool {
 			count, err := sn.Skynet.User.Count()
 			if err != nil {
 				log.Error(err)
@@ -145,7 +145,7 @@ var pages = []*sn.SNPageItem{
 				Active: true,
 			},
 		}),
-		AfterRenderPrepare: func(c *gin.Context, u *sn.Users, v *sn.SNPageItem) bool {
+		AfterRenderPrepare: func(c *gin.Context, u *sn.User, v *sn.SNPageItem) bool {
 			count, err := sn.Skynet.Notification.Count(nil)
 			if err != nil {
 				log.Error(err)

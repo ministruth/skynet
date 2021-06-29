@@ -8,9 +8,10 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	log "github.com/sirupsen/logrus"
 )
 
-func APIGetAllTask(c *gin.Context, u *sn.Users) (int, error) {
+func APIGetAllTask(c *gin.Context, u *sn.User) (int, error) {
 	var param plugins.SPPaginationParam
 	err := c.ShouldBindQuery(&param)
 	if err != nil {
@@ -33,12 +34,16 @@ func APIGetAllTask(c *gin.Context, u *sn.Users) (int, error) {
 	return 0, nil
 }
 
-func APIDeleteInactiveTask(c *gin.Context, u *sn.Users) (int, error) {
+func APIDeleteInactiveTask(c *gin.Context, u *sn.User) (int, error) {
+	fields := log.Fields{
+		"ip": c.ClientIP(),
+	}
 	err := utils.GetDB().Where("status <> ? and status <> ?", shared.TaskNotStart, shared.TaskRunning).
-		Delete(&shared.PluginTasks{}).Error
+		Delete(&shared.PluginTask{}).Error
 	if err != nil {
 		return 500, err
 	}
+	log.WithFields(defaultField).WithFields(fields).Info("Delete inactive task success")
 	c.JSON(200, gin.H{"code": 0, "msg": "Delete inactive task success"})
 	return 0, nil
 }
@@ -47,7 +52,7 @@ type getTaskParam struct {
 	ID int `uri:"id" binding:"required,min=1"`
 }
 
-func APIGetTask(c *gin.Context, u *sn.Users) (int, error) {
+func APIGetTask(c *gin.Context, u *sn.User) (int, error) {
 	var param getTaskParam
 	err := c.ShouldBindUri(&param)
 	if err != nil {
@@ -66,18 +71,23 @@ type killTaskParam struct {
 	ID int `uri:"id" binding:"required,min=1"`
 }
 
-func APIKillTask(c *gin.Context, u *sn.Users) (int, error) {
+func APIKillTask(c *gin.Context, u *sn.User) (int, error) {
 	var param killTaskParam
 	err := c.ShouldBindUri(&param)
 	if err != nil {
 		return 400, err
 	}
-
-	pluginAPI.Cancel(param.ID)
-	err = pluginAPI.UpdateStatus(param.ID, shared.TaskStop)
-	if err != nil {
-		return 500, err
+	fields := log.Fields{
+		"ip": c.ClientIP(),
+		"id": param.ID,
 	}
+
+	err = pluginAPI.CancelByUser(param.ID, "Task killed by user")
+	if err != nil {
+		c.JSON(200, gin.H{"code": 1, "msg": err.Error()})
+		return 0, nil
+	}
+	log.WithFields(defaultField).WithFields(fields).Info("Kill task success")
 	c.JSON(200, gin.H{"code": 0, "msg": "Kill task success"})
 	return 0, nil
 }

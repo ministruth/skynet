@@ -67,7 +67,7 @@ func (s SNNavSort) Len() int           { return len(s) }
 func (s SNNavSort) Less(i, j int) bool { return s[i].Priority < s[j].Priority }
 func (s SNNavSort) Swap(i, j int)      { s[i], s[j] = s[j], s[i] }
 
-type SNRenderHookFunc func(*gin.Context, *Users, *SNPageItem) bool
+type SNRenderHookFunc func(*gin.Context, *User, *SNPageItem) bool
 type SNPageItem struct {
 	TplName            string
 	Files              []string

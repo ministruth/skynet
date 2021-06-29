@@ -197,11 +197,11 @@
           let form = document.getElementById("editUser");
           JSONPatch(GetUrl(form), convUser(GetData(form))).done((d) => {
             $('#modal-edit').modal('hide');
-            DelayReload()(d);
+            DelayHide()(d);
           });
         })
         $("[data-operation='kick']").click((e) => {
-          JSONPatch(`/api/user/${e.target.getAttribute("data-userID")}`, {}).done(DelayReload());
+          JSONPatch(`/api/user/${e.target.getAttribute("data-userID")}`, {}).done(DelayHide());
         })
         $("[data-operation='delete']").click((e) => {
           $("#deleteConfirm").attr("data-userID", e.target.getAttribute("data-userID"));
@@ -209,7 +209,7 @@
         $("#deleteConfirm").click((e) => {
           JSONDelete(`/api/user/${e.target.getAttribute("data-userID")}`).done((d) => {
             $('#modal-delete').modal('hide');
-            DelayReload()(d);
+            DelayHide()(d);
           });
         })
         $("#addUser").submit((e) => {
@@ -217,13 +217,13 @@
           let form = document.getElementById("addUser");
           JSONPost(GetUrl(form), convUser(GetData(form))).done((d) => {
             $('#modal-add').modal('hide');
-            DelayReload()(d);
+            DelayHide()(d);
           });
         });
         obj.data = e.data;
       }
     })
   };
-  ParsePage("user", 10, [5, 10, 20, 50], ParseFunc, 0);
+  ParsePage("user", 10, [5, 10, 20, 50], ParseFunc, 1000);
 </script>
 {{end}}

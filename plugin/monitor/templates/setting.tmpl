@@ -182,7 +182,7 @@
           let form = document.getElementById("renameForm");
           JSONPatch(GetUrl(form), GetData(form)).done((d) => {
             $('#modal-rename').modal('hide');
-            DelayReload()(d);
+            DelayHide()(d);
           });
         })
 
@@ -192,14 +192,14 @@
         $("#deleteConfirm").click((e) => {
           JSONDelete(`/api/plugin/2eb2e1a5-66b4-45f9-ad24-3c4f05c858aa/agent/${e.target.getAttribute("data-agentID")}`).done((d) => {
             $('#modal-delete').modal('hide');
-            DelayReload()(d);
+            DelayHide()(d);
           });
         })
         obj.data = e.data;
       }
     })
   };
-  ParsePage("agent", 10, [5, 10, 20, 50], ParseFunc, 0);
+  ParsePage("agent", 10, [5, 10, 20, 50], ParseFunc, 1000);
 
   $("#generate").click((e) => {
     $("#token").val(rand_token(32));
@@ -208,7 +208,7 @@
     let form = document.getElementById("monitorForm");
     JSONPatch(GetUrl(form), GetData(form)).done((d) => {
       $('#modal-save').modal('hide');
-      DelayReload()(d);
+      DelayHide()(d);
     });
   })
 </script>

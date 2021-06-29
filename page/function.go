@@ -20,9 +20,15 @@ var defaultFunc = template.FuncMap{
 	"dict":    templateDict,
 }
 
+var (
+	InvalidDictCallError = errors.New("Invalid dict call")
+	DictValueError       = errors.New("Dict values must be maps")
+	NonArrayValueError   = errors.New("Specify the key for non array values")
+)
+
 func templateDict(values ...interface{}) (map[string]interface{}, error) {
 	if len(values) == 0 {
-		return nil, errors.New("invalid dict call")
+		return nil, InvalidDictCallError
 	}
 
 	dict := make(map[string]interface{})
@@ -36,12 +42,12 @@ func templateDict(values ...interface{}) (map[string]interface{}, error) {
 					dict[i] = v
 				}
 			} else {
-				return nil, errors.New("dict values must be maps")
+				return nil, DictValueError
 			}
 		} else {
 			i++
 			if i == len(values) {
-				return nil, errors.New("specify the key for non array values")
+				return nil, NonArrayValueError
 			}
 			dict[key] = values[i]
 		}

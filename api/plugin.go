@@ -11,7 +11,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func APIGetPlugin(c *gin.Context, u *sn.Users) (int, error) {
+func APIGetPlugin(c *gin.Context, u *sn.User) (int, error) {
 	var param paginationParam
 	err := c.ShouldBindQuery(&param)
 	if err != nil {
@@ -37,7 +37,7 @@ type updatePluginParam struct {
 	Enable bool `form:"enable"`
 }
 
-func APIUpdatePlugin(c *gin.Context, u *sn.Users) (int, error) {
+func APIUpdatePlugin(c *gin.Context, u *sn.User) (int, error) {
 	var param updatePluginParam
 	err := c.ShouldBind(&param)
 	if err != nil {

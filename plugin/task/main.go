@@ -14,7 +14,7 @@ import (
 )
 
 // Plugin config, do NOT change the variable name
-var Config = plugins.PluginConfig{
+var Config = &plugins.PluginConfig{
 	ID:   uuid.MustParse("c1e81895-1f75-4988-9f10-52786b875ec7"), // go https://www.uuidgenerator.net/ to generate your plugin uuid
 	Name: "task",                                                 // change to your plugin name
 	Dependency: []plugins.PluginDep{
@@ -41,14 +41,14 @@ var defaultField = log.Fields{
 	"plugin": Config.ID,
 }
 
-var taskCancel = make(map[int]func())
+var taskCancel = make(map[int]func() error)
 
 var pluginAPI = NewShared()
 
 // PluginInit will be executed after plugin loaded or enabled, return error to stop skynet run or plugin enable
 func (p *PluginInstance) PluginInit() error {
-	utils.GetDB().AutoMigrate(&shared.PluginTasks{})
-	sn.Skynet.SharedData[plugins.SPWithIDPrefix(&Config, "")] = pluginAPI
+	utils.GetDB().AutoMigrate(&shared.PluginTask{})
+	sn.Skynet.SharedData[plugins.SPWithIDPrefix(Config, "")] = pluginAPI
 
 	sn.Skynet.Page.AddNavItem([]*sn.SNNavItem{
 		{
@@ -61,25 +61,25 @@ func (p *PluginInstance) PluginInit() error {
 	})
 	sn.Skynet.API.AddAPIItem([]*sn.SNAPIItem{
 		{
-			Path:   plugins.SPWithIDPrefixPath(&Config, "/task"),
+			Path:   plugins.SPWithIDPrefixPath(Config, "/task"),
 			Method: sn.APIGet,
 			Role:   sn.RoleUser,
 			Func:   APIGetAllTask,
 		},
 		{
-			Path:   plugins.SPWithIDPrefixPath(&Config, "/task"),
+			Path:   plugins.SPWithIDPrefixPath(Config, "/task"),
 			Method: sn.APIDelete,
 			Role:   sn.RoleAdmin,
 			Func:   APIDeleteInactiveTask,
 		},
 		{
-			Path:   plugins.SPWithIDPrefixPath(&Config, "/task/:id"),
+			Path:   plugins.SPWithIDPrefixPath(Config, "/task/:id"),
 			Method: sn.APIGet,
 			Role:   sn.RoleUser,
 			Func:   APIGetTask,
 		},
 		{
-			Path:   plugins.SPWithIDPrefixPath(&Config, "/task/:id"),
+			Path:   plugins.SPWithIDPrefixPath(Config, "/task/:id"),
 			Method: sn.APIDelete,
 			Role:   sn.RoleAdmin,
 			Func:   APIKillTask,
@@ -87,8 +87,8 @@ func (p *PluginInstance) PluginInit() error {
 	})
 	sn.Skynet.Page.AddPageItem([]*sn.SNPageItem{
 		{
-			TplName: plugins.SPWithIDPrefix(&Config, "task"),
-			Files:   plugins.SPWithLayerFiles("task", "task"),
+			TplName: plugins.SPWithIDPrefix(Config, "task"),
+			Files:   plugins.SPWithLayerFiles(Config, "task"),
 			FuncMap: sn.Skynet.Page.GetDefaultFunc(),
 			Title:   "Skynet | Task",
 			Name:    "Task",
@@ -104,7 +104,7 @@ func (p *PluginInstance) PluginInit() error {
 					Active: true,
 				},
 			}),
-			BeforeRender: func(c *gin.Context, u *sn.Users, v *sn.SNPageItem) bool {
+			BeforeRender: func(c *gin.Context, u *sn.User, v *sn.SNPageItem) bool {
 				count, err := pluginAPI.Count()
 				if err != nil {
 					log.Error(err)
@@ -134,17 +134,17 @@ func (p *PluginInstance) PluginFini() error {
 	for _, v := range taskCancel {
 		v()
 	}
-	taskCancel = make(map[int]func())
+	taskCancel = make(map[int]func() error)
 	if viper.GetString("database.type") == "sqlite" {
-		utils.GetDB().Model(&shared.PluginTasks{}).
+		utils.GetDB().Model(&shared.PluginTask{}).
 			Where("status = ? or status = ?", shared.TaskNotStart, shared.TaskRunning).
 			Update("output", gorm.Expr("output || '\nTask force killed by Skynet because of exit.'"))
 	} else {
-		utils.GetDB().Model(&shared.PluginTasks{}).
+		utils.GetDB().Model(&shared.PluginTask{}).
 			Where("status = ? or status = ?", shared.TaskNotStart, shared.TaskRunning).
 			Update("output", gorm.Expr("CONCAT(output, '\nTask force killed by Skynet because of exit.')"))
 	}
-	err := utils.GetDB().Model(&shared.PluginTasks{}).
+	err := utils.GetDB().Model(&shared.PluginTask{}).
 		Where("status = ? or status = ?", shared.TaskNotStart, shared.TaskRunning).
 		Update("status", shared.TaskFail).Error
 	return err

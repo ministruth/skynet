@@ -8,6 +8,7 @@ import (
 	"skynet/sn/utils"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/jinzhu/copier"
 	log "github.com/sirupsen/logrus"
@@ -17,6 +18,8 @@ var wsupgrader = websocket.Upgrader{
 	HandshakeTimeout:  3 * time.Second,
 	EnableCompression: true,
 }
+
+var recvChan = make(map[uuid.UUID]chan msg.RetMsg)
 
 var agents map[int]*shared.AgentInfo
 
@@ -51,37 +54,36 @@ func WSHandler(ip string, w http.ResponseWriter, r *http.Request) {
 		return ret
 	}
 
-	formatErr := func() {
-		msg.SendRsp(conn, -1, "Message format error")
+	formatErr := func(id uuid.UUID) {
+		msg.SendRsp(conn, id, -1, "Message format error")
 		log.WithFields(fields()).Warn("Message format error")
 	}
 
 	for {
-		_, msgRead, err := conn.ReadMessage()
+		res, msgRead, err := msg.Recv(conn)
 		if err != nil {
-			log.WithFields(defaultField).WithField("ip", ip).Info("Connection lost")
-			return
-		}
-		var res msg.CommonMsg
-		err = json.Unmarshal(msgRead, &res)
-		if err != nil {
-			formatErr()
-			continue
+			if msgRead != nil {
+				formatErr(res.ID)
+				continue
+			} else {
+				log.WithFields(defaultField).WithField("ip", ip).Info("Connection lost")
+				return
+			}
 		}
 		if id == 0 {
 			if res.Opcode == msg.OPLogin {
 				var data msg.LoginMsg
 				err = json.Unmarshal([]byte(res.Data), &data)
 				if err != nil || len(data.UID) != 32 {
-					formatErr()
+					formatErr(res.ID)
 					continue
 				}
 				if data.Token == token {
-					utils.GetDB().Create(&PluginMonitorAgent{
+					utils.GetDB().Create(&shared.PluginMonitorAgent{
 						UID:  data.UID,
 						Name: data.UID[:6],
 					})
-					var rec PluginMonitorAgent
+					var rec shared.PluginMonitorAgent
 					err = utils.GetDB().Where("uid = ?", data.UID).First(&rec).Error
 					if err != nil {
 						log.WithFields(defaultField).Error(err)
@@ -90,7 +92,7 @@ func WSHandler(ip string, w http.ResponseWriter, r *http.Request) {
 					id = int(rec.ID)
 
 					if v, exist := agents[id]; exist && v.Online {
-						msg.SendRsp(conn, 2, "Agent already online")
+						msg.SendRsp(conn, res.ID, 2, "Agent already online")
 						log.WithFields(fields()).Warn("Multiple agent login")
 						return
 					}
@@ -117,14 +119,14 @@ func WSHandler(ip string, w http.ResponseWriter, r *http.Request) {
 						agents[id].Conn = nil
 					}()
 
-					msg.SendRsp(conn, 0, "Login success")
+					msg.SendRsp(conn, res.ID, 0, "Login success")
 					log.WithFields(fields()).Info("Login success")
 				} else {
-					msg.SendRsp(conn, 1, "Token invalid")
+					msg.SendRsp(conn, res.ID, 1, "Token invalid")
 					log.WithFields(fields()).Warn("Token invalid")
 				}
 			} else {
-				msg.SendRsp(conn, -2, "Need login")
+				msg.SendRsp(conn, res.ID, -2, "Need login")
 			}
 		} else {
 			switch res.Opcode {
@@ -132,13 +134,13 @@ func WSHandler(ip string, w http.ResponseWriter, r *http.Request) {
 				var data msg.InfoMsg
 				err = json.Unmarshal([]byte(res.Data), &data)
 				if err != nil || len(data.Host) > 256 || len(data.Machine) > 32 || len(data.System) > 128 {
-					formatErr()
+					formatErr(res.ID)
 					continue
 				}
 				agents[id].HostName = data.Host
 				agents[id].Machine = data.Machine
 				agents[id].System = data.System
-				var rec PluginMonitorAgent
+				var rec shared.PluginMonitorAgent
 				err = utils.GetDB().First(&rec, id).Error
 				if err != nil {
 					log.WithFields(defaultField).Error(err)
@@ -156,7 +158,7 @@ func WSHandler(ip string, w http.ResponseWriter, r *http.Request) {
 				var data msg.StatMsg
 				err = json.Unmarshal([]byte(res.Data), &data)
 				if err != nil {
-					formatErr()
+					formatErr(res.ID)
 					continue
 				}
 				agents[id].CPU = data.CPU
@@ -173,10 +175,10 @@ func WSHandler(ip string, w http.ResponseWriter, r *http.Request) {
 				agents[id].BandDown = data.BandDown
 				agents[id].LastRsp = time.Now()
 			case msg.OPCMDRes:
-				var data msg.CMDMsg
+				var data msg.CMDResMsg
 				err = json.Unmarshal([]byte(res.Data), &data)
 				if err != nil {
-					formatErr()
+					formatErr(res.ID)
 					continue
 				}
 				agents[id].CMDRes[data.UID].Data += data.Data
@@ -186,6 +188,19 @@ func WSHandler(ip string, w http.ResponseWriter, r *http.Request) {
 				agents[id].CMDRes[data.UID].DataChan <- data.Data
 				if data.End {
 					close(agents[id].CMDRes[data.UID].DataChan)
+				}
+			case msg.OPRet:
+				var data msg.RetMsg
+				err = json.Unmarshal([]byte(res.Data), &data)
+				if err != nil {
+					formatErr(res.ID)
+					continue
+				}
+				ch, ok := recvChan[res.ID]
+				if !ok {
+					log.Warn("Error response: " + res.Data)
+				} else {
+					ch <- data
 				}
 			default:
 				log.Warn("Unknown opcode ", res.Opcode)

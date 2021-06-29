@@ -38,7 +38,7 @@ func NewDB(ctx context.Context, param *DBConfig) sn.SNDB {
 		if err != nil {
 			log.Fatal("Failed to connect sqlite database")
 		}
-		ret.dbClient.AutoMigrate(&sn.Users{}, &sn.Settings{}, &sn.Notifications{})
+		ret.dbClient.AutoMigrate(&sn.User{}, &sn.Setting{}, &sn.Notification{})
 	}
 
 	return &ret
