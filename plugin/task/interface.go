@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"errors"
+	plugins "skynet/plugin"
 	monitor "skynet/plugin/monitor/shared"
 	"skynet/plugin/task/shared"
 	"skynet/sn"
@@ -22,6 +23,10 @@ var (
 	TaskNotSupportCancelError = errors.New("Task not support cancel")
 )
 
+func (s *pluginShared) GetConfig() *plugins.PluginConfig {
+	return Config
+}
+
 func (s *pluginShared) New(name string, detail string, cancel func() error) (int, error) {
 	rec := shared.PluginTask{
 		Name:   name,
@@ -32,13 +37,13 @@ func (s *pluginShared) New(name string, detail string, cancel func() error) (int
 		return 0, err
 	}
 	if cancel != nil {
-		taskCancel[int(rec.ID)] = cancel
+		taskCancel.Set(int(rec.ID), cancel)
 	}
 	return int(rec.ID), nil
 }
 
 func (s *pluginShared) Cancel(id int, msg string) error {
-	if c, exist := taskCancel[id]; exist {
+	if c, ok := taskCancel.Get(id); ok {
 		if msg != "" {
 			s.AppendOutputNewLine(id, msg)
 		}
@@ -48,7 +53,7 @@ func (s *pluginShared) Cancel(id int, msg string) error {
 }
 
 func (s *pluginShared) CancelByUser(id int, msg string) error {
-	if c, exist := taskCancel[id]; exist {
+	if c, ok := taskCancel.Get(id); ok {
 		s.UpdateStatus(id, shared.TaskStop)
 		if msg != "" {
 			s.AppendOutputNewLine(id, msg)
@@ -151,7 +156,7 @@ func (s *pluginShared) UpdateStatus(id int, status shared.TaskStatus) error {
 		return err
 	}
 	if status == shared.TaskFail || status == shared.TaskStop || status == shared.TaskSuccess {
-		delete(taskCancel, id)
+		taskCancel.Delete(id)
 	}
 	return nil
 }
@@ -193,7 +198,7 @@ func (s *pluginShared) NewCommand(agentID int, cmd string, name string, detail s
 	}
 
 	tid, err := s.New(name, detail, func() error {
-		return m.KillCMD(agentID, uid, true)
+		return m.KillCMD(agentID, uid)
 	})
 	if err != nil {
 		return nil, err

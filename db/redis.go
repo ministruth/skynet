@@ -8,23 +8,24 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// RedisConfig is config for redis
+// RedisConfig is connection config for redis.
 type RedisConfig struct {
-	Address  string
-	Password string
-	DB       int
+	Address  string // redis address
+	Password string // redis password
+	DB       int    // redis db
 }
 
-type RedisClient struct {
+type redisClient struct {
 	redisClient *redis.Client
 }
 
-func NewRedis(ctx context.Context, param *RedisConfig) sn.SNDB {
-	var ret RedisClient
+// NewRedis create new redis object, exit when facing any error.
+func NewRedis(ctx context.Context, conf *RedisConfig) sn.SNDB {
+	var ret redisClient
 	ret.redisClient = redis.NewClient(&redis.Options{
-		Addr:     param.Address,
-		Password: param.Password,
-		DB:       param.DB,
+		Addr:     conf.Address,
+		Password: conf.Password,
+		DB:       conf.DB,
 	})
 	err := ret.redisClient.Ping(ctx).Err()
 	if err != nil {
@@ -33,7 +34,7 @@ func NewRedis(ctx context.Context, param *RedisConfig) sn.SNDB {
 	return &ret
 }
 
-func (c *RedisClient) Get() interface{} {
+func (c *redisClient) Get() interface{} {
 	if c.redisClient == nil {
 		log.Fatal("Redis not init")
 	}

@@ -1,15 +1,8 @@
 package main
 
-import (
-	"skynet/cmd"
-	"skynet/handler"
-	"skynet/sn"
-)
+import "skynet/cmd"
 
-func init() {
-	sn.Skynet.User = handler.NewUser()
-	sn.Skynet.Notification = handler.NewNotification()
-}
+//go:generate make generate
 
 func main() {
 	cmd.Execute()

@@ -145,7 +145,7 @@ var pages = []*sn.SNPageItem{
 				Active: true,
 			},
 		}),
-		AfterRenderPrepare: func(c *gin.Context, u *sn.User, v *sn.SNPageItem) bool {
+		BeforeRender: func(c *gin.Context, u *sn.User, v *sn.SNPageItem) bool {
 			count, err := sn.Skynet.Notification.Count(nil)
 			if err != nil {
 				log.Error(err)

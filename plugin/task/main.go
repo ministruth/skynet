@@ -41,7 +41,7 @@ var defaultField = log.Fields{
 	"plugin": Config.ID,
 }
 
-var taskCancel = make(map[int]func() error)
+var taskCancel shared.CancelMap
 
 var pluginAPI = NewShared()
 
@@ -50,7 +50,7 @@ func (p *PluginInstance) PluginInit() error {
 	utils.GetDB().AutoMigrate(&shared.PluginTask{})
 	sn.Skynet.SharedData[plugins.SPWithIDPrefix(Config, "")] = pluginAPI
 
-	sn.Skynet.Page.AddNavItem([]*sn.SNNavItem{
+	sn.Skynet.Page.AddNav([]*sn.SNNavItem{
 		{
 			Priority: 40,
 			Name:     "Task",
@@ -59,7 +59,7 @@ func (p *PluginInstance) PluginInit() error {
 			Role:     sn.RoleUser,
 		},
 	})
-	sn.Skynet.API.AddAPIItem([]*sn.SNAPIItem{
+	sn.Skynet.API.AddAPI([]*sn.SNAPIItem{
 		{
 			Path:   plugins.SPWithIDPrefixPath(Config, "/task"),
 			Method: sn.APIGet,
@@ -85,10 +85,10 @@ func (p *PluginInstance) PluginInit() error {
 			Func:   APIKillTask,
 		},
 	})
-	sn.Skynet.Page.AddPageItem([]*sn.SNPageItem{
+	sn.Skynet.Page.AddPage([]*sn.SNPageItem{
 		{
-			TplName: plugins.SPWithIDPrefix(Config, "task"),
-			Files:   plugins.SPWithLayerFiles(Config, "task"),
+			TplName: plugins.SPWithIDPrefix(Config, "menu"),
+			Files:   plugins.SPWithLayerFiles(Config, "menu"),
 			FuncMap: sn.Skynet.Page.GetDefaultFunc(),
 			Title:   "Skynet | Task",
 			Name:    "Task",
@@ -131,10 +131,11 @@ func (p *PluginInstance) PluginDisable() error {
 
 // PluginFini will be executed after plugin disabled or skynet exit
 func (p *PluginInstance) PluginFini() error {
-	for _, v := range taskCancel {
-		v()
-	}
-	taskCancel = make(map[int]func() error)
+	taskCancel.Range(func(k int, v interface{}) bool {
+		v.(func() error)()
+		return true
+	})
+	taskCancel.Clear()
 	if viper.GetString("database.type") == "sqlite" {
 		utils.GetDB().Model(&shared.PluginTask{}).
 			Where("status = ? or status = ?", shared.TaskNotStart, shared.TaskRunning).

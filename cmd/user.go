@@ -120,7 +120,7 @@ var (
 )
 
 func init() {
-	userAddCmd.Flags().StringVarP(&avatar, "avatar", "a", viper.GetString("default_avatar"), "user avatar")
+	userAddCmd.Flags().StringVarP(&avatar, "avatar", "a", "default.webp", "user avatar")
 	userAddCmd.Flags().BoolVarP(&roleuser, "user", "u", false, "set role to user permission")
 	userResetCmd.Flags().BoolVar(&resetall, "all", false, "reset all user password")
 

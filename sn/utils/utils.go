@@ -3,9 +3,7 @@ package utils
 import (
 	"context"
 	"crypto/md5"
-	"crypto/sha256"
 	"encoding/hex"
-	"fmt"
 	"io/ioutil"
 	"math/rand"
 	"net/http"
@@ -21,27 +19,31 @@ func init() {
 	rand.Seed(time.Now().UnixNano())
 }
 
-var letter = []byte("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+var randLetter = []byte("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
 
+// RandString return n length random string [a-zA-Z0-9]+
 func RandString(n int) string {
-	b := make([]byte, n)
-	for i := range b {
-		b[i] = letter[rand.Intn(len(letter))]
+	s := make([]byte, n)
+	for i := range s {
+		s[i] = randLetter[rand.Intn(len(randLetter))]
 	}
-	return string(b)
+	return string(s)
 }
 
+// Restart restart skynet itself, never returns.
 func Restart() {
 	log.Warn("Restart triggered")
 	syscall.Kill(os.Getpid(), syscall.SIGHUP)
 }
 
+// MD5 return md5 hash of str.
 func MD5(str string) string {
 	h := md5.New()
 	h.Write([]byte(str))
 	return hex.EncodeToString(h.Sum(nil))
 }
 
+// IntMin returns smaller one between a and b.
 func IntMin(a int, b int) int {
 	if a <= b {
 		return a
@@ -50,6 +52,7 @@ func IntMin(a int, b int) int {
 	}
 }
 
+// IntMin returns bigger one between a and b.
 func IntMax(a int, b int) int {
 	if a >= b {
 		return a
@@ -58,25 +61,21 @@ func IntMax(a int, b int) int {
 	}
 }
 
-func FileExist(filename string) bool {
+// FileExist returns whether file in path exist.
+func FileExist(path string) bool {
 	var exist = true
-	if _, err := os.Stat(filename); os.IsNotExist(err) {
+	if _, err := os.Stat(path); os.IsNotExist(err) {
 		exist = false
 	}
 	return exist
 }
 
-func DownloadTempFile(ctx context.Context, url string, path string, hash string) error {
+// DownloadFile download url to path.
+func DownloadFile(ctx context.Context, url string, path string) error {
 	dir, _ := filepath.Split(path)
 	os.MkdirAll(dir, 0755)
 	if FileExist(path) {
-		file, err := ioutil.ReadFile(path)
-		if err != nil {
-			return err
-		}
-		if hash != "" && fmt.Sprintf("%x", sha256.Sum256(file)) == hash {
-			return nil
-		}
+		return nil
 	}
 
 	req, err := http.NewRequest("GET", url, nil)
@@ -84,7 +83,9 @@ func DownloadTempFile(ctx context.Context, url string, path string, hash string)
 		return err
 	}
 	tr := &http.Transport{}
-	client := &http.Client{Transport: tr}
+	client := &http.Client{
+		Transport: tr,
+	}
 	finish := make(chan error, 1)
 	go func() {
 		resp, err := client.Do(req)

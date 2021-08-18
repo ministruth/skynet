@@ -10,32 +10,32 @@ import (
 	"github.com/chai2010/webp"
 )
 
+// WebpImage provides operation for .webp image.
 type WebpImage struct {
-	data []byte
+	Data []byte // image data
 }
 
-func (img *WebpImage) Data() []byte {
-	return img.data
-}
-
+// Parse converts jpeg and png image to webp type.
 func (img *WebpImage) Parse(pic []byte) error {
-	p, _, err := image.Decode(bytes.NewReader(pic))
+	var err error
+	srcImg, _, err := image.Decode(bytes.NewReader(pic))
 	if err != nil {
 		return err
 	}
-	b, err := webp.EncodeLosslessRGBA(p)
+	img.Data, err = webp.EncodeLosslessRGBA(srcImg)
 	if err != nil {
 		return err
 	}
-	img.data = b
 	return nil
 }
 
+// Base64 returns base64 of webp image.
 func (img *WebpImage) Base64() string {
-	return base64.StdEncoding.EncodeToString(img.data)
+	return base64.StdEncoding.EncodeToString(img.Data)
 }
 
-func PicFromByte(pic []byte) (*WebpImage, error) {
+// ConvertWebp converts jpeg and png image to webp image.
+func ConvertWebp(pic []byte) (*WebpImage, error) {
 	var ret WebpImage
 	err := ret.Parse(pic)
 	if err != nil {

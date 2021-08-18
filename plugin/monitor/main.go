@@ -61,7 +61,7 @@ func (p *PluginInstance) PluginInit() error {
 	}
 
 	for _, v := range rec {
-		agents[int(v.ID)] = &shared.AgentInfo{
+		agentInstance.Set(int(v.ID), &shared.AgentInfo{
 			ID:        int(v.ID),
 			IP:        v.LastIP,
 			Name:      v.Name,
@@ -70,10 +70,13 @@ func (p *PluginInstance) PluginInit() error {
 			Machine:   v.Machine,
 			LastLogin: v.LastLogin,
 			Online:    false,
-		}
+		})
 	}
 
 	sn.Skynet.SharedData[plugins.SPWithIDPrefix(Config, "")] = pluginAPI
+
+	plugins.SPAddStatic(Config, "/css"+plugins.SPWithIDPrefixPath(Config, ""), "assets/css")
+	plugins.SPAddStatic(Config, "/js"+plugins.SPWithIDPrefixPath(Config, ""), "assets/js")
 
 	plugins.SPAddSubPath("Service", []*sn.SNNavItem{
 		{
@@ -81,6 +84,12 @@ func (p *PluginInstance) PluginInit() error {
 			Name:     "Monitor",
 			Link:     "/service/" + Config.ID.String() + "/monitor",
 			Role:     sn.RoleUser,
+		},
+		{
+			Priority: 17,
+			Name:     "Shell",
+			Link:     "/service/" + Config.ID.String() + "/shell",
+			Role:     sn.RoleAdmin,
 		},
 	})
 	plugins.SPAddSubPath("Plugin", []*sn.SNNavItem{
@@ -92,7 +101,7 @@ func (p *PluginInstance) PluginInit() error {
 		},
 	})
 
-	sn.Skynet.Page.AddPageItem([]*sn.SNPageItem{
+	sn.Skynet.Page.AddPage([]*sn.SNPageItem{
 		{
 			TplName: plugins.SPWithIDPrefix(Config, "setting"),
 			Files:   plugins.SPWithLayerFiles(Config, "setting"),
@@ -115,7 +124,30 @@ func (p *PluginInstance) PluginInit() error {
 				"token": &token,
 			},
 			BeforeRender: func(c *gin.Context, u *sn.User, v *sn.SNPageItem) bool {
-				v.Param["_total"] = len(agents)
+				v.Param["_total"] = agentInstance.Len()
+				return true
+			},
+		},
+		{
+			TplName: plugins.SPWithIDPrefix(Config, "shell"),
+			Files:   plugins.SPWithLayerFiles(Config, "shell"),
+			FuncMap: sn.Skynet.Page.GetDefaultFunc(),
+			Title:   "Skynet | Shell",
+			Name:    "Shell",
+			Link:    "/service/" + Config.ID.String() + "/shell",
+			Role:    sn.RoleAdmin,
+			Path: sn.Skynet.Page.GetDefaultPath().WithChild([]*sn.SNPathItem{
+				{
+					Name: "Service",
+					Link: "#",
+				},
+				{
+					Name:   "Shell",
+					Active: true,
+				},
+			}),
+			BeforeRender: func(c *gin.Context, u *sn.User, v *sn.SNPageItem) bool {
+				v.Param["agents"] = agentInstance.Values()
 				return true
 			},
 		},
@@ -138,13 +170,13 @@ func (p *PluginInstance) PluginInit() error {
 				},
 			}),
 			BeforeRender: func(c *gin.Context, u *sn.User, v *sn.SNPageItem) bool {
-				v.Param["_total"] = len(agents)
+				v.Param["_total"] = agentInstance.Len()
 				return true
 			},
 		},
 	})
 
-	sn.Skynet.API.AddAPIItem([]*sn.SNAPIItem{
+	sn.Skynet.API.AddAPI([]*sn.SNAPIItem{
 		{
 			Path:   plugins.SPWithIDPrefixPath(Config, "/setting"),
 			Method: sn.APIPatch,
@@ -175,6 +207,15 @@ func (p *PluginInstance) PluginInit() error {
 			Role:   sn.RoleEmpty,
 			Func: func(c *gin.Context, u *sn.User) (int, error) {
 				WSHandler(c.ClientIP(), c.Writer, c.Request)
+				return 0, nil
+			},
+		},
+		{
+			Path:   plugins.SPWithIDPrefixPath(Config, "/shell"),
+			Method: sn.APIGet,
+			Role:   sn.RoleAdmin,
+			Func: func(c *gin.Context, u *sn.User) (int, error) {
+				ShellHandler(c.ClientIP(), c.Writer, c.Request)
 				return 0, nil
 			},
 		},

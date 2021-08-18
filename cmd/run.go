@@ -5,6 +5,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"regexp"
 	"skynet/api"
 	"skynet/db"
 	"skynet/handler"
@@ -25,6 +26,9 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
+	"github.com/tdewolff/minify/v2"
+	"github.com/tdewolff/minify/v2/html"
+	"github.com/tdewolff/minify/v2/js"
 	"github.com/unrolled/secure"
 )
 
@@ -123,6 +127,7 @@ func run(cmd *cobra.Command, args []string) {
 		log.Warn("Debug mode is on, make it off when put into production")
 	}
 	r := gin.Default()
+	sn.Skynet.Engine = r
 
 	// security
 	hosts := strings.Split(viper.GetString("listen.allowhosts"), ",")
@@ -185,9 +190,9 @@ func run(cmd *cobra.Command, args []string) {
 	})
 
 	// static files
-	r.Static("/js", "./assets/js")
-	r.Static("/css", "./assets/css")
-	r.Static("/fonts", "./assets/fonts")
+	r.Static("/js/main", "./assets/js")
+	r.Static("/css/main", "./assets/css")
+	r.Static("/fonts/main", "./assets/fonts")
 
 	// router & template
 	web := r.Group("/")
@@ -209,6 +214,17 @@ func run(cmd *cobra.Command, args []string) {
 		log.Fatal("Plugin init error: ", err)
 	}
 	defer sn.Skynet.Plugin.Fini()
+
+	// minify
+	m := minify.New()
+	m.AddFunc("text/html", html.Minify)
+	m.AddFuncRegexp(regexp.MustCompile("^(application|text)/(x-)?(java|ecma)script$"), js.Minify)
+	m.Add("text/html", &html.Minifier{
+		KeepConditionalComments: true,
+		KeepDefaultAttrVals:     true,
+		KeepDocumentTags:        true,
+		KeepEndTags:             true,
+	})
 
 	endless.DefaultHammerTime = 1 * time.Second
 	server := endless.NewServer(viper.GetString("listen.address"), r)

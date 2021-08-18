@@ -24,8 +24,8 @@ func NewPage(t multitemplate.Renderer, r *gin.RouterGroup) sn.SNPage {
 	var ret sitePage
 	ret.renderer = t
 	ret.router = r
-	ret.AddNavItem(navbar)
-	ret.AddPageItem(pages)
+	ret.AddNav(navbar)
+	ret.AddPage(pages)
 	return &ret
 }
 
@@ -41,15 +41,15 @@ func (s *sitePage) GetRouter() *gin.RouterGroup {
 	return s.router
 }
 
-func (s *sitePage) GetNavItem() []*sn.SNNavItem {
+func (s *sitePage) GetNav() []*sn.SNNavItem {
 	return s.navbar
 }
 
-func (s *sitePage) GetPageItem() []*sn.SNPageItem {
+func (s *sitePage) GetPage() []*sn.SNPageItem {
 	return s.page
 }
 
-func (s *sitePage) AddNavItem(i []*sn.SNNavItem) {
+func (s *sitePage) AddNav(i []*sn.SNNavItem) {
 	s.navbar = append(s.navbar, i...)
 	sn.SNNavSort(s.navbar).Sort()
 }
@@ -68,7 +68,7 @@ func (r *sitePage) RenderSingle(c *gin.Context, u *sn.User, p *sn.SNPageItem) {
 }
 
 func (r *sitePage) Render(c *gin.Context, u *sn.User, p *sn.SNPageItem) {
-	avatar, err := utils.PicFromByte(u.Avatar)
+	avatar, err := utils.ConvertWebp(u.Avatar)
 	if err != nil {
 		log.Fatal(err)
 	}
@@ -120,11 +120,11 @@ func (r *sitePage) Render(c *gin.Context, u *sn.User, p *sn.SNPageItem) {
 	r.RenderSingle(c, u, p)
 }
 
-func (s *sitePage) AddPageItem(i []*sn.SNPageItem) {
+func (s *sitePage) AddPage(i []*sn.SNPageItem) {
 	for _, v := range i {
 		s.renderer.AddFromFilesFuncs(v.TplName, v.FuncMap, v.Files...)
-		renderer := func(v *sn.SNPageItem) func(c *gin.Context, u *sn.User) {
-			return func(c *gin.Context, u *sn.User) {
+		renderer := func(v *sn.SNPageItem) func(c *gin.Context, u *sn.User) (int, error) {
+			return func(c *gin.Context, u *sn.User) (int, error) {
 				ret := true
 				if v.Param == nil {
 					v.Param = make(map[string]interface{})
@@ -138,6 +138,7 @@ func (s *sitePage) AddPageItem(i []*sn.SNPageItem) {
 				if v.AfterRender != nil {
 					v.AfterRender(c, u, v)
 				}
+				return 0, nil
 			}
 		}
 		switch v.Role {

@@ -11,7 +11,7 @@ database:
 
 session:
   cookie: "GOSESSIONID" # session cookie name
-  prefix: "session_" # prefix in redis
+  prefix: "session_" # prefix in redis, please prevent glob pattern keywords like ? and *
   expire: 3600 # default expire time seconds
   remember: 5184000 # remember expire time seconds
 

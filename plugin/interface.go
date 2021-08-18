@@ -53,12 +53,16 @@ func SPWithIDPrefix(c *PluginConfig, n string) string {
 }
 
 func SPAddSubPath(root string, i []*sn.SNNavItem) {
-	for _, v := range sn.Skynet.Page.GetNavItem() {
+	for _, v := range sn.Skynet.Page.GetNav() {
 		if v.Name == root {
 			v.Child = append(v.Child, i...)
 			sn.SNNavSort(v.Child).Sort()
 		}
 	}
+}
+
+func SPAddStatic(c *PluginConfig, path string, root string) {
+	sn.Skynet.Engine.Static(path, c.Path+root)
 }
 
 func SPWithLayerFiles(c *PluginConfig, n string) []string {

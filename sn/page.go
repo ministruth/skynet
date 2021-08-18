@@ -10,10 +10,10 @@ import (
 
 type SNPage interface {
 	GetRouter() *gin.RouterGroup
-	GetNavItem() []*SNNavItem
-	GetPageItem() []*SNPageItem
-	AddNavItem(i []*SNNavItem)
-	AddPageItem(i []*SNPageItem)
+	GetNav() []*SNNavItem
+	GetPage() []*SNPageItem
+	AddNav(i []*SNNavItem)
+	AddPage(i []*SNPageItem)
 	GetDefaultFunc() template.FuncMap
 	GetDefaultPath() *SNPathItem
 }

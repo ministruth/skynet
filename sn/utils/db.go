@@ -8,18 +8,23 @@ import (
 	"gorm.io/gorm"
 )
 
+// GetDB return gorm database object, never nil.
 func GetDB() *gorm.DB {
 	return sn.Skynet.DB.Get().(*gorm.DB)
 }
 
+// GetRedis() return go-redis object, never nil.
 func GetRedis() *redis.Client {
 	return sn.Skynet.Redis.Get().(*redis.Client)
 }
 
+// GetSession return redisstore object, never nil.
 func GetSession() *redisstore.RedisStore {
 	return sn.Skynet.Session.Get().(*redisstore.RedisStore)
 }
 
+// DBParseCondition parse sn.SNCondition to gorm.DB object.
+//		utils.DBParseCondition(cond).Find(&ret)
 func DBParseCondition(cond *sn.SNCondition) *gorm.DB {
 	db := GetDB()
 	if cond != nil {

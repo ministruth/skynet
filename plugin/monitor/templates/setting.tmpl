@@ -146,8 +146,8 @@
       <tr>
         <td>${d.ID}</td>
         <td>${d.Name}</td>
-        <td>${d.Online ? '<span class="badge bg-success">ONLINE</span>' :
-        '<span class="badge bg-secondary">OFFLINE</span>'}</td>
+        <td>${d.Updating ? '<span class="badge bg-orange">UPDATING</span>' : (d.Online ? '<span class="badge bg-success">ONLINE</span>' :
+        '<span class="badge bg-secondary">OFFLINE</span>')}</td>
         <td>${d.HostName}</td>
         <td>${d.IP}</td>
         <td>${d.System}</td>
@@ -173,27 +173,13 @@
         $.each(e.data, function (_, e) {
           $("#agent").append(ParseData(e));
         });
+
         $("[data-operation='rename']").click((e) => {
           $("#renameForm").attr("action", `/api/plugin/2eb2e1a5-66b4-45f9-ad24-3c4f05c858aa/agent/${e.target.getAttribute("data-agentID")}`)
           $("#editName").val(e.target.getAttribute("data-agentName"));
         })
-        $("#renameForm").submit((e) => {
-          e.preventDefault();
-          let form = document.getElementById("renameForm");
-          JSONPatch(GetUrl(form), GetData(form)).done((d) => {
-            $('#modal-rename').modal('hide');
-            DelayHide()(d);
-          });
-        })
-
         $("[data-operation='delete']").click((e) => {
           $("#deleteConfirm").attr("data-agentID", e.target.getAttribute("data-agentID"));
-        })
-        $("#deleteConfirm").click((e) => {
-          JSONDelete(`/api/plugin/2eb2e1a5-66b4-45f9-ad24-3c4f05c858aa/agent/${e.target.getAttribute("data-agentID")}`).done((d) => {
-            $('#modal-delete').modal('hide');
-            DelayHide()(d);
-          });
         })
         obj.data = e.data;
       }
@@ -204,10 +190,27 @@
   $("#generate").click((e) => {
     $("#token").val(rand_token(32));
   })
+
   $("#saveConfirm").click((e) => {
     let form = document.getElementById("monitorForm");
     JSONPatch(GetUrl(form), GetData(form)).done((d) => {
       $('#modal-save').modal('hide');
+      DelayHide()(d);
+    });
+  })
+
+  $("#renameForm").submit((e) => {
+    e.preventDefault();
+    let form = document.getElementById("renameForm");
+    JSONPatch(GetUrl(form), GetData(form)).done((d) => {
+      $('#modal-rename').modal('hide');
+      DelayHide()(d);
+    });
+  })
+
+  $("#deleteConfirm").click((e) => {
+    JSONDelete(`/api/plugin/2eb2e1a5-66b4-45f9-ad24-3c4f05c858aa/agent/${e.target.getAttribute("data-agentID")}`).done((d) => {
+      $('#modal-delete').modal('hide');
       DelayHide()(d);
     });
   })

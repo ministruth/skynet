@@ -1,27 +1,28 @@
 package main
 
 import (
-	"encoding/json"
-	"io/ioutil"
+	"errors"
 	"os"
-	plugins "skynet/plugin"
 	"skynet/plugin/monitor/msg"
 	"skynet/plugin/monitor/shared"
 	"skynet/sn/utils"
 	"time"
 
+	plugins "skynet/plugin"
+
 	"github.com/google/uuid"
-	log "github.com/sirupsen/logrus"
+	"gorm.io/gorm"
 )
 
+// NewShared returns new shared API object.
 func NewShared() shared.PluginShared {
 	return &pluginShared{}
 }
 
 type pluginShared struct{}
 
-func checkAgent(id int) (*shared.AgentInfo, error) {
-	v, ok := agents[id]
+func withAgentOnline(id int) (*shared.AgentInfo, error) {
+	v, ok := agentInstance.Get(id)
 	if !ok {
 		return nil, shared.AgentNotExistError
 	}
@@ -31,8 +32,13 @@ func checkAgent(id int) (*shared.AgentInfo, error) {
 	return v, nil
 }
 
-func (s *pluginShared) DeleteAllSetting(id int) error {
-	return utils.GetDB().Where("agent_id = ?", id).Delete(&shared.PluginMonitorAgentSetting{}).Error
+func (s *pluginShared) GetConfig() *plugins.PluginConfig {
+	return Config
+}
+
+func (s *pluginShared) DeleteAllSetting(id int) (int64, error) {
+	res := utils.GetDB().Where("agent_id = ?", id).Delete(&shared.PluginMonitorAgentSetting{})
+	return res.RowsAffected, res.Error
 }
 
 func (s *pluginShared) DeleteSetting(id int, name string) error {
@@ -51,191 +57,153 @@ func (s *pluginShared) GetAllSetting(id int) ([]*shared.PluginMonitorAgentSettin
 func (s *pluginShared) GetSetting(id int, name string) (*shared.PluginMonitorAgentSetting, error) {
 	var rec shared.PluginMonitorAgentSetting
 	err := utils.GetDB().Where("agent_id = ? and name = ?", id, name).First(&rec).Error
-	if err != nil {
+	if errors.Is(err, gorm.ErrRecordNotFound) {
+		return nil, nil
+	} else if err != nil {
 		return nil, err
 	}
 	return &rec, nil
 }
 
-func (s *pluginShared) NewSetting(id int, name string, value string) error {
-	return utils.GetDB().Create(&shared.PluginMonitorAgentSetting{
+func (s *pluginShared) NewSetting(id int, name string, value string) (int, error) {
+	rec := shared.PluginMonitorAgentSetting{
 		AgentID: int32(id),
 		Name:    name,
 		Value:   value,
-	}).Error
+	}
+	res := utils.GetDB().Create(&rec)
+	return int(rec.ID), res.Error
 }
 
 func (s *pluginShared) UpdateSetting(id int, name string, value string) error {
 	return utils.GetDB().Model(&shared.PluginMonitorAgentSetting{}).Where("agent_id = ? and name = ?", id, name).Update("value", value).Error
 }
 
-func (s *pluginShared) GetPluginPath(c *plugins.PluginConfig, p string) string {
-	return "plugin/" + c.ID.String() + "/" + p
-}
-
-func (s *pluginShared) WriteFile(id int, path string, file string, recursive bool, override bool, perm os.FileMode, timeout time.Duration) error {
-	v, ok := agents[id]
-	if !ok {
-		return shared.AgentNotExistError
-	}
-	if !v.Online {
-		return shared.AgentNotOnlineError
-	}
-
-	fileData, err := ioutil.ReadFile(file)
+func (s *pluginShared) WriteFile(id int, remotePath string, localPath string, recursive bool, override bool, perm os.FileMode, timeout time.Duration) error {
+	v, err := withAgentOnline(id)
 	if err != nil {
 		return err
 	}
 
-	d, err := json.Marshal(msg.FileMsg{
-		Path:      path,
+	fileData, err := os.ReadFile(localPath)
+	if err != nil {
+		return err
+	}
+
+	msgID, err := msg.SendMsgByte(v.Conn, uuid.Nil, msg.OPFile, msg.Marshal(msg.FileMsg{
+		Path:      remotePath,
 		File:      fileData,
 		Recursive: recursive,
 		Perm:      perm,
 		Override:  override,
-	})
-	if err != nil {
-		log.Fatal(err)
-	}
-	mid, err := msg.SendReq(v.Conn, msg.OPFile, string(d))
+	}))
 	if err != nil {
 		return err
 	}
-	_, err = msg.RecvRsp(mid, recvChan, timeout)
+	_, err = msg.RecvMsgRet(msgID, v.MsgRetChan, timeout)
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-func (s *pluginShared) KillCMD(id int, uid uuid.UUID, isReturn bool) error {
-	v, err := checkAgent(id)
+func (s *pluginShared) KillCMD(id int, cid uuid.UUID) error {
+	v, err := withAgentOnline(id)
 	if err != nil {
 		return err
 	}
 
-	d, err := json.Marshal(msg.CMDKillMsg{
-		UID:    uid,
-		Return: isReturn,
-	})
-	if err != nil {
-		log.Fatal(err)
-	}
-	mid, err := msg.SendReq(v.Conn, msg.OPCMDKill, string(d))
-	if err != nil {
-		return err
-	}
-	if !isReturn {
-		return nil
-	}
-	_, err = msg.RecvRsp(mid, recvChan, time.Second*3)
-	if err != nil {
-		return err
-	}
-	return nil
+	_, err = msg.SendMsgByte(v.Conn, uuid.Nil, msg.OPCMDKill, msg.Marshal(msg.CMDKillMsg{
+		CID: cid,
+	}))
+
+	return err
 }
 
-func (s *pluginShared) GetCMDRes(id int, uid uuid.UUID) (*shared.CMDRes, error) {
-	v, err := checkAgent(id)
+func (s *pluginShared) GetCMDRes(id int, cid uuid.UUID) (*shared.CMDRes, error) {
+	v, err := withAgentOnline(id)
 	if err != nil {
 		return nil, err
 	}
-	if v.CMDRes == nil || v.CMDRes[uid] == nil {
-		return nil, shared.UIDNotFoundError
+	if v.CMDRes == nil || !v.CMDRes.Has(cid) {
+		return nil, shared.CMDIDNotFoundError
 	}
 
-	return v.CMDRes[uid], nil
+	return v.CMDRes.MustGet(cid), nil
 }
 
 func (s *pluginShared) RunCMDSync(id int, cmd string, timeout time.Duration) (uuid.UUID, string, error) {
-	v, err := checkAgent(id)
+	v, err := withAgentOnline(id)
 	if err != nil {
 		return uuid.Nil, "", err
 	}
 
-	uid := uuid.New()
-	if agents[id].CMDRes == nil {
-		agents[id].CMDRes = make(map[uuid.UUID]*shared.CMDRes)
-	}
-	if agents[id].CMDRes[uid] == nil {
-		agents[id].CMDRes[uid] = &shared.CMDRes{
-			End:      false,
-			DataChan: make(chan string, 1),
-		}
-	}
+	cid := uuid.New()
+	v.CMDRes.SetIfAbsent(cid, &shared.CMDRes{
+		End:      false,
+		DataChan: make(chan string, 1),
+	})
 
-	mid := uuid.New()
-	d, err := json.Marshal(msg.CMDMsg{
-		UID:     uid,
+	msgID := uuid.New()
+	_, err = msg.SendMsgByte(v.Conn, msgID, msg.OPCMD, msg.Marshal(msg.CMDMsg{
+		CID:     cid,
 		Payload: cmd,
 		Sync:    true,
-	})
-	if err != nil {
-		log.Fatal(err)
-	}
-	err = msg.SendReqWithID(v.Conn, mid, msg.OPCMD, string(d))
+	}))
 	if err != nil {
 		return uuid.Nil, "", err
 	}
 
-	ret, err := msg.RecvRsp(mid, recvChan, timeout)
+	ret, err := msg.RecvMsgRet(msgID, v.MsgRetChan, timeout)
 	if err == shared.OPTimeoutError {
-		s.KillCMD(id, uid, false)
+		s.KillCMD(id, cid)
 		return uuid.Nil, "", err
 	} else if err != nil {
 		return uuid.Nil, "", err
 	}
 
 	var data msg.CMDResMsg
-	err = json.Unmarshal([]byte(ret.Data), &data)
+	err = msg.Unmarshal([]byte(ret.Data), &data)
 	if err != nil {
 		return uuid.Nil, "", err
 	}
-	agents[id].CMDRes[data.UID].Data += data.Data
-	agents[id].CMDRes[data.UID].Code = data.Code
-	agents[id].CMDRes[data.UID].End = data.End
-	agents[id].CMDRes[data.UID].Complete = data.Complete
-	agents[id].CMDRes[data.UID].DataChan <- data.Data
+	res := v.CMDRes.MustGet(data.CID)
+	res.Data += data.Data
+	res.Code = data.Code
+	res.End = data.End
+	res.Complete = data.Complete
+	res.DataChan <- data.Data
 	if data.End {
-		close(agents[id].CMDRes[data.UID].DataChan)
+		close(res.DataChan)
 	}
-	return uid, data.Data, nil
+	return cid, data.Data, nil
 }
 
 func (s *pluginShared) RunCMDAsync(id int, cmd string) (uuid.UUID, chan string, error) {
-	v, err := checkAgent(id)
+	v, err := withAgentOnline(id)
 	if err != nil {
 		return uuid.Nil, nil, err
 	}
 
-	uid := uuid.New()
+	cid := uuid.New()
 
-	if agents[id].CMDRes == nil {
-		agents[id].CMDRes = make(map[uuid.UUID]*shared.CMDRes)
-	}
-	if agents[id].CMDRes[uid] == nil {
-		agents[id].CMDRes[uid] = &shared.CMDRes{
-			End:      false,
-			DataChan: make(chan string, 60),
-		}
-	}
+	v.CMDRes.SetIfAbsent(cid, &shared.CMDRes{
+		End:      false,
+		DataChan: make(chan string, 60),
+	})
 
-	d, err := json.Marshal(msg.CMDMsg{
-		UID:     uid,
+	_, err = msg.SendMsgByte(v.Conn, uuid.Nil, msg.OPCMD, msg.Marshal(msg.CMDMsg{
+		CID:     cid,
 		Payload: cmd,
 		Sync:    false,
-	})
-	if err != nil {
-		log.Fatal(err)
-	}
-	_, err = msg.SendReq(v.Conn, msg.OPCMD, string(d))
+	}))
 	if err != nil {
 		return uuid.Nil, nil, err
 	}
 
-	return uid, agents[id].CMDRes[uid].DataChan, nil
+	return cid, v.CMDRes.MustGet(cid).DataChan, nil
 }
 
 func (s *pluginShared) GetAgents() map[int]*shared.AgentInfo {
-	return agents
+	return agentInstance.Map()
 }

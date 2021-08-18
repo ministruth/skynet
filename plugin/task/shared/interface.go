@@ -2,6 +2,7 @@ package shared
 
 import (
 	"context"
+	plugins "skynet/plugin"
 	"skynet/sn"
 )
 
@@ -26,6 +27,7 @@ type PluginTask struct {
 }
 
 type PluginShared interface {
+	GetConfig() *plugins.PluginConfig
 	New(name string, detail string, cancel func() error) (int, error)
 	CancelByUser(id int, msg string) error
 	Cancel(id int, msg string) error

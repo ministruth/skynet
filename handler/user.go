@@ -27,7 +27,7 @@ func (u *siteUser) New(username string, password string, avatar []byte, role sn.
 		newpass = password
 	}
 
-	webpAvatar, err := utils.PicFromByte(avatar)
+	webpAvatar, err := utils.ConvertWebp(avatar)
 	if err != nil {
 		return "", err
 	}
@@ -35,7 +35,7 @@ func (u *siteUser) New(username string, password string, avatar []byte, role sn.
 	user := sn.User{
 		Username: username,
 		Password: HashPass(newpass),
-		Avatar:   webpAvatar.Data(),
+		Avatar:   webpAvatar.Data,
 		Role:     role,
 	}
 	err = utils.GetDB().Create(&user).Error
@@ -63,7 +63,7 @@ func (u *siteUser) Update(id int, username string, password string, role sn.User
 
 	var webpAvatar *utils.WebpImage
 	if avatar != nil {
-		webpAvatar, err = utils.PicFromByte(avatar)
+		webpAvatar, err = utils.ConvertWebp(avatar)
 		if err != nil {
 			return err
 		}
@@ -84,7 +84,7 @@ func (u *siteUser) Update(id int, username string, password string, role sn.User
 		rec.Role = role
 	}
 	if avatar != nil {
-		rec.Avatar = webpAvatar.Data()
+		rec.Avatar = webpAvatar.Data
 	}
 	return utils.GetDB().Save(&rec).Error
 }

@@ -17,7 +17,11 @@ func (s *siteAPI) GetRouter() *gin.RouterGroup {
 	return s.router
 }
 
-func (s *siteAPI) AddAPIItem(i []*sn.SNAPIItem) {
+func (s *siteAPI) GetAPI() []*sn.SNAPIItem {
+	return s.api
+}
+
+func (s *siteAPI) AddAPI(i []*sn.SNAPIItem) {
 	for _, v := range i {
 		var fun func(c *gin.Context)
 		switch v.Role {
@@ -33,9 +37,9 @@ func (s *siteAPI) AddAPIItem(i []*sn.SNAPIItem) {
 				}
 			}(v.Func)
 		case sn.RoleUser:
-			fun = utils.WithSignInErr(v.Func, false)
+			fun = utils.WithSignIn(v.Func, false)
 		case sn.RoleAdmin:
-			fun = utils.WithAdminErr(v.Func, false)
+			fun = utils.WithAdmin(v.Func, false)
 		}
 		switch v.Method {
 		case sn.APIGet:
@@ -59,10 +63,11 @@ func (s *siteAPI) AddAPIItem(i []*sn.SNAPIItem) {
 	s.api = append(s.api, i...)
 }
 
+// NewAPI returns new API object.
 func NewAPI(r *gin.RouterGroup) sn.SNAPI {
 	var ret siteAPI
 	ret.router = r
-	ret.AddAPIItem(api)
+	ret.AddAPI(api)
 	return &ret
 }
 

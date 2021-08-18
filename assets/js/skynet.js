@@ -17,6 +17,14 @@ function JSONAction(method, url, d) {
   });
 }
 
+function Str2B64(str) {
+  return window.btoa(unescape(encodeURIComponent(str)));
+}
+
+function B642Str(str) {
+  return decodeURIComponent(escape(window.atob(str)));
+}
+
 function GetData(form) {
   let data = {};
   new FormData(form).forEach((value, key) => (data[key] = value));
@@ -248,16 +256,16 @@ Date.prototype.TimeSince = function () {
   var seconds = Math.floor((new Date() - this) / 1000);
   var interval = Math.floor(seconds / 31536000);
 
-  if (interval > 1) return interval + " years ago";
+  if (interval >= 1) return interval + " years";
   interval = Math.floor(seconds / 2592000);
-  if (interval > 1) return interval + " months ago";
+  if (interval >= 1) return interval + " months";
   interval = Math.floor(seconds / 86400);
-  if (interval > 1) return interval + " days ago";
+  if (interval >= 1) return interval + " days";
   interval = Math.floor(seconds / 3600);
-  if (interval > 1) return interval + " hours ago";
+  if (interval >= 1) return interval + " hours";
   interval = Math.floor(seconds / 60);
-  if (interval > 1) return interval + " minutes ago";
-  if (Math.floor(seconds) >= 5) return Math.floor(seconds) + " seconds ago";
+  if (interval >= 1) return interval + " minutes";
+  if (Math.floor(seconds) >= 5) return Math.floor(seconds) + " seconds";
   else return "Just now";
 };
 

@@ -177,6 +177,31 @@
     return d;
   }
 
+  $("#addUser").submit((e) => {
+    e.preventDefault();
+    let form = document.getElementById("addUser");
+    JSONPost(GetUrl(form), convUser(GetData(form))).done((d) => {
+      $('#modal-add').modal('hide');
+      DelayHide()(d);
+    });
+  });
+
+  $("#editUser").submit((e) => {
+    e.preventDefault();
+    let form = document.getElementById("editUser");
+    JSONPatch(GetUrl(form), convUser(GetData(form))).done((d) => {
+      $('#modal-edit').modal('hide');
+      DelayHide()(d);
+    });
+  })
+
+  $("#deleteConfirm").click((e) => {
+    JSONDelete(`/api/user/${e.target.getAttribute("data-userID")}`).done((d) => {
+      $('#modal-delete').modal('hide');
+      DelayHide()(d);
+    });
+  })
+
   const ParseFunc = (obj, page, size) => {
     JSONGet(`/api/user?page=${page}&size=${size}`).done((e) => {
       if (UpdateTotal("user", e.total, ParseFunc))
@@ -192,34 +217,12 @@
           $("#editUsername").val(e.target.getAttribute("data-edituser"));
           $("#editRole").get(0).selectedIndex = e.target.getAttribute("data-editrole") - 1;
         })
-        $("#editUser").submit((e) => {
-          e.preventDefault();
-          let form = document.getElementById("editUser");
-          JSONPatch(GetUrl(form), convUser(GetData(form))).done((d) => {
-            $('#modal-edit').modal('hide');
-            DelayHide()(d);
-          });
-        })
         $("[data-operation='kick']").click((e) => {
           JSONPatch(`/api/user/${e.target.getAttribute("data-userID")}`, {}).done(DelayHide());
         })
         $("[data-operation='delete']").click((e) => {
           $("#deleteConfirm").attr("data-userID", e.target.getAttribute("data-userID"));
         })
-        $("#deleteConfirm").click((e) => {
-          JSONDelete(`/api/user/${e.target.getAttribute("data-userID")}`).done((d) => {
-            $('#modal-delete').modal('hide');
-            DelayHide()(d);
-          });
-        })
-        $("#addUser").submit((e) => {
-          e.preventDefault();
-          let form = document.getElementById("addUser");
-          JSONPost(GetUrl(form), convUser(GetData(form))).done((d) => {
-            $('#modal-add').modal('hide');
-            DelayHide()(d);
-          });
-        });
         obj.data = e.data;
       }
     })

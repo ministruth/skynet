@@ -4,12 +4,15 @@ import (
 	"bytes"
 	"context"
 	"crypto/tls"
-	"encoding/json"
+	"errors"
 	"io"
 	"io/ioutil"
+	"net/http"
 	"os"
+	"os/exec"
 	"path/filepath"
 	"skynet/plugin/monitor/msg"
+	"skynet/plugin/monitor/shared"
 	"skynet/sn/utils"
 	"time"
 
@@ -23,10 +26,15 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-var token string
-var ssl bool
-var insecure bool
-var logfile string
+var RestartError = errors.New("Restart triggered")
+
+var (
+	token    string
+	ssl      bool
+	insecure bool
+	logfile  string
+	maxTime  int
+)
 
 var rootCmd = &cobra.Command{
 	Use:   "agent HOST",
@@ -35,11 +43,12 @@ var rootCmd = &cobra.Command{
 	Run:   run,
 }
 
+const Version = "0.1.0"
+
 const pluginPath = "/api/plugin/2eb2e1a5-66b4-45f9-ad24-3c4f05c858aa/ws"
 
 var sleepTime = 1
-var maxTime int
-var recvChan = make(map[uuid.UUID]chan msg.RetMsg)
+var recvChan shared.ChanMap
 
 func sleep() {
 	log.Warnf("Retry in %v seconds...", sleepTime)
@@ -49,34 +58,29 @@ func sleep() {
 	}
 }
 
-func login(c *websocket.Conn) error {
-	// login
+func loginHandler(c *shared.Websocket) error {
 	id, err := machineid.ID()
 	if err != nil {
 		log.Fatal(err)
 	}
 
-	d, err := json.Marshal(msg.LoginMsg{
+	mid, err := msg.SendMsgByte(c, uuid.Nil, msg.OPLogin, msg.Marshal(msg.LoginMsg{
 		UID:   utils.MD5(id),
 		Token: token,
-	})
-	if err != nil {
-		log.Fatal(err)
-	}
-	mid, err := msg.SendReq(c, msg.OPLogin, string(d))
+	}))
 	if err != nil {
 		return err
 	}
 
-	r, _, err := msg.Recv(c)
+	r, _, err := msg.RecvMsg(c)
 	if err != nil {
 		return err
 	}
-	if r.ID != mid || r.Opcode != msg.OPRet {
+	if r.ID != mid || r.OPCode != msg.OPRet {
 		log.Fatal("Invalid server response")
 	}
 	var ret msg.RetMsg
-	err = json.Unmarshal([]byte(r.Data), &ret)
+	err = msg.Unmarshal(r.Data, &ret)
 	if err != nil {
 		return err
 	}
@@ -89,7 +93,7 @@ func login(c *websocket.Conn) error {
 	return nil
 }
 
-func sendInfo(c *websocket.Conn) error {
+func sendInfoHandler(c *shared.Websocket) error {
 	hostname, err := os.Hostname()
 	if err != nil {
 		log.Warn("Could not determine hostname")
@@ -99,144 +103,186 @@ func sendInfo(c *websocket.Conn) error {
 	if err != nil {
 		log.Warn("Could not determine uname")
 	}
-	d, err := json.Marshal(msg.InfoMsg{
+	_, err = msg.SendMsgByte(c, uuid.Nil, msg.OPInfo, msg.Marshal(msg.InfoMsg{
+		Version: Version,
 		Host:    hostname,
 		Machine: string(bytes.TrimRight(uts.Machine[:], "\x00")),
 		System: string(bytes.TrimRight(uts.Sysname[:], "\x00")) + " " +
 			string(bytes.TrimRight(uts.Nodename[:], "\x00")) + " " +
 			string(bytes.TrimRight(uts.Release[:], "\x00")),
-	})
-	if err != nil {
-		log.Fatal(err)
-	}
-	_, err = msg.SendReq(c, msg.OPInfo, string(d))
+	}))
 	return err
 }
 
-func deadloop(u string) error {
-	websocket.DefaultDialer.TLSClientConfig = &tls.Config{InsecureSkipVerify: insecure}
-	c, _, err := websocket.DefaultDialer.Dial(u, nil)
+func msgReturnHandler(c *shared.Websocket, m *msg.CommonMsg) error {
+	var data msg.RetMsg
+	if err := msg.Unmarshal(m.Data, &data); err != nil {
+		return err
+	}
+	recvChan.Push(m.ID, data)
+	return nil
+}
+
+func msgCMDHandler(c *shared.Websocket, m *msg.CommonMsg) error {
+	var data msg.CMDMsg
+	if err := msg.Unmarshal(m.Data, &data); err != nil {
+		return err
+	}
+	w, err := shellquote.Split(data.Payload)
+	if err != nil {
+		log.Warn(err)
+		if data.Sync {
+			err = msg.SendMsgRet(c, m.ID, -1, err.Error())
+		} else {
+			_, err = msg.SendMsgByte(c, uuid.Nil, msg.OPCMDRes, msg.Marshal(msg.CMDResMsg{
+				CID:  data.CID,
+				Data: err.Error(),
+				End:  true,
+			}))
+		}
+		return err
+	} else {
+		log.Info("Run command: ", data.Payload)
+		if data.Sync {
+			go RunCommandSync(c, m.ID, data.CID, w[0], w[1:]...)
+		} else {
+			RunCommandAsync(c, data.CID, w[0], w[1:]...)
+		}
+	}
+	return nil
+}
+
+func msgCMDKillHandler(c *shared.Websocket, m *msg.CommonMsg) error {
+	var data msg.CMDKillMsg
+	if err := msg.Unmarshal(m.Data, &data); err != nil {
+		return err
+	}
+	log.Warn("Cancel command: ", data.CID)
+	return KillCommand(data.CID)
+}
+
+func msgFileHandler(c *shared.Websocket, m *msg.CommonMsg) error {
+	var data msg.FileMsg
+	if err := msg.Unmarshal(m.Data, &data); err != nil {
+		return err
+	}
+	log.Info("Receive file: ", data.Path)
+	if data.Recursive {
+		dir, _ := filepath.Split(data.Path)
+		os.MkdirAll(dir, data.Perm)
+	}
+	if !data.Override && utils.FileExist(data.Path) {
+		return msg.SendMsgRet(c, m.ID, 0, "File not change")
+	}
+	os.Remove(data.Path) // support override running program
+	err := ioutil.WriteFile(data.Path, data.File, data.Perm)
+	if err != nil {
+		log.Warn(err)
+		return msg.SendMsgRet(c, m.ID, -1, err.Error())
+	} else {
+		return msg.SendMsgRet(c, m.ID, 0, "Write file success")
+	}
+}
+
+func msgShellHandler(c *shared.Websocket, m *msg.CommonMsg) error {
+	var data msg.ShellMsg
+	if err := msg.Unmarshal(m.Data, &data); err != nil {
+		return err
+	}
+	switch data.OPCode {
+	case msg.ShellConnect:
+		var cmsg msg.ShellConnectMsg
+		if err := msg.Unmarshal(data.Data, &cmsg); err != nil {
+			return err
+		}
+		id, err := CreateShell(&cmsg.ShellSizeMsg)
+		if err != nil {
+			log.Warn(err)
+			return msg.SendMsgRet(c, m.ID, -1, err.Error())
+		}
+		go HandleShellOutput(c, id)
+		msg.SendMsgRet(c, m.ID, 0, id.String())
+		log.Info("Shell connected: ", id)
+	case msg.ShellDisconnect:
+		CloseShell(data.SID)
+		log.Info("Shell disconnect: ", data.SID)
+	case msg.ShellSize:
+		var size msg.ShellSizeMsg
+		if err := msg.Unmarshal(data.Data, &size); err != nil {
+			return err
+		}
+		SetShellSize(data.SID, &size)
+	case msg.ShellInput:
+		HandleShellInput(data.SID, string(data.Data))
+	default:
+		log.Warn("Unknown shell opcode ", data.OPCode)
+	}
+	return nil
+}
+
+func deadloop(url string) error {
+	conn, _, err := shared.DialWebsocket(&websocket.Dialer{
+		Proxy:            http.ProxyFromEnvironment,
+		HandshakeTimeout: 10 * time.Second,
+		TLSClientConfig:  &tls.Config{InsecureSkipVerify: insecure},
+	}, url, nil)
 	if err != nil {
 		return err
 	}
-	defer c.Close()
+	defer conn.Close()
 
 	log.Info("Connected")
-	sleepTime = 1
+	sleepTime = 1 // reset sleeptime
 
-	err = login(c)
-	if err != nil {
+	if err = loginHandler(conn); err != nil {
 		return err
 	}
-
-	err = sendInfo(c)
-	if err != nil {
+	if err = sendInfoHandler(conn); err != nil {
 		return err
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	go UploadStat(ctx, c)
+	go UploadStat(ctx, conn)
+
+	defer func() {
+		shells := shellInstance.Keys()
+		for _, v := range shells {
+			CloseShell(v)
+		}
+	}()
 
 	for {
-		res, msgRead, err := msg.Recv(c)
+		res, msgRead, err := msg.RecvMsg(conn)
 		if err != nil {
 			if msgRead == nil {
 				break
 			} else {
-				log.Warn("Msg format error")
+				log.Warn(err)
 				continue
 			}
 		}
-		switch res.Opcode {
+		switch res.OPCode {
 		case msg.OPRet:
-			var data msg.RetMsg
-			err = json.Unmarshal([]byte(res.Data), &data)
-			if err != nil {
-				log.Warn("Msg format error")
-				continue
-			}
-			ch, ok := recvChan[res.ID]
-			if !ok {
-				log.Warn("Error response: " + res.Data)
-			} else {
-				ch <- data
-			}
+			err = msgReturnHandler(conn, res)
 		case msg.OPCMD:
-			var data msg.CMDMsg
-			err = json.Unmarshal([]byte(res.Data), &data)
-			if err != nil {
-				log.Warn("Msg format error")
-				continue
-			}
-			w, err := shellquote.Split(data.Payload)
-			if err != nil {
-				if data.Sync {
-					err = msg.SendRsp(c, res.ID, -1, err.Error())
-				} else {
-					d, err := json.Marshal(msg.CMDResMsg{
-						UID:  data.UID,
-						Data: err.Error(),
-						End:  true,
-					})
-					if err != nil {
-						log.Fatal(err)
-					}
-					_, err = msg.SendReq(c, msg.OPCMDRes, string(d))
-				}
-				if err != nil {
-					log.Warn("Could not send cmd result")
-				}
-			} else {
-				log.Info("Run command: ", data.Payload)
-				if data.Sync {
-					go RunCommandSync(c, res.ID, data.UID, w[0], w[1:]...)
-				} else {
-					RunCommandAsync(c, data.UID, w[0], w[1:]...)
-				}
-			}
+			err = msgCMDHandler(conn, res)
 		case msg.OPCMDKill:
-			var data msg.CMDKillMsg
-			err = json.Unmarshal([]byte(res.Data), &data)
-			if err != nil {
-				log.Warn("Msg format error")
-				continue
-			}
-			log.Warn("Cancel command: ", data.UID)
-			err = KillCommand(data.UID)
-			if data.Return {
-				if err != nil {
-					msg.SendRsp(c, res.ID, -1, err.Error())
-				} else {
-					msg.SendRsp(c, res.ID, 0, "Kill task success")
-				}
-			}
+			err = msgCMDKillHandler(conn, res)
 		case msg.OPFile:
-			var data msg.FileMsg
-			err = json.Unmarshal([]byte(res.Data), &data)
-			if err != nil {
-				log.Warn("Msg format error")
-				continue
-			}
-			if data.Recursive {
-				dir, _ := filepath.Split(data.Path)
-				os.MkdirAll(dir, data.Perm)
-			}
-			if !data.Override && utils.FileExist(data.Path) {
-				msg.SendRsp(c, res.ID, 0, "File not change")
-			}
-			err := ioutil.WriteFile(data.Path, data.File, data.Perm)
-			if err != nil {
-				msg.SendRsp(c, res.ID, -1, err.Error())
-			} else {
-				msg.SendRsp(c, res.ID, 0, "Write file success")
-			}
+			err = msgFileHandler(conn, res)
+		case msg.OPShell:
+			err = msgShellHandler(conn, res)
+		case msg.OPRestart:
+			return RestartError
 		default:
-			log.Warn("Unknown opcode ", res.Opcode)
+			log.Warn("Unknown opcode ", res.OPCode)
+		}
+		if err != nil {
+			log.Warn(err)
 		}
 	}
-	log.Warn("lost connection")
-	sleep()
+	log.Error("lost connection")
 	return nil
 }
 
@@ -268,9 +314,27 @@ func run(cmd *cobra.Command, args []string) {
 	for {
 		err := deadloop(u)
 		if err != nil {
-			log.Error(err)
-			sleep()
+			if errors.Is(err, RestartError) {
+				path := os.Args[0]
+				var args []string
+				if len(os.Args) > 1 {
+					args = os.Args[1:]
+				}
+
+				cmd := exec.Command(path, args...)
+				cmd.Stdout = os.Stdout
+				cmd.Stderr = os.Stderr
+				cmd.Stdin = os.Stdin
+
+				if err = cmd.Start(); err != nil {
+					log.Fatalf("Restart: Failed to launch, error: %v", err)
+				}
+				return
+			} else {
+				log.Error(err)
+			}
 		}
+		sleep()
 	}
 }
 

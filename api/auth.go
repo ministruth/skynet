@@ -23,10 +23,10 @@ func APISignIn(c *gin.Context, u *sn.User) (int, error) {
 	if err != nil {
 		return 400, err
 	}
-	fields := log.Fields{
+	logf := log.WithFields(log.Fields{
 		"ip":       c.ClientIP(),
 		"username": param.Username,
-	}
+	})
 
 	u, res, err := handler.CheckUserPass(param.Username, param.Password)
 	if err != nil {
@@ -56,20 +56,20 @@ func APISignIn(c *gin.Context, u *sn.User) (int, error) {
 			return 500, err
 		}
 
-		log.WithFields(fields).Info("Sign in success")
+		logf.Info("Sign in success")
 		c.JSON(200, gin.H{"code": 0, "msg": "Sign in success"})
 	default: // invalid
-		log.WithFields(fields).Warn("Invalid username or password")
+		logf.Warn("Invalid username or password")
 		c.JSON(200, gin.H{"code": 1, "msg": "Invalid username or password"})
 	}
 	return 0, nil
 }
 
 func APISignOut(c *gin.Context, u *sn.User) (int, error) {
-	fields := log.Fields{
+	logf := log.WithFields(log.Fields{
 		"ip": c.ClientIP(),
 		"id": u.ID,
-	}
+	})
 
 	session, err := utils.GetCTXSession(c)
 	if err != nil {
@@ -79,7 +79,7 @@ func APISignOut(c *gin.Context, u *sn.User) (int, error) {
 	if err = utils.SaveCTXSession(c); err != nil {
 		return 500, err
 	}
-	log.WithFields(fields).Info("Sign out success")
+	logf.Info("Sign out success")
 	c.JSON(200, gin.H{"code": 0, "msg": "Sign out success"})
 	return 0, nil
 }

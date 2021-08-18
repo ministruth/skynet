@@ -3,6 +3,8 @@ package cmd
 import (
 	"bytes"
 	"io/ioutil"
+	"skynet/handler"
+	"skynet/sn"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -12,6 +14,30 @@ import (
 var rootCmd = &cobra.Command{
 	Use:   "skynet",
 	Short: "Service Integration and Management Application",
+	PersistentPreRun: func(cmd *cobra.Command, args []string) {
+		// init config param
+		for k, v := range defaultSettings {
+			if k[0] == '*' {
+				viper.SetDefault(k[1:], v)
+			} else {
+				viper.SetDefault(k, v)
+			}
+		}
+
+		viper.SetConfigType("yml")
+		content, err := ioutil.ReadFile(conf)
+		if err != nil {
+			log.Fatal("Can not read config file: ", err)
+		}
+		err = viper.ReadConfig(bytes.NewBuffer(content))
+		if err != nil {
+			log.Fatal("Config file invalid: ", err)
+		}
+
+		if verbose {
+			log.SetLevel(log.DebugLevel)
+		}
+	},
 }
 
 var conf string
@@ -43,31 +69,11 @@ var defaultSettings = map[string]interface{}{
 }
 
 func init() {
+	sn.Skynet.User = handler.NewUser()
+	sn.Skynet.Notification = handler.NewNotification()
+
 	rootCmd.PersistentFlags().StringVarP(&conf, "conf", "c", "conf.yml", "config file")
 	rootCmd.PersistentFlags().BoolVarP(&verbose, "verbose", "v", false, "show verbose")
-
-	// init config param
-	for k, v := range defaultSettings {
-		if k[0] == '*' {
-			viper.SetDefault(k[1:], v)
-		} else {
-			viper.SetDefault(k, v)
-		}
-	}
-
-	viper.SetConfigType("yml")
-	content, err := ioutil.ReadFile(conf)
-	if err != nil {
-		log.Fatal("Can not read config file: ", err)
-	}
-	err = viper.ReadConfig(bytes.NewBuffer(content))
-	if err != nil {
-		log.Fatal("Config file invalid: ", err)
-	}
-
-	if verbose {
-		log.SetLevel(log.DebugLevel)
-	}
 }
 
 // Execute executes the root command.

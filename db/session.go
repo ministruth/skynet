@@ -9,29 +9,30 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-// SessionConfig is config for session
+// SessionConfig is connection config for session.
 type SessionConfig struct {
-	RedisClient *redis.Client
-	Prefix      string
+	RedisClient *redis.Client // redis client for session
+	Prefix      string        // session prefix in redis
 }
 
-type SessionClient struct {
+type sessionClient struct {
 	sessionClient *redisstore.RedisStore
 }
 
-func NewSession(ctx context.Context, param *SessionConfig) sn.SNDB {
-	var ret SessionClient
+// NewSession create new session object, exit when facing any error.
+func NewSession(ctx context.Context, conf *SessionConfig) sn.SNDB {
+	var ret sessionClient
 	var err error
 
-	ret.sessionClient, err = redisstore.NewRedisStore(ctx, param.RedisClient)
+	ret.sessionClient, err = redisstore.NewRedisStore(ctx, conf.RedisClient)
 	if err != nil {
 		log.Fatal("Redis store error: ", err)
 	}
-	ret.sessionClient.KeyPrefix(param.Prefix)
+	ret.sessionClient.KeyPrefix(conf.Prefix)
 	return &ret
 }
 
-func (c *SessionClient) Get() interface{} {
+func (c *sessionClient) Get() interface{} {
 	if c.sessionClient == nil {
 		log.Fatal("Session not init")
 	}

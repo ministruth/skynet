@@ -47,29 +47,29 @@ func APIUpdatePlugin(c *gin.Context, u *sn.User) (int, error) {
 	if err != nil {
 		return 400, err
 	}
-	fields := log.Fields{
+	logf := log.WithFields(log.Fields{
 		"ip":     c.ClientIP(),
 		"id":     u.ID,
 		"plugin": id,
-	}
+	})
 
 	if param.Enable {
 		err = sn.Skynet.Plugin.Enable(id)
 		if err != nil {
-			log.WithFields(fields).Warn("Enable plugin fail")
+			logf.Warn("Enable plugin fail")
 			c.JSON(200, gin.H{"code": 1, "msg": err.Error()})
 			return 0, nil
 		}
-		log.WithFields(fields).Info("Enable plugin success")
+		logf.Info("Enable plugin success")
 		c.JSON(200, gin.H{"code": 0, "msg": "Enable plugin success"})
 	} else {
 		err = sn.Skynet.Plugin.Disable(id)
 		if err != nil {
-			log.WithFields(fields).Warn("Disable plugin fail")
+			logf.Warn("Disable plugin fail")
 			c.JSON(200, gin.H{"code": 1, "msg": err.Error()})
 			return 0, nil
 		}
-		log.WithFields(fields).Info("Disable plugin success")
+		logf.Info("Disable plugin success")
 		c.JSON(200, gin.H{"code": 0, "msg": "Disable plugin success, reloading"})
 		go func() {
 			time.Sleep(time.Second * 2)

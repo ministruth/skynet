@@ -2,11 +2,11 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"skynet/plugin/monitor/msg"
+	"skynet/plugin/monitor/shared"
 	"time"
 
-	"github.com/gorilla/websocket"
+	"github.com/google/uuid"
 	"github.com/shirou/gopsutil/cpu"
 	"github.com/shirou/gopsutil/disk"
 	"github.com/shirou/gopsutil/load"
@@ -15,7 +15,7 @@ import (
 	log "github.com/sirupsen/logrus"
 )
 
-func UploadStat(ctx context.Context, c *websocket.Conn) {
+func UploadStat(ctx context.Context, c *shared.Websocket) {
 	ticker := time.NewTicker(1 * time.Second)
 	for {
 		select {
@@ -50,7 +50,7 @@ func UploadStat(ctx context.Context, c *websocket.Conn) {
 				log.Warn("Could not determine net usage")
 			}
 
-			d, err := json.Marshal(msg.StatMsg{
+			_, err = msg.SendMsgByte(c, uuid.Nil, msg.OPStat, msg.Marshal(msg.StatMsg{
 				CPU:       cpuUsage[0],
 				Mem:       memUsage.Used,
 				TotalMem:  memUsage.Total,
@@ -60,11 +60,7 @@ func UploadStat(ctx context.Context, c *websocket.Conn) {
 				Time:      time.Now(),
 				BandUp:    netUsage[0].BytesSent,
 				BandDown:  netUsage[0].BytesRecv,
-			})
-			if err != nil {
-				log.Fatal(err)
-			}
-			_, err = msg.SendReq(c, msg.OPStat, string(d))
+			}))
 			if err != nil {
 				log.Warn(err)
 			}

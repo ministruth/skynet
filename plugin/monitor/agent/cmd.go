@@ -2,35 +2,35 @@ package main
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"skynet/plugin/monitor/msg"
+	"skynet/plugin/monitor/shared"
+	"skynet/sn/utils"
 	"time"
 
 	"github.com/go-cmd/cmd"
 	"github.com/google/uuid"
-	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"
 )
 
-var cmdInstance = make(map[uuid.UUID]*cmd.Cmd)
+var cmdInstance utils.UUIDMap
 
 var (
 	CMDNotRunningError = errors.New("Command not running")
 )
 
-func KillCommand(uid uuid.UUID) error {
-	if c, exist := cmdInstance[uid]; exist {
-		return c.Stop()
+func KillCommand(cid uuid.UUID) error {
+	if c, exist := cmdInstance.Get(cid); exist {
+		return c.(*cmd.Cmd).Stop()
 	}
 	return CMDNotRunningError
 }
 
-func RunCommandSync(c *websocket.Conn, mid uuid.UUID, uid uuid.UUID, name string, args ...string) {
+func RunCommandSync(c *shared.Websocket, mid uuid.UUID, cid uuid.UUID, name string, args ...string) {
 	payload := cmd.NewCmd(name, args...)
-	cmdInstance[uid] = payload
-	defer delete(cmdInstance, uid)
+	cmdInstance.Set(cid, payload)
+	defer cmdInstance.Delete(cid)
 	status := <-payload.Start()
 	if !status.Complete {
 		return
@@ -39,41 +39,33 @@ func RunCommandSync(c *websocket.Conn, mid uuid.UUID, uid uuid.UUID, name string
 	for _, v := range status.Stdout {
 		sendmsg += v + "\n"
 	}
-	d, err := json.Marshal(msg.CMDResMsg{
-		UID:      uid,
+	err := msg.SendMsgRet(c, mid, 0, string(msg.Marshal(msg.CMDResMsg{
+		CID:      cid,
 		Data:     sendmsg + fmt.Sprintf("\nTask exit with code: %v", status.Exit),
 		Code:     status.Exit,
 		Complete: status.Complete,
 		End:      true,
-	})
-	if err != nil {
-		log.Fatal(err)
-	}
-	err = msg.SendRsp(c, mid, 0, string(d))
+	})))
 	if err != nil {
 		log.Warn("Could not send cmd result")
 	}
 }
 
-func RunCommandAsync(c *websocket.Conn, uid uuid.UUID, name string, args ...string) {
+func RunCommandAsync(c *shared.Websocket, cid uuid.UUID, name string, args ...string) {
 	payload := cmd.NewCmd(name, args...)
-	cmdInstance[uid] = payload
+	cmdInstance.Set(cid, payload)
 	s := payload.Start()
 	t := time.NewTicker(1 * time.Second)
 	ctx, cancel := context.WithCancel(context.Background())
 
 	send := func(m string, code int, complete bool, end bool) {
-		d, err := json.Marshal(msg.CMDResMsg{
-			UID:      uid,
+		_, err := msg.SendMsgByte(c, uuid.Nil, msg.OPCMDRes, msg.Marshal(msg.CMDResMsg{
+			CID:      cid,
 			Data:     m,
 			Code:     code,
 			Complete: complete,
 			End:      end,
-		})
-		if err != nil {
-			log.Fatal(err)
-		}
-		_, err = msg.SendReq(c, msg.OPCMDRes, string(d))
+		}))
 		if err != nil {
 			log.Warn("Could not send cmd result")
 		}
@@ -112,7 +104,7 @@ func RunCommandAsync(c *websocket.Conn, uid uuid.UUID, name string, args ...stri
 		case <-s:
 			t.Stop()
 			cancel()
-			delete(cmdInstance, uid)
+			cmdInstance.Delete(cid)
 		}
 	}()
 }

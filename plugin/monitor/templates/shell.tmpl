@@ -1,0 +1,156 @@
+{{define "header"}}
+<link rel="stylesheet" href="/css/plugin/2eb2e1a5-66b4-45f9-ad24-3c4f05c858aa/style.css" />
+<link rel="stylesheet" href="/css/plugin/2eb2e1a5-66b4-45f9-ad24-3c4f05c858aa/xterm.css" />
+<script nonce="{{ ._nonce }}" src="/js/plugin/2eb2e1a5-66b4-45f9-ad24-3c4f05c858aa/uuidv4.min.js"></script>
+<script nonce="{{ ._nonce }}" src="/js/plugin/2eb2e1a5-66b4-45f9-ad24-3c4f05c858aa/xterm.js"></script>
+<script nonce="{{ ._nonce }}" src="/js/plugin/2eb2e1a5-66b4-45f9-ad24-3c4f05c858aa/xterm-addon-fit.js"></script>
+{{end}}
+
+{{define "content"}}
+<div class="container-fluid">
+  <div class="card card-primary">
+    <div class="card-header">
+      <h3 class="card-title">Agent Shell</h3>
+    </div>
+    <div class="card-body">
+      <div class="form-group row">
+        <label class="col-sm-2 col-form-label">Agent</label>
+        <div class="col-sm-8">
+          <select id="agent" class="form-control">
+            {{range .agents}}
+            {{if .Online}}
+            <option value="{{.ID}}">{{ .Name }}</option>
+            {{end}}
+            {{end}}
+          </select>
+        </div>
+        <div class="col-sm-2">
+          <button id="connect" class="btn btn-block btn-primary">Connect</button>
+        </div>
+      </div>
+      <div class="form-group row">
+        <div id="xterm"></div>
+      </div>
+    </div>
+  </div>
+</div>
+{{end}}
+
+{{define "js"}}
+<script nonce="{{ ._nonce }}">
+  "use strict"
+
+  let fitAddon = new FitAddon.FitAddon();
+  let term = new Terminal({
+    cursorBlink: true,
+  });
+  fitAddon.activate(term);
+  let sid = "";
+  let cols = 0;
+  let rows = 0;
+  let websocket = null;
+  let OPCode = {
+    ShellError: -1,
+    ShellReturn: 0,
+    ShellInput: 1,
+    ShellOutput: 2,
+    ShellSize: 3,
+    ShellConnect: 4,
+    ShellDisconnect: 5,
+  };
+
+  term.open(document.getElementById("xterm"));
+  term.writeln("        __                         __   ");
+  term.writeln("  _____|  | _____.__. ____   _____/  |_ ");
+  term.writeln(" /  ___/  |/ <   |  |/    \\_/ __ \\   __\\");
+  term.writeln(" \\___ \\|    < \\___  |   |  \\  ___/|  |  ");
+  term.writeln("/____  >__|_ \\/ ____|___|  /\\___  >__|  ");
+  term.writeln("     \\/     \\/\\/         \\/     \\/      ");
+
+  term.onData((e) => {
+    if (sid != "" && websocket != null) {
+      websocket.send(JSON.stringify({
+        ID: uuidv4(),
+        SID: sid,
+        OPCode: OPCode.ShellInput,
+        Data: Str2B64(e),
+      }));
+    }
+  });
+
+  term.onResize((s) => {
+    cols = s.cols;
+    rows = s.rows;
+    if (sid != "" && websocket != null) {
+      websocket.send(JSON.stringify({
+        ID: uuidv4(),
+        SID: sid,
+        OPCode: OPCode.ShellSize,
+        Data: Str2B64(JSON.stringify({
+          Rows: rows,
+          Cols: cols,
+        })),
+      }));
+    }
+  });
+  fitAddon.fit();
+  window.addEventListener("resize", () => { fitAddon.fit(); });
+
+  $("#connect").click((e) => {
+    if ($("#agent").val() == null)
+      return;
+    if (websocket != null) {
+      term.writeln("");
+      term.writeln("Session terminated");
+      websocket.onclose = function () { };
+      websocket.send(JSON.stringify({
+        ID: uuidv4(),
+        SID: sid,
+        OPCode: OPCode.ShellDisconnect,
+      }));
+      websocket.close();
+      sid = "";
+    }
+    websocket = new WebSocket(
+      "https:" == document.location.protocol ? "wss://" : "ws://" +
+        window.location.host + "/api/plugin/2eb2e1a5-66b4-45f9-ad24-3c4f05c858aa/shell"
+    );
+    websocket.onopen = function (evt) {
+      websocket.send(JSON.stringify({
+        ID: uuidv4(),
+        OPCode: OPCode.ShellConnect,
+        Data: Str2B64(JSON.stringify({
+          ID: parseInt($("#agent").val()),
+          Rows: rows,
+          Cols: cols,
+        })),
+      }));
+
+      websocket.onmessage = function (evt) {
+        let obj = JSON.parse(evt.data);
+        switch (obj.OPCode) {
+          case OPCode.ShellError:
+            toastr.error(B642Str(obj.Data));
+            break;
+          case OPCode.ShellReturn:
+            sid = B642Str(obj.Data);
+            term.writeln("Connected to " + $("#agent option:selected").text());
+            break;
+          case OPCode.ShellOutput:
+            term.write(B642Str(obj.Data));
+            break;
+        }
+      };
+
+      websocket.onclose = function (evt) {
+        term.writeln("");
+        term.writeln("Session terminated");
+      };
+
+      websocket.onerror = function (evt) {
+        toastr.error("Error");
+      };
+    };
+  })
+</script>
+{{end}}

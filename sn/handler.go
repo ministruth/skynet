@@ -16,7 +16,7 @@ type SNSetting interface {
 	Update(name string, value string) error
 	Delete(name string) error
 	Get(name string) (string, bool)
-	GetCache() map[string]string
+	GetCache() map[string]interface{}
 	GetAll(cond *SNCondition) ([]*Setting, error)
 }
 

@@ -10,30 +10,32 @@ import (
 	"gorm.io/gorm/logger"
 )
 
+// DBType presents backend database type.
 type DBType int
 
 const (
-	DBType_Sqlite DBType = iota
+	DBType_Sqlite DBType = iota // sqlite backend
 )
 
-// DBConfig is config for db
+// DBConfig is connection config for database.
 type DBConfig struct {
-	Type DBType
-	Path string
+	Type DBType // backend database type
+	Path string // connect url/file path
 }
 
-type DBClient struct {
+type dbClient struct {
 	dbClient *gorm.DB
 }
 
-func NewDB(ctx context.Context, param *DBConfig) sn.SNDB {
-	var ret DBClient
+// NewDB create new database object, exit when facing any error.
+func NewDB(ctx context.Context, conf *DBConfig) sn.SNDB {
+	var ret dbClient
 	var err error
 
-	switch param.Type {
+	switch conf.Type {
 	case DBType_Sqlite:
-		ret.dbClient, err = gorm.Open(sqlite.Open(param.Path), &gorm.Config{
-			Logger: logger.Default.LogMode(logger.Silent),
+		ret.dbClient, err = gorm.Open(sqlite.Open(conf.Path), &gorm.Config{
+			Logger: logger.Default.LogMode(logger.Silent), // disable log
 		})
 		if err != nil {
 			log.Fatal("Failed to connect sqlite database")
@@ -44,7 +46,7 @@ func NewDB(ctx context.Context, param *DBConfig) sn.SNDB {
 	return &ret
 }
 
-func (c *DBClient) Get() interface{} {
+func (c *dbClient) Get() interface{} {
 	if c.dbClient == nil {
 		log.Fatal("DB not init")
 	}

@@ -60,24 +60,24 @@
                 <a href="{{ .Link }}" class="nav-link">
                   {{end}}
                   <i class="nav-icon fas {{ .Icon }}"></i>
-                  <p>{{ .Name }}
-                    {{if .Child}}
-                    <i class="fas fa-angle-left right"></i>
-                    {{end}}
-                    {{if ne .Badge ""}}
-                    <span class="badge {{.BadgeClass}} right">{{ .Badge }}</span>
-                    {{end}}
-                  </p>
+                  <p>{{ .Name }}</p>
+                  {{if .Child}}
+                  <i class="fas fa-angle-left right"></i>
+                  {{end}}
+                  {{if ne .Badge ""}}
+                  <span class="badge {{.BadgeClass}} right">{{ .Badge }}</span>
+                  {{end}}
                 </a>
                 {{if .Child}}
                 <ul class="nav nav-treeview">
                   {{ template "walknav" dict "Item" .Child "Role" $.Role }}
                 </ul>
                 {{end}}
-                {{end}}
-                {{end}}
-                {{end}}
-                {{ template "walknav" dict "Item" ._navbar "Role" ._role }}
+            </li>
+            {{end}}
+            {{end}}
+            {{end}}
+            {{ template "walknav" dict "Item" ._navbar "Role" ._role }}
           </ul>
         </nav>
       </div>

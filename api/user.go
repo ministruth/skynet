@@ -100,14 +100,14 @@ func APIUpdateUser(c *gin.Context, u *sn.User) (int, error) {
 	if err != nil || id <= 0 {
 		return 400, err
 	}
-	fields := log.Fields{
+	logf := log.WithFields(log.Fields{
 		"ip":       c.ClientIP(),
 		"id":       u.ID,
 		"targetID": id,
-	}
+	})
 
 	if int(u.ID) != id && u.Role < sn.RoleAdmin {
-		log.WithFields(fields).Warn("Edit user permission denied")
+		logf.Warn("Edit user permission denied")
 		c.JSON(200, gin.H{"code": 2, "msg": "Permission denied"})
 		return 0, nil
 	}
@@ -125,17 +125,17 @@ func APIUpdateUser(c *gin.Context, u *sn.User) (int, error) {
 	}
 	err = sn.Skynet.User.Update(id, param.Username, param.Password, param.Role, avatar, int(u.ID) != id)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		log.WithFields(fields).Warn("Edit user not exist")
+		logf.Warn("Edit user not exist")
 		c.JSON(200, gin.H{"code": 1, "msg": "User not exists"})
 		return 0, nil
 	} else if err != nil {
 		return 500, err
 	}
 	if param.Username == "" && param.Password == "" && param.Role == sn.RoleEmpty && param.Avatar == "" {
-		log.WithFields(fields).Info("Kick user success")
+		logf.Info("Kick user success")
 		c.JSON(200, gin.H{"code": 0, "msg": "Kick user success"})
 	} else {
-		log.WithFields(fields).Info("Edit user success")
+		logf.Info("Edit user success")
 		c.JSON(200, gin.H{"code": 0, "msg": "Edit user success"})
 	}
 	return 0, nil
@@ -151,11 +151,11 @@ func APIDeleteUser(c *gin.Context, u *sn.User) (int, error) {
 	if err != nil {
 		return 400, err
 	}
-	fields := log.Fields{
+	logf := log.WithFields(log.Fields{
 		"ip":       c.ClientIP(),
 		"id":       u.ID,
 		"targetID": param.ID,
-	}
+	})
 
 	res, err := sn.Skynet.User.Delete(int(param.ID))
 	if err != nil {
@@ -163,12 +163,12 @@ func APIDeleteUser(c *gin.Context, u *sn.User) (int, error) {
 	}
 
 	if !res {
-		log.WithFields(fields).Warn("Delete user not exist")
+		logf.Warn("Delete user not exist")
 		c.JSON(200, gin.H{"code": 1, "msg": "User not exists"})
 		return 0, nil
 	}
 
-	log.WithFields(fields).Info("Delete user success")
+	logf.Info("Delete user success")
 	c.JSON(200, gin.H{"code": 0, "msg": "Delete user success"})
 	return 0, nil
 }

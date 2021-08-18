@@ -44,8 +44,8 @@
       <tr data-widget="expandable-table" aria-expanded="false">
         <td>${d.ID}</td>
         <td>${d.Name}</td>
-        <td id="agent_' + d.ID + '_status">${d.Online ? '<span class="badge bg-success">ONLINE</span></td>' :
-        '<span class="badge bg-secondary">OFFLINE</span>'}</td>
+        <td id="agent_${d.ID}_status">${d.Updating ? '<span class="badge bg-orange">UPDATING</span>' : (d.Online ? '<span class="badge bg-success">ONLINE</span>' :
+        '<span class="badge bg-secondary">OFFLINE</span>')}</td>
         <td>${d.IP}</td>
         <td id="agent_${d.ID}_onlinetime">${d.Online ? new Date(d.LastLogin).TimeSince() : ''}</td>
         <td id="agent_${d.ID}_load1">${d.Online ? d.Load1 : ''}</td>
@@ -94,7 +94,10 @@
   function updateTable(r) {
     $('#agent_' + r.ID + '_status').empty();
     if (r.Online) {
-      $('#agent_' + r.ID + '_status').append('<span class="badge bg-success">ONLINE</span>');
+      if (r.Updating)
+        $('#agent_' + r.ID + '_status').append('<span class="badge bg-orange">UPDATING</span>');
+      else
+        $('#agent_' + r.ID + '_status').append('<span class="badge bg-success">ONLINE</span>');
       $('#agent_' + r.ID + '_onlinetime').text(new Date(r.LastLogin).TimeSince());
       $('#agent_' + r.ID + '_load1').text(r.Load1);
       $('#agent_' + r.ID + '_net').text(SizeString(r.NetUp, 1) + " | " + SizeString(r.NetDown, 1));

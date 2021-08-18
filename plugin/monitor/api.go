@@ -5,7 +5,6 @@ import (
 	"skynet/plugin/monitor/shared"
 	"skynet/sn"
 	"skynet/sn/utils"
-	"sort"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -20,15 +19,13 @@ func APIGetAllAgent(c *gin.Context, u *sn.User) (int, error) {
 		return 400, err
 	}
 
-	count := len(agents)
-	if len(agents) > 0 && (param.Page-1)*param.Size < len(agents) {
-		var sortedAgents AgentSort
-		for _, v := range agents {
-			sortedAgents = append(sortedAgents, v)
-		}
-		sort.Stable(sortedAgents)
+	count := agentInstance.Len()
+	if count > 0 && (param.Page-1)*param.Size < count {
+		res := agentInstance.SortValue(func(a, b *shared.AgentElement) bool {
+			return a.Key < b.Key
+		})
 		c.JSON(200, gin.H{"code": 0, "msg": "Get all agent success",
-			"data": sortedAgents[(param.Page-1)*param.Size : utils.IntMin(param.Page*param.Size, len(sortedAgents))], "total": count})
+			"data": res[(param.Page-1)*param.Size : utils.IntMin(param.Page*param.Size, len(res))], "total": count})
 	} else {
 		c.JSON(200, gin.H{"code": 0, "msg": "Get all agent success", "data": []*shared.AgentInfo{}, "total": count})
 	}
@@ -55,11 +52,12 @@ func APISaveSetting(c *gin.Context, u *sn.User) (int, error) {
 	}
 	token = param.Token
 
-	for _, v := range agents {
+	agentInstance.Range(func(k int, v *shared.AgentInfo) bool {
 		if v.Conn != nil {
 			v.Conn.WriteMessage(websocket.CloseMessage, nil)
 		}
-	}
+		return true
+	})
 	log.WithFields(defaultField).WithFields(fields).Info("Set token success")
 	c.JSON(200, gin.H{"code": 0, "msg": "Set token success"})
 	return 0, nil
@@ -84,7 +82,7 @@ func APISaveAgent(c *gin.Context, u *sn.User) (int, error) {
 		"id": id,
 	}
 
-	if _, ok := agents[id]; !ok {
+	if !agentInstance.Has(id) {
 		log.WithFields(defaultField).WithFields(fields).Warn("Agent not exist")
 		c.JSON(200, gin.H{"code": 1, "msg": "Agent not exist"})
 		return 0, nil
@@ -100,7 +98,7 @@ func APISaveAgent(c *gin.Context, u *sn.User) (int, error) {
 	if err != nil {
 		return 500, err
 	}
-	agents[id].Name = param.Name
+	agentInstance.MustGet(id).Name = param.Name
 
 	log.WithFields(defaultField).WithFields(fields).Info("Set name success")
 	c.JSON(200, gin.H{"code": 0, "msg": "Set name success"})
@@ -122,24 +120,21 @@ func APIDelAgent(c *gin.Context, u *sn.User) (int, error) {
 		"id": param.ID,
 	}
 
-	if _, ok := agents[param.ID]; !ok {
+	if !agentInstance.Has(param.ID) {
 		log.WithFields(defaultField).WithFields(fields).Warn("Agent not exist")
 		c.JSON(200, gin.H{"code": 1, "msg": "Agent not exist"})
 		return 0, nil
 	}
 
-	err = pluginAPI.DeleteAllSetting(param.ID)
-	if err != nil {
-		return 500, err
-	}
+	pluginAPI.DeleteAllSetting(param.ID)
 	err = utils.GetDB().Delete(&shared.PluginMonitorAgent{}, param.ID).Error
 	if err != nil {
 		return 500, err
 	}
-	if agents[param.ID].Conn != nil {
-		agents[param.ID].Conn.Close()
+	if agentInstance.MustGet(param.ID).Conn != nil {
+		agentInstance.MustGet(param.ID).Conn.Close()
 	}
-	delete(agents, param.ID)
+	agentInstance.Delete(param.ID)
 
 	log.WithFields(defaultField).WithFields(fields).Info("Delete agent success")
 	c.JSON(200, gin.H{"code": 0, "msg": "Delete agent success"})

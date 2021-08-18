@@ -6,18 +6,22 @@ import (
 	"github.com/hashicorp/go-version"
 )
 
-func CheckSkynetVersion(c string) (bool, error) {
-	return CheckVersion(sn.VERSION, c)
+// CheckSkynetVersion checks skynet version with constraint string.
+//	CheckSkynetVersion(">= 1.0, < 1.1")
+func CheckSkynetVersion(constraint string) (bool, error) {
+	return CheckVersion(sn.VERSION, constraint)
 }
 
-func CheckVersion(v string, c string) (bool, error) {
-	ver, err := version.NewVersion(v)
+// CheckVersion checks ver with constraint string.
+//	CheckVersion("1.0.1", ">= 1.0, < 1.1")
+func CheckVersion(ver string, constraint string) (bool, error) {
+	v, err := version.NewVersion(ver)
 	if err != nil {
 		return false, err
 	}
-	cst, err := version.NewConstraint(c)
+	cst, err := version.NewConstraint(constraint)
 	if err != nil {
 		return false, err
 	}
-	return cst.Check(ver), nil
+	return cst.Check(v), nil
 }

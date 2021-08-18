@@ -14,44 +14,34 @@ import (
 	"github.com/spf13/viper"
 )
 
+// GetCTXSession gets session object from gin context.
 func GetCTXSession(c *gin.Context) (*sessions.Session, error) {
 	return GetSession().Get(c.Request, viper.GetString("session.cookie"))
 }
 
+// SaveCTXSession saves session object to gin context.
 func SaveCTXSession(c *gin.Context) error {
 	return sessions.Save(c.Request, c.Writer)
 }
 
-func WithAdmin(f func(c *gin.Context, u *sn.User), re bool) func(c *gin.Context) {
-	return WithAdminErr(func(c *gin.Context, u *sn.User) (int, error) {
-		f(c, u)
-		return 0, nil
-	}, re)
-}
-
-func WithSignIn(f func(c *gin.Context, u *sn.User), re bool) func(c *gin.Context) {
-	return WithSignInErr(func(c *gin.Context, u *sn.User) (int, error) {
-		f(c, u)
-		return 0, nil
-	}, re)
-}
-
-func WithAdminErr(f sn.SNAPIFunc, re bool) func(c *gin.Context) {
-	return WithSignInErr(func(c *gin.Context, u *sn.User) (int, error) {
+// WithAdmin is middleware for gin handler that need admin privilege.
+func WithAdmin(f sn.SNAPIFunc, redirect bool) func(c *gin.Context) {
+	return WithSignIn(func(c *gin.Context, u *sn.User) (int, error) {
 		if u.Role == sn.RoleAdmin {
 			return f(c, u)
 		} else {
-			if re {
+			if redirect {
 				c.Redirect(302, "/deny")
 			} else {
 				c.String(403, "You need admin permission")
 			}
 		}
 		return 0, nil
-	}, re)
+	}, redirect)
 }
 
-func WithSignInErr(f sn.SNAPIFunc, re bool) func(c *gin.Context) {
+// WithSignIn is middleware for gin handler that need user privilege.
+func WithSignIn(f sn.SNAPIFunc, redirect bool) func(c *gin.Context) {
 	return func(c *gin.Context) {
 		res, err := CheckSignIn(c)
 		if err != nil {
@@ -74,7 +64,7 @@ func WithSignInErr(f sn.SNAPIFunc, re bool) func(c *gin.Context) {
 				return
 			}
 		} else {
-			if re {
+			if redirect {
 				c.Redirect(302, "/")
 			} else {
 				c.String(403, "You need to sign in first")
@@ -83,6 +73,7 @@ func WithSignInErr(f sn.SNAPIFunc, re bool) func(c *gin.Context) {
 	}
 }
 
+// CheckSignIn checks context signin state and set "id" in the context if state is valid.
 func CheckSignIn(c *gin.Context) (bool, error) {
 	if data, err := c.Cookie(viper.GetString("session.cookie")); err == nil && data != "" {
 		session, err := GetCTXSession(c)
@@ -104,16 +95,18 @@ func CheckSignIn(c *gin.Context) (bool, error) {
 	return false, nil
 }
 
-func FindSessionsByID(id int) (map[string]map[interface{}]interface{}, error) {
+// FindSessionsByID find all sessions associate to user by id.
+func FindSessionsByID(userID int) (map[string]map[interface{}]interface{}, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
 
 	ret := make(map[string]map[interface{}]interface{})
-	res, err := GetRedis().Keys(ctx, "*").Result()
+	res, err := GetRedis().Keys(ctx, viper.GetString("session.prefix")+"*").Result()
 	if err != nil {
 		return nil, err
 	}
 
+	// pipeline to accelerate
 	pipe := GetRedis().Pipeline()
 	piperes := make(map[string]*redis.StringCmd)
 	for _, v := range res {
@@ -129,6 +122,7 @@ func FindSessionsByID(id int) (map[string]map[interface{}]interface{}, error) {
 		}
 	}
 
+	// since redis store gob serialized data, we need to decode first
 	for k, v := range piperes {
 		var tmp map[interface{}]interface{}
 		dec := gob.NewDecoder(strings.NewReader(v.Val()))
@@ -136,15 +130,16 @@ func FindSessionsByID(id int) (map[string]map[interface{}]interface{}, error) {
 		if err != nil {
 			return nil, err
 		}
-		if tmp["id"] == id {
+		if tmp["id"] == userID { // filter by user id
 			ret[k] = tmp
 		}
 	}
 	return ret, nil
 }
 
-func DeleteSessionsByID(id int) error {
-	s, err := FindSessionsByID(id)
+// DeleteSessionsByID deletes all sessions by id. This equals kick user operation.
+func DeleteSessionsByID(userID int) error {
+	s, err := FindSessionsByID(userID)
 	if err != nil {
 		return err
 	}

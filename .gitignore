@@ -6,3 +6,4 @@ log.txt
 *.so
 skynet
 temp/
+bin/
