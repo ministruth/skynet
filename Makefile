@@ -1,21 +1,22 @@
 SHELL = /bin/bash
-OUTPUTDIR = $(CURDIR)/bin
+OUTPUTDIR = ./bin
 
 .ONESHELL:
-.PHONY: generate plugin run help build binrun
+.PHONY: generate plugin run help build docker
 
 all: help
 
-## binrun: Run binary file
-binrun: build
-	@cd $(OUTPUTDIR)
-	@./skynet run
+## docker: Build docker image
+docker: build
+	@docker build -t imwxz/skynet:latest .
 
 ## build: Build binary file
 build:
+	@rm -rf $(OUTPUTDIR)
 	@echo Building skynet
 	@mkdir -p $(OUTPUTDIR)
-	@go build -ldflags "-s -w" -o $(OUTPUTDIR) .
+	@xgo -ldflags "-s -w" -targets linux/amd64 -dest $(OUTPUTDIR) .
+	@mv $(OUTPUTDIR)/skynet-linux-amd64 $(OUTPUTDIR)/skynet
 	@cp LICENSE $(OUTPUTDIR)
 	@cp conf.yml $(OUTPUTDIR)
 	@cp default.webp $(OUTPUTDIR)
@@ -23,14 +24,17 @@ build:
 	@rm -rf $(OUTPUTDIR)/templates && cp -r templates $(OUTPUTDIR)/templates
 	
 	@echo Building plugins
-	@mkdir -p $(OUTPUTDIR)/plugin
 	@for d in ./plugin/*/;do	\
+		echo Building $$d;		\
+		mkdir -p $(OUTPUTDIR)/$$d;	\
+		name=$${d%/*};	\
+		name=$${name##*/};	\
+		xgo -buildmode=plugin -ldflags "-s -w" -targets linux/amd64 -dest $(OUTPUTDIR)/$$d -pkg $$d -out $$name .;	\
+		sleep 3;	\
+		mv $(OUTPUTDIR)/$$d$$name-linux-amd64 $(OUTPUTDIR)/$$d$$name.so;	\
 		pushd . > /dev/null;	\
 		cd $$d;					\
 		if [[ -f "Makefile" ]]; then \
-		echo Building $$d;		\
-		mkdir -p $(OUTPUTDIR)/$$d;	\
-		go build -buildmode=plugin -ldflags "-s -w" -o $(OUTPUTDIR)/$$d .;	\
 		make --no-print-directory build;	\
 		fi; \
 		popd > /dev/null;		\
@@ -61,7 +65,7 @@ plugin:
 		pushd . > /dev/null;	\
 		cd $$d;					\
 		echo Building $$d;		\
-		go build -buildmode=plugin -ldflags "-s -w" .;	\
+		go build -buildmode=plugin .;	\
 		popd > /dev/null;		\
 	done
 	@echo Success

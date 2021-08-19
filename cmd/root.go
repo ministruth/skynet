@@ -65,7 +65,7 @@ var defaultSettings = map[string]interface{}{
 	"session.prefix":        "session_",
 	"default_avatar":        "default.webp",
 	"proxy.enable":          false,
-	"proxy.header":          "X-Forwarded-For",
+	"proxy.header":          "X-Real-IP",
 }
 
 func init() {

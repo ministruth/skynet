@@ -49,3 +49,5 @@ require (
 	gorm.io/driver/sqlite v1.1.4
 	gorm.io/gorm v1.21.13
 )
+
+replace github.com/cespare/xxhash/v2 v2.1.1 => github.com/MXWXZ/xxhash/v2 v2.0.1-0.20210818214739-e47ecdf9f9af

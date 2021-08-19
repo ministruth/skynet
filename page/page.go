@@ -113,9 +113,6 @@ func (r *sitePage) Render(c *gin.Context, u *sn.User, p *sn.SNPageItem) {
 	p.Param["_path"] = p.Path
 	p.Param["_role"] = u.Role
 	p.Param["_version"] = sn.VERSION
-	for _, v := range p.QueryParam {
-		p.Param["_"+v] = c.Query(v)
-	}
 
 	r.RenderSingle(c, u, p)
 }
@@ -153,6 +150,7 @@ func (s *sitePage) AddPage(i []*sn.SNPageItem) {
 						ret = v.BeforeRender(c, nil, v)
 					}
 					if ret {
+						v.Param["_title"] = v.Title
 						s.RenderSingle(c, nil, v)
 					}
 					if v.AfterRender != nil {

@@ -112,8 +112,8 @@
       sid = "";
     }
     websocket = new WebSocket(
-      "https:" == document.location.protocol ? "wss://" : "ws://" +
-        window.location.host + "/api/plugin/2eb2e1a5-66b4-45f9-ad24-3c4f05c858aa/shell"
+      ("https:" == document.location.protocol ? "wss://" : "ws://") +
+      window.location.host + "/api/plugin/2eb2e1a5-66b4-45f9-ad24-3c4f05c858aa/shell"
     );
     websocket.onopen = function (evt) {
       websocket.send(JSON.stringify({

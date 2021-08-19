@@ -12,7 +12,7 @@
           <div class="input-group col-sm-10">
             <input id="token" type="text" class="form-control" name="token" value="{{ .token }}" maxlength="32">
             <span class="input-group-append">
-              {{if not .token}}
+              {{if not .token }}
               <button id="generate" type="button" class="btn btn-outline-primary">Generate</button>
               {{else}}
               <button id="generate" type="button" class="btn btn-outline-warning">Regenerate</button>
@@ -193,10 +193,7 @@
 
   $("#saveConfirm").click((e) => {
     let form = document.getElementById("monitorForm");
-    JSONPatch(GetUrl(form), GetData(form)).done((d) => {
-      $('#modal-save').modal('hide');
-      DelayHide()(d);
-    });
+    JSONPatch(GetUrl(form), GetData(form)).done(DelayReload());
   })
 
   $("#renameForm").submit((e) => {

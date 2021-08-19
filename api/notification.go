@@ -2,6 +2,7 @@ package api
 
 import (
 	"skynet/sn"
+	"skynet/sn/utils"
 
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
@@ -32,7 +33,7 @@ func APIGetNotification(c *gin.Context, u *sn.User) (int, error) {
 
 func APIDeleteNotification(c *gin.Context, u *sn.User) (int, error) {
 	logf := log.WithFields(log.Fields{
-		"ip": c.ClientIP(),
+		"ip": utils.GetIP(c),
 	})
 
 	err := sn.Skynet.Notification.DeleteAll()

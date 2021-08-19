@@ -65,7 +65,7 @@ func APIAddUser(c *gin.Context, u *sn.User) (int, error) {
 		return 400, err
 	}
 	fields := log.Fields{
-		"ip":       c.ClientIP(),
+		"ip":       utils.GetIP(c),
 		"id":       u.ID,
 		"username": param.Username,
 	}
@@ -101,7 +101,7 @@ func APIUpdateUser(c *gin.Context, u *sn.User) (int, error) {
 		return 400, err
 	}
 	logf := log.WithFields(log.Fields{
-		"ip":       c.ClientIP(),
+		"ip":       utils.GetIP(c),
 		"id":       u.ID,
 		"targetID": id,
 	})
@@ -152,7 +152,7 @@ func APIDeleteUser(c *gin.Context, u *sn.User) (int, error) {
 		return 400, err
 	}
 	logf := log.WithFields(log.Fields{
-		"ip":       c.ClientIP(),
+		"ip":       utils.GetIP(c),
 		"id":       u.ID,
 		"targetID": param.ID,
 	})

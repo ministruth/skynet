@@ -48,7 +48,7 @@ func APIUpdatePlugin(c *gin.Context, u *sn.User) (int, error) {
 		return 400, err
 	}
 	logf := log.WithFields(log.Fields{
-		"ip":     c.ClientIP(),
+		"ip":     utils.GetIP(c),
 		"id":     u.ID,
 		"plugin": id,
 	})

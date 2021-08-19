@@ -24,7 +24,7 @@ func APISignIn(c *gin.Context, u *sn.User) (int, error) {
 		return 400, err
 	}
 	logf := log.WithFields(log.Fields{
-		"ip":       c.ClientIP(),
+		"ip":       utils.GetIP(c),
 		"username": param.Username,
 	})
 
@@ -36,7 +36,7 @@ func APISignIn(c *gin.Context, u *sn.User) (int, error) {
 	switch res {
 	case 0: // signin
 		u.LastLogin = time.Now()
-		u.LastIP = c.ClientIP()
+		u.LastIP = utils.GetIP(c)
 		err = utils.GetDB().Save(u).Error
 		if err != nil {
 			return 500, err
@@ -56,6 +56,10 @@ func APISignIn(c *gin.Context, u *sn.User) (int, error) {
 			return 500, err
 		}
 
+		err = sn.Skynet.Notification.New(sn.NotifySuccess, "User signin", "User "+param.Username+" signin")
+		if err != nil {
+			return 500, err
+		}
 		logf.Info("Sign in success")
 		c.JSON(200, gin.H{"code": 0, "msg": "Sign in success"})
 	default: // invalid
@@ -67,7 +71,7 @@ func APISignIn(c *gin.Context, u *sn.User) (int, error) {
 
 func APISignOut(c *gin.Context, u *sn.User) (int, error) {
 	logf := log.WithFields(log.Fields{
-		"ip": c.ClientIP(),
+		"ip": utils.GetIP(c),
 		"id": u.ID,
 	})
 

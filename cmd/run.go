@@ -165,12 +165,14 @@ func run(cmd *cobra.Command, args []string) {
 	}()
 	r.Use(secureFunc)
 
-	if !viper.GetBool("proxy.enable") {
-		r.ForwardedByClientIP = false // disable ip forward to prevent sproof
-	} else {
-		r.ForwardedByClientIP = true
-		r.RemoteIPHeaders = []string{viper.GetString("proxy.header")}
-	}
+	r.ForwardedByClientIP = false // disable ip forward to prevent sproof
+	// BUG: gin
+	// if !viper.GetBool("proxy.enable") {
+	// 	r.ForwardedByClientIP = false // disable ip forward to prevent sproof
+	// } else {
+	// 	r.ForwardedByClientIP = true
+	// 	r.RemoteIPHeaders = []string{viper.GetString("proxy.header")}
+	// }
 	r.Use(gin.Recovery()) // recover from panic
 
 	// CSRF protection

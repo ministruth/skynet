@@ -7,6 +7,7 @@ import (
 	"skynet/plugin/monitor/msg"
 	"skynet/plugin/monitor/shared"
 	"skynet/sn/utils"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -56,13 +57,29 @@ func msgInfoHandler(c *shared.Websocket, agent *shared.AgentInfo, m *msg.CommonM
 				"id": agent.ID,
 			})
 			agent.Updating = true
-			f, err := os.ReadFile(Config.Path + "agent")
+			defer func() {
+				agent.Updating = false
+			}()
+			name := "agent-"
+			if strings.Contains(strings.ToLower(agent.System), "linux") {
+				name += "linux-"
+			} else {
+				logf.Error("Platform not supported")
+				return
+			}
+			if agent.Machine == "x86_64" {
+				name += "amd64"
+			} else {
+				logf.Error("Platform not supported")
+				return
+			}
+			f, err := os.ReadFile(Config.Path + name)
 			if err != nil {
 				logf.Error(err)
 				return
 			}
 			id, err := msg.SendMsgByte(c, uuid.Nil, msg.OPFile, msg.Marshal(msg.FileMsg{
-				Path:     "agent",
+				Path:     name,
 				File:     f,
 				Override: true,
 				Perm:     0755,
@@ -81,7 +98,6 @@ func msgInfoHandler(c *shared.Websocket, agent *shared.AgentInfo, m *msg.CommonM
 				return
 			}
 			_, err = msg.SendMsgByte(c, uuid.Nil, msg.OPRestart, []byte{})
-			agent.Updating = false
 		}()
 	}
 	return nil

@@ -12,7 +12,9 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
+	"github.com/spf13/viper"
 )
 
 func init() {
@@ -20,6 +22,16 @@ func init() {
 }
 
 var randLetter = []byte("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789")
+
+// GetIP returns real ip for gin
+// BUG: https://github.com/gin-gonic/gin/issues/2697
+func GetIP(c *gin.Context) string {
+	if !viper.GetBool("proxy.enable") {
+		return c.ClientIP()
+	} else {
+		return c.GetHeader(viper.GetString("proxy.header"))
+	}
+}
 
 // RandString return n length random string [a-zA-Z0-9]+
 func RandString(n int) string {

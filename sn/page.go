@@ -80,7 +80,6 @@ type SNPageItem struct {
 	BeforeRender       SNRenderHookFunc
 	AfterRenderPrepare SNRenderHookFunc
 	AfterRender        SNRenderHookFunc
-	QueryParam         []string
 	Param              gin.H
 }
 

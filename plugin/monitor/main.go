@@ -120,11 +120,9 @@ func (p *PluginInstance) PluginInit() error {
 					Active: true,
 				},
 			}),
-			Param: gin.H{
-				"token": &token,
-			},
 			BeforeRender: func(c *gin.Context, u *sn.User, v *sn.SNPageItem) bool {
 				v.Param["_total"] = agentInstance.Len()
+				v.Param["token"] = token
 				return true
 			},
 		},
@@ -206,7 +204,7 @@ func (p *PluginInstance) PluginInit() error {
 			Method: sn.APIGet,
 			Role:   sn.RoleEmpty,
 			Func: func(c *gin.Context, u *sn.User) (int, error) {
-				WSHandler(c.ClientIP(), c.Writer, c.Request)
+				WSHandler(utils.GetIP(c), c.Writer, c.Request)
 				return 0, nil
 			},
 		},
@@ -215,7 +213,7 @@ func (p *PluginInstance) PluginInit() error {
 			Method: sn.APIGet,
 			Role:   sn.RoleAdmin,
 			Func: func(c *gin.Context, u *sn.User) (int, error) {
-				ShellHandler(c.ClientIP(), c.Writer, c.Request)
+				ShellHandler(utils.GetIP(c), c.Writer, c.Request)
 				return 0, nil
 			},
 		},

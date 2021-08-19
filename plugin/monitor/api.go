@@ -43,7 +43,7 @@ func APISaveSetting(c *gin.Context, u *sn.User) (int, error) {
 		return 400, err
 	}
 	fields := log.Fields{
-		"ip": c.ClientIP(),
+		"ip": utils.GetIP(c),
 	}
 
 	err = sn.Skynet.Setting.Update(plugins.SPWithIDPrefix(Config, "token"), param.Token)
@@ -78,7 +78,7 @@ func APISaveAgent(c *gin.Context, u *sn.User) (int, error) {
 		return 400, err
 	}
 	fields := log.Fields{
-		"ip": c.ClientIP(),
+		"ip": utils.GetIP(c),
 		"id": id,
 	}
 
@@ -116,7 +116,7 @@ func APIDelAgent(c *gin.Context, u *sn.User) (int, error) {
 		return 400, err
 	}
 	fields := log.Fields{
-		"ip": c.ClientIP(),
+		"ip": utils.GetIP(c),
 		"id": param.ID,
 	}
 
