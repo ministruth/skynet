@@ -12,9 +12,10 @@ import (
 )
 
 type authParam struct {
-	Username string `form:"username" binding:"required,max=32"`
-	Password string `form:"password" binding:"required"`
-	Remember bool   `form:"remember"`
+	Username  string `json:"username" binding:"required,max=32"`
+	Password  string `json:"password" binding:"required"`
+	Remember  bool   `json:"remember"`
+	Recaptcha string `json:"g-recaptcha-response"`
 }
 
 func APISignIn(c *gin.Context, u *sn.User) (int, error) {
@@ -27,6 +28,14 @@ func APISignIn(c *gin.Context, u *sn.User) (int, error) {
 		"ip":       utils.GetIP(c),
 		"username": param.Username,
 	})
+
+	if viper.GetBool("recaptcha.enable") {
+		if err := utils.VerifyCAPTCHA(param.Recaptcha, utils.GetIP(c)); err != nil {
+			log.Warn(err)
+			c.JSON(200, gin.H{"code": 2, "msg": "reCAPTCHA not valid"})
+			return 0, nil
+		}
+	}
 
 	u, res, err := handler.CheckUserPass(param.Username, param.Password)
 	if err != nil {

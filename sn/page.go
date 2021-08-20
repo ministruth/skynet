@@ -80,7 +80,7 @@ type SNPageItem struct {
 	BeforeRender       SNRenderHookFunc
 	AfterRenderPrepare SNRenderHookFunc
 	AfterRender        SNRenderHookFunc
-	Param              gin.H
+	Param              gin.H // will be parse in advance, do not use dynamic value
 }
 
 func (i *SNPageItem) Render(c *gin.Context) {

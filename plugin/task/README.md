@@ -13,3 +13,17 @@ With `monitor` plugin enabled, it can also provide task execute in each agent.
 - Version: 1.0.0
 - SkynetVersion: >= 1.0, < 1.1
 - Priority: 0
+
+## Plugin API
+
+Full API at [interface.go](shared/interface.go)
+
+## Features
+
+### Task status tracking
+
+Task provides long time task status tracking with asynchronous task execute function.
+
+### Task execute in agent
+
+With `monitor` plugin enabled, Task can also support execute task in each agent.

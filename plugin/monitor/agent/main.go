@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"context"
 	"crypto/tls"
 	"errors"
 	"io"
@@ -14,6 +13,7 @@ import (
 	"skynet/plugin/monitor/msg"
 	"skynet/plugin/monitor/shared"
 	"skynet/sn/utils"
+	"strconv"
 	"time"
 
 	logrus_stack "github.com/Gurpartap/logrus-stack"
@@ -21,6 +21,11 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/kballard/go-shellquote"
+	"github.com/shirou/gopsutil/cpu"
+	"github.com/shirou/gopsutil/disk"
+	"github.com/shirou/gopsutil/load"
+	"github.com/shirou/gopsutil/mem"
+	"github.com/shirou/gopsutil/net"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"golang.org/x/sys/unix"
@@ -43,7 +48,7 @@ var rootCmd = &cobra.Command{
 	Run:   run,
 }
 
-const Version = "0.1.0"
+const Version = "0.1.1"
 
 const pluginPath = "/api/plugin/2eb2e1a5-66b4-45f9-ad24-3c4f05c858aa/ws"
 
@@ -220,6 +225,55 @@ func msgShellHandler(c *shared.Websocket, m *msg.CommonMsg) error {
 	return nil
 }
 
+func msgReqStatHandler(c *shared.Websocket, m *msg.CommonMsg) error {
+	cpuUsage, err := cpu.Percent(0, false)
+	if err != nil {
+		log.Warn("Could not determine cpu usage")
+	}
+	memUsage, err := mem.VirtualMemory()
+	if err != nil {
+		log.Warn("Could not determine mem usage")
+	}
+	partionUsage, err := disk.Partitions(false)
+	if err != nil {
+		log.Warn("Could not determine disk usage")
+	}
+	var diskUsage, disktotUsage uint64
+	for _, v := range partionUsage {
+		usage, err := disk.Usage(v.Mountpoint)
+		if err != nil {
+			log.Warn("Could not determine disk usage")
+		}
+		diskUsage += usage.Used
+		disktotUsage += usage.Total
+	}
+	loadUsage, err := load.Avg()
+	if err != nil {
+		log.Warn("Could not determine load usage")
+	}
+	netUsage, err := net.IOCounters(false)
+	if err != nil {
+		log.Warn("Could not determine net usage")
+	}
+
+	tm, err := strconv.ParseInt(string(m.Data), 10, 64)
+	if err != nil {
+		return err
+	}
+	_, err = msg.SendMsgByte(c, uuid.Nil, msg.OPStat, msg.Marshal(msg.StatMsg{
+		Time:      time.Unix(0, tm),
+		CPU:       cpuUsage[0],
+		Mem:       memUsage.Used,
+		TotalMem:  memUsage.Total,
+		Disk:      diskUsage,
+		TotalDisk: disktotUsage,
+		Load1:     loadUsage.Load1,
+		BandUp:    netUsage[0].BytesSent,
+		BandDown:  netUsage[0].BytesRecv,
+	}))
+	return err
+}
+
 func deadloop(url string) error {
 	conn, _, err := shared.DialWebsocket(&websocket.Dialer{
 		Proxy:            http.ProxyFromEnvironment,
@@ -240,10 +294,6 @@ func deadloop(url string) error {
 	if err = sendInfoHandler(conn); err != nil {
 		return err
 	}
-
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	go UploadStat(ctx, conn)
 
 	defer func() {
 		shells := shellInstance.Keys()
@@ -273,6 +323,8 @@ func deadloop(url string) error {
 			err = msgFileHandler(conn, res)
 		case msg.OPShell:
 			err = msgShellHandler(conn, res)
+		case msg.OPReqStat:
+			err = msgReqStatHandler(conn, res)
 		case msg.OPRestart:
 			return RestartError
 		default:

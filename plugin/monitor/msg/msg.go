@@ -27,6 +27,7 @@ const (
 	OPFile                      // send file
 	OPShell                     // shell operation
 	OPRestart                   // restart
+	OPReqStat                   // request stat
 )
 
 // ShellOP is shell message operation.
@@ -115,13 +116,13 @@ type ShellConnectMsg struct {
 }
 
 type StatMsg struct {
+	Time      time.Time // request time
 	CPU       float64   // unit percent
 	Mem       uint64    // unit bytes
 	TotalMem  uint64    // unit bytes
 	Disk      uint64    // unit bytes
 	TotalDisk uint64    // unit bytes
 	Load1     float64   // cpu load1
-	Time      time.Time // collect time
 	BandUp    uint64    // unit bytes
 	BandDown  uint64    // unit bytes
 }

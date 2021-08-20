@@ -37,7 +37,6 @@ require (
 	github.com/spf13/cast v1.4.1 // indirect
 	github.com/spf13/cobra v1.2.1
 	github.com/spf13/viper v1.8.1
-	github.com/tdewolff/minify/v2 v2.9.21
 	github.com/tklauser/go-sysconf v0.3.7 // indirect
 	github.com/ugorji/go v1.2.6 // indirect
 	github.com/unrolled/secure v1.0.9
@@ -46,6 +45,7 @@ require (
 	golang.org/x/sys v0.0.0-20210817190340-bfb29a6856f2
 	golang.org/x/text v0.3.7 // indirect
 	google.golang.org/protobuf v1.27.1 // indirect
+	gopkg.in/ezzarghili/recaptcha-go.v4 v4.3.0
 	gorm.io/driver/sqlite v1.1.4
 	gorm.io/gorm v1.21.13
 )

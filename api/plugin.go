@@ -34,7 +34,7 @@ func APIGetPlugin(c *gin.Context, u *sn.User) (int, error) {
 }
 
 type updatePluginParam struct {
-	Enable bool `form:"enable"`
+	Enable bool `json:"enable"`
 }
 
 func APIUpdatePlugin(c *gin.Context, u *sn.User) (int, error) {

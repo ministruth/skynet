@@ -66,6 +66,10 @@ var defaultSettings = map[string]interface{}{
 	"default_avatar":        "default.webp",
 	"proxy.enable":          false,
 	"proxy.header":          "X-Real-IP",
+	"recaptcha.enable":      false,
+	"recaptcha.cnmirror":    false,
+	"recaptcha.sitekey":     "",
+	"recaptcha.secret":      "",
 }
 
 func init() {

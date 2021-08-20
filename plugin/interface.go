@@ -62,7 +62,7 @@ func SPAddSubPath(root string, i []*sn.SNNavItem) {
 }
 
 func SPAddStatic(c *PluginConfig, path string, root string) {
-	sn.Skynet.Engine.Static(path, c.Path+root)
+	sn.Skynet.StaticFile.Static(path, c.Path+root)
 }
 
 func SPWithLayerFiles(c *PluginConfig, n string) []string {

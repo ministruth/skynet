@@ -46,6 +46,9 @@ var pages = []*sn.SNPageItem{
 		Link:    "/",
 		Role:    sn.RoleEmpty,
 		BeforeRender: func(c *gin.Context, u *sn.User, v *sn.SNPageItem) bool {
+			v.Param["reSwitch"] = viper.GetBool("recaptcha.enable")
+			v.Param["reMirror"] = viper.GetBool("recaptcha.cnmirror")
+			v.Param["reSitekey"] = viper.GetString("recaptcha.sitekey")
 			if data, err := c.Cookie(viper.GetString("session.cookie")); err == nil && data != "" {
 				c.Redirect(302, "/dashboard")
 				return false

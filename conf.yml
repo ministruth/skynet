@@ -1,5 +1,5 @@
 redis:
-  address: "127.0.0.1:6379" # redis address
+  address: "redis:6379" # redis address
   password: "" # redis password
   db: 0 # redis database
 
@@ -24,7 +24,13 @@ listen:
 
 proxy:
   enable: false # if skynet is behind proxy, enable to get correct ip
-  header: "X-Real-IP" # ip header set by proxy server
+  header: "X-Forwarded-For" # ip header set by proxy server
+
+recaptcha:
+  enable: false # if enable recaptcha
+  cnmirror: true # china recaptcha mirror
+  sitekey: "" # recaptcha sitekey
+  secret: "" # recaptcha secret
 
 debug: true
 csrf_secret: "01234567890123456789012345678912" # csrf secret

@@ -3,6 +3,13 @@
 
 <head>
   {{ template "common_header" . }}
+  {{if .reSwitch}}
+  {{if .reMirror}}
+  <script nonce="{{ ._nonce }}" src="https://www.recaptcha.net/recaptcha/api.js" async defer></script>
+  {{else}}
+  <script nonce="{{ ._nonce }}" src="https://www.google.com/recaptcha/api.js" async defer></script>
+  {{end}}
+  {{end}}
 </head>
 
 <body class="hold-transition login-page">
@@ -32,6 +39,11 @@
               </div>
             </div>
           </div>
+          {{if .reSwitch}}
+          <div class="row ml-2 mb-3">
+            <div class="g-recaptcha" data-sitekey="{{ .reSitekey }}"></div>
+          </div>
+          {{end}}
           <div class="row">
             <div class="col-8">
               <div class="icheck-warning">
@@ -64,14 +76,17 @@
       d["remember"] = "remember" in d ? true : false;
       JSONPost(GetUrl(form), d)
         .done(function (d) {
-          if (d.code != 0)
+          if (d.code != 0) {
             toastr.error(d.msg);
-          else
+            if (typeof grecaptcha !== 'undefined')
+              grecaptcha.reset();
+          } else {
             toastr.success(d.msg, "", {
               timeOut: 500, onHidden: () => {
                 window.location.href = "/dashboard";
               }
             });
+          }
         })
     });
   </script>

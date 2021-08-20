@@ -1,12 +1,14 @@
 package main
 
 import (
+	"context"
 	"errors"
 	"net/http"
 	"os"
 	"skynet/plugin/monitor/msg"
 	"skynet/plugin/monitor/shared"
 	"skynet/sn/utils"
+	"strconv"
 	"strings"
 	"time"
 
@@ -114,7 +116,7 @@ func msgStatHandler(c *shared.Websocket, agent *shared.AgentInfo, m *msg.CommonM
 	agent.Disk = data.Disk
 	agent.TotalDisk = data.TotalDisk
 	agent.Load1 = data.Load1
-	agent.Latency = time.Since(data.Time).Milliseconds()
+	agent.Latency = time.Since(data.Time).Milliseconds() / 2 // round-trip
 	current := time.Since(agent.LastRsp).Seconds()
 	agent.NetUp = uint64(float64(data.BandUp-agent.BandUp) / current)
 	agent.NetDown = uint64(float64(data.BandDown-agent.BandDown) / current)
@@ -165,6 +167,24 @@ func msgShellHandler(c *shared.Websocket, agent *shared.AgentInfo, m *msg.Common
 	return msg.SendShellMsgByte(agent.ShellConn.MustGet(data.SID), uuid.Nil, msg.ShellOutput, data.Data)
 }
 
+func ReqStat(ctx context.Context, c *shared.Websocket) {
+	ticker := time.NewTicker(1 * time.Second)
+	var id uint64 = 0
+	for {
+		select {
+		case <-ticker.C:
+			_, err := msg.SendMsgStr(c, uuid.Nil, msg.OPReqStat, strconv.FormatInt(time.Now().UnixNano(), 10))
+			if err != nil {
+				log.Warn(err)
+			}
+			id++
+		case <-ctx.Done():
+			ticker.Stop()
+			return
+		}
+	}
+}
+
 func WSHandler(ip string, w http.ResponseWriter, r *http.Request) {
 	// current connect agent id
 	var id int = 0
@@ -194,7 +214,7 @@ func WSHandler(ip string, w http.ResponseWriter, r *http.Request) {
 		res, msgRead, err := msg.RecvMsg(conn)
 		if err != nil {
 			if msgRead == nil {
-				logf.Error("Connection lost")
+				logf.Error("Connection lost: ", ip)
 				return
 			} else {
 				logf.Warn(err)
@@ -259,6 +279,10 @@ func WSHandler(ip string, w http.ResponseWriter, r *http.Request) {
 							return true
 						})
 					}()
+
+					ctx, cancel := context.WithCancel(context.Background())
+					defer cancel()
+					go ReqStat(ctx, conn)
 
 					msg.SendMsgRet(conn, res.ID, 0, "Login success")
 					logf.Info("Login success")

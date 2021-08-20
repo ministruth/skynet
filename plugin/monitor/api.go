@@ -33,7 +33,7 @@ func APIGetAllAgent(c *gin.Context, u *sn.User) (int, error) {
 }
 
 type saveSettingParam struct {
-	Token string `form:"token" binding:"required,max=32"`
+	Token string `json:"token" binding:"required,max=32"`
 }
 
 func APISaveSetting(c *gin.Context, u *sn.User) (int, error) {
@@ -64,7 +64,7 @@ func APISaveSetting(c *gin.Context, u *sn.User) (int, error) {
 }
 
 type saveAgentParam struct {
-	Name string `form:"name" binding:"required,max=32"`
+	Name string `json:"name" binding:"required,max=32"`
 }
 
 func APISaveAgent(c *gin.Context, u *sn.User) (int, error) {

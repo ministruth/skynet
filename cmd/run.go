@@ -5,7 +5,6 @@ import (
 	"io"
 	"net/http"
 	"os"
-	"regexp"
 	"skynet/api"
 	"skynet/db"
 	"skynet/handler"
@@ -26,9 +25,6 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/tdewolff/minify/v2"
-	"github.com/tdewolff/minify/v2/html"
-	"github.com/tdewolff/minify/v2/js"
 	"github.com/unrolled/secure"
 )
 
@@ -126,6 +122,14 @@ func run(cmd *cobra.Command, args []string) {
 	} else {
 		log.Warn("Debug mode is on, make it off when put into production")
 	}
+	if !viper.GetBool("recaptcha.enable") {
+		log.Warn("reCAPTCHA is disabled, enable it when put into production")
+	} else {
+		err = utils.NewReCAPTCHA(viper.GetString("recaptcha.secret"))
+		if err != nil {
+			panic(err)
+		}
+	}
 	r := gin.Default()
 	sn.Skynet.Engine = r
 
@@ -144,7 +148,7 @@ func run(cmd *cobra.Command, args []string) {
 		FrameDeny:             true,
 		ContentTypeNosniff:    true,
 		BrowserXssFilter:      true,
-		ContentSecurityPolicy: "default-src 'none'; script-src $NONCE; connect-src 'self'; img-src 'self' data:; style-src 'self'; base-uri 'self'; form-action 'self'; font-src 'self'",
+		ContentSecurityPolicy: "default-src 'none'; script-src $NONCE; connect-src 'self'; frame-src www.recaptcha.net/recaptcha/ www.google.com/recaptcha/; img-src 'self' data:; style-src 'self'; base-uri 'self'; form-action 'self'; font-src 'self'",
 		ReferrerPolicy:        "same-origin",
 		IsDevelopment:         false,
 	})
@@ -173,7 +177,6 @@ func run(cmd *cobra.Command, args []string) {
 	// 	r.ForwardedByClientIP = true
 	// 	r.RemoteIPHeaders = []string{viper.GetString("proxy.header")}
 	// }
-	r.Use(gin.Recovery()) // recover from panic
 
 	// CSRF protection
 	csrfFunc := func() gin.HandlerFunc {
@@ -192,9 +195,11 @@ func run(cmd *cobra.Command, args []string) {
 	})
 
 	// static files
-	r.Static("/js/main", "./assets/js")
-	r.Static("/css/main", "./assets/css")
-	r.Static("/fonts/main", "./assets/fonts")
+	staticFile := r.Group("/")
+	staticFile.Static("/js/main", "./assets/js")
+	staticFile.Static("/css/main", "./assets/css")
+	staticFile.Static("/fonts/main", "./assets/fonts")
+	sn.Skynet.StaticFile = staticFile
 
 	// router & template
 	web := r.Group("/")
@@ -216,17 +221,6 @@ func run(cmd *cobra.Command, args []string) {
 		log.Fatal("Plugin init error: ", err)
 	}
 	defer sn.Skynet.Plugin.Fini()
-
-	// minify
-	m := minify.New()
-	m.AddFunc("text/html", html.Minify)
-	m.AddFuncRegexp(regexp.MustCompile("^(application|text)/(x-)?(java|ecma)script$"), js.Minify)
-	m.Add("text/html", &html.Minifier{
-		KeepConditionalComments: true,
-		KeepDefaultAttrVals:     true,
-		KeepDocumentTags:        true,
-		KeepEndTags:             true,
-	})
 
 	endless.DefaultHammerTime = 1 * time.Second
 	server := endless.NewServer(viper.GetString("listen.address"), r)

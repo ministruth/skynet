@@ -11,7 +11,7 @@ import (
 	"github.com/google/uuid"
 )
 
-const AgentVersion = "0.1.0"
+const AgentVersion = "0.1.1"
 
 var (
 	// AgentNotExistError represents agent not exist.

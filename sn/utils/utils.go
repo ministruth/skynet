@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"syscall"
 	"time"
 
@@ -29,7 +30,7 @@ func GetIP(c *gin.Context) string {
 	if !viper.GetBool("proxy.enable") {
 		return c.ClientIP()
 	} else {
-		return c.GetHeader(viper.GetString("proxy.header"))
+		return strings.Split(c.GetHeader(viper.GetString("proxy.header")), ",")[0]
 	}
 }
 

@@ -9,6 +9,7 @@ func init() {
 // SNGlobal is global variable for skynet.
 type SNGlobal struct {
 	Engine       *gin.Engine            // gin engine
+	StaticFile   *gin.RouterGroup       // static file router
 	API          SNAPI                  // skynet API
 	Page         SNPage                 // skynet page
 	Plugin       SNPlugin               // skynet plugin

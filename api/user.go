@@ -53,9 +53,9 @@ func APIGetUser(c *gin.Context, u *sn.User) (int, error) {
 }
 
 type userAddParam struct {
-	Username string      `form:"username" binding:"required,max=32"`
-	Password string      `form:"password" binding:"required"`
-	Role     sn.UserRole `form:"role"`
+	Username string      `json:"username" binding:"required,max=32"`
+	Password string      `json:"password" binding:"required"`
+	Role     sn.UserRole `json:"role"`
 }
 
 func APIAddUser(c *gin.Context, u *sn.User) (int, error) {
@@ -84,10 +84,10 @@ func APIAddUser(c *gin.Context, u *sn.User) (int, error) {
 }
 
 type userUpdateParam struct {
-	Username string      `form:"username" binding:"max=32"`
-	Password string      `form:"password"`
-	Role     sn.UserRole `form:"role"`
-	Avatar   string      `form:"avatar"`
+	Username string      `json:"username" binding:"max=32"`
+	Password string      `json:"password"`
+	Role     sn.UserRole `json:"role"`
+	Avatar   string      `json:"avatar"`
 }
 
 func APIUpdateUser(c *gin.Context, u *sn.User) (int, error) {

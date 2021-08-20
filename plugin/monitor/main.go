@@ -51,6 +51,9 @@ func (p *PluginInstance) PluginInit() error {
 		log.WithFields(defaultField).Error("Setting token not exist")
 		return SettingTokenNotExistError
 	}
+	if token == "" {
+		log.WithFields(defaultField).Warn("Token is empty, generate a token for safety")
+	}
 
 	utils.GetDB().AutoMigrate(&shared.PluginMonitorAgent{}, &shared.PluginMonitorAgentSetting{})
 
