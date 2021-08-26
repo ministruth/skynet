@@ -29,8 +29,7 @@ var rootCmd = &cobra.Command{
 		if err != nil {
 			log.Fatal("Can not read config file: ", err)
 		}
-		err = viper.ReadConfig(bytes.NewBuffer(content))
-		if err != nil {
+		if err = viper.ReadConfig(bytes.NewBuffer(content)); err != nil {
 			log.Fatal("Config file invalid: ", err)
 		}
 

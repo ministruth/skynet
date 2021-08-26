@@ -1,5 +1,5 @@
 redis:
-  address: "redis:6379" # redis address
+  address: "127.0.0.1:6379" # redis address
   password: "" # redis password
   db: 0 # redis database
 

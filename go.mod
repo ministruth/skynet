@@ -37,6 +37,7 @@ require (
 	github.com/spf13/cast v1.4.1 // indirect
 	github.com/spf13/cobra v1.2.1
 	github.com/spf13/viper v1.8.1
+	github.com/stretchr/testify v1.7.0
 	github.com/tklauser/go-sysconf v0.3.7 // indirect
 	github.com/ugorji/go v1.2.6 // indirect
 	github.com/unrolled/secure v1.0.9

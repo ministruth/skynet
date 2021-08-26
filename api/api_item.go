@@ -52,6 +52,12 @@ var api = []*sn.SNAPIItem{
 		Func:   APIGetPlugin,
 	},
 	{
+		Path:   "/plugin",
+		Method: sn.APIPost,
+		Role:   sn.RoleAdmin,
+		Func:   APIAddPlugin,
+	},
+	{
 		Path:   "/plugin/:id",
 		Method: sn.APIPatch,
 		Role:   sn.RoleAdmin,

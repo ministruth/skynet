@@ -19,17 +19,15 @@ type MPrefixElement struct {
 type MPrefixSorterFunc func(a *MPrefixElement, b *MPrefixElement) bool
 
 type MPrefixMap struct {
-	Data   sync.Map
-	length int
+	Data sync.Map
 }
 
 func (m *MPrefixMap) Clear() {
-	m.length = 0
 	m.Data = sync.Map{}
 }
 
 func (m *MPrefixMap) Len() int {
-	return m.length
+	return len(m.Keys())
 }
 
 func (m *MPrefixMap) Get(k MTypeA) (MTypeB, bool) {
@@ -49,27 +47,18 @@ func (m *MPrefixMap) MustGet(k MTypeA) MTypeB {
 }
 
 func (m *MPrefixMap) Set(k MTypeA, v MTypeB) {
-	if !m.Has(k) {
-		m.length++
-	}
 	m.Data.Store(k, v)
 }
 
 func (m *MPrefixMap) SetIfAbsent(k MTypeA, v MTypeB) (MTypeB, bool) {
 	ret, ok := m.Data.LoadOrStore(k, v)
-	if !ok {
-		m.length++
-	}
 	if ret == nil {
-		panic("key not found")
+		panic("value is nil")
 	}
 	return ret.(MTypeB), ok
 }
 
 func (m *MPrefixMap) Delete(k MTypeA) {
-	if m.Has(k) {
-		m.length--
-	}
 	m.Data.Delete(k)
 }
 

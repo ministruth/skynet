@@ -19,17 +19,15 @@ type CMDResElement struct {
 type CMDResSorterFunc func(a *CMDResElement, b *CMDResElement) bool
 
 type CMDResMap struct {
-	Data   sync.Map
-	length int
+	Data sync.Map
 }
 
 func (m *CMDResMap) Clear() {
-	m.length = 0
 	m.Data = sync.Map{}
 }
 
 func (m *CMDResMap) Len() int {
-	return m.length
+	return len(m.Keys())
 }
 
 func (m *CMDResMap) Get(k uuid.UUID) (*CMDRes, bool) {
@@ -49,27 +47,18 @@ func (m *CMDResMap) MustGet(k uuid.UUID) *CMDRes {
 }
 
 func (m *CMDResMap) Set(k uuid.UUID, v *CMDRes) {
-	if !m.Has(k) {
-		m.length++
-	}
 	m.Data.Store(k, v)
 }
 
 func (m *CMDResMap) SetIfAbsent(k uuid.UUID, v *CMDRes) (*CMDRes, bool) {
 	ret, ok := m.Data.LoadOrStore(k, v)
-	if !ok {
-		m.length++
-	}
 	if ret == nil {
-		panic("key not found")
+		panic("value is nil")
 	}
 	return ret.(*CMDRes), ok
 }
 
 func (m *CMDResMap) Delete(k uuid.UUID) {
-	if m.Has(k) {
-		m.length--
-	}
 	m.Data.Delete(k)
 }
 

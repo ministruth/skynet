@@ -2,6 +2,7 @@ package page
 
 import (
 	"fmt"
+	"path"
 	"skynet/sn"
 
 	"github.com/gin-gonic/gin"
@@ -15,17 +16,17 @@ var defaultPath = &sn.SNPathItem{
 }
 
 func withLayerFiles(n string) []string {
-	return []string{"templates/home.tmpl", "templates/" + n + ".tmpl", "templates/header.tmpl", "templates/footer.tmpl"}
+	return []string{"templates/home.tmpl", path.Join("templates", n), "templates/header.tmpl", "templates/footer.tmpl"}
 }
 
 func withSingleFiles(n string) []string {
-	return []string{"templates/" + n + ".tmpl", "templates/header.tmpl", "templates/footer.tmpl"}
+	return []string{path.Join("templates", n), "templates/header.tmpl", "templates/footer.tmpl"}
 }
 
 var pages = []*sn.SNPageItem{
 	{
 		TplName: "dashboard",
-		Files:   withLayerFiles("dashboard"),
+		Files:   withLayerFiles("dashboard.tmpl"),
 		FuncMap: defaultFunc,
 		Title:   "Skynet | Dashboard",
 		Name:    "Dashboard",
@@ -40,7 +41,7 @@ var pages = []*sn.SNPageItem{
 	},
 	{
 		TplName: "index",
-		Files:   withSingleFiles("index"),
+		Files:   withSingleFiles("index.tmpl"),
 		FuncMap: defaultFunc,
 		Title:   "Skynet",
 		Link:    "/",
@@ -58,7 +59,7 @@ var pages = []*sn.SNPageItem{
 	},
 	{
 		TplName: "plugin",
-		Files:   withLayerFiles("plugin"),
+		Files:   withLayerFiles("plugin.tmpl"),
 		FuncMap: defaultFunc,
 		Title:   "Skynet | Plugin Manager",
 		Name:    "Plugin Manager",
@@ -81,7 +82,7 @@ var pages = []*sn.SNPageItem{
 	},
 	{
 		TplName: "setting",
-		Files:   withLayerFiles("setting"),
+		Files:   withLayerFiles("setting.tmpl"),
 		FuncMap: defaultFunc,
 		Title:   "Skynet | Setting",
 		Name:    "Setting",
@@ -96,7 +97,7 @@ var pages = []*sn.SNPageItem{
 	},
 	{
 		TplName: "deny",
-		Files:   withLayerFiles("deny"),
+		Files:   withLayerFiles("deny.tmpl"),
 		FuncMap: defaultFunc,
 		Title:   "Skynet | Permission Denied",
 		Name:    "Permission Denied",
@@ -111,7 +112,7 @@ var pages = []*sn.SNPageItem{
 	},
 	{
 		TplName: "user",
-		Files:   withLayerFiles("user"),
+		Files:   withLayerFiles("user.tmpl"),
 		FuncMap: defaultFunc,
 		Title:   "Skynet | User",
 		Name:    "User",
@@ -136,7 +137,7 @@ var pages = []*sn.SNPageItem{
 	},
 	{
 		TplName: "notification",
-		Files:   withLayerFiles("notification"),
+		Files:   withLayerFiles("notification.tmpl"),
 		FuncMap: defaultFunc,
 		Title:   "Skynet | Notification",
 		Name:    "Notification",

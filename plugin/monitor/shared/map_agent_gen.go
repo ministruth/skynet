@@ -17,17 +17,15 @@ type AgentElement struct {
 type AgentSorterFunc func(a *AgentElement, b *AgentElement) bool
 
 type AgentMap struct {
-	Data   sync.Map
-	length int
+	Data sync.Map
 }
 
 func (m *AgentMap) Clear() {
-	m.length = 0
 	m.Data = sync.Map{}
 }
 
 func (m *AgentMap) Len() int {
-	return m.length
+	return len(m.Keys())
 }
 
 func (m *AgentMap) Get(k int) (*AgentInfo, bool) {
@@ -47,27 +45,18 @@ func (m *AgentMap) MustGet(k int) *AgentInfo {
 }
 
 func (m *AgentMap) Set(k int, v *AgentInfo) {
-	if !m.Has(k) {
-		m.length++
-	}
 	m.Data.Store(k, v)
 }
 
 func (m *AgentMap) SetIfAbsent(k int, v *AgentInfo) (*AgentInfo, bool) {
 	ret, ok := m.Data.LoadOrStore(k, v)
-	if !ok {
-		m.length++
-	}
 	if ret == nil {
-		panic("key not found")
+		panic("value is nil")
 	}
 	return ret.(*AgentInfo), ok
 }
 
 func (m *AgentMap) Delete(k int) {
-	if m.Has(k) {
-		m.length--
-	}
 	m.Data.Delete(k)
 }
 

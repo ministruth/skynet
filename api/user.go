@@ -17,8 +17,7 @@ import (
 
 func APIGetUser(c *gin.Context, u *sn.User) (int, error) {
 	var param paginationParam
-	err := c.ShouldBindQuery(&param)
-	if err != nil {
+	if err := c.ShouldBindQuery(&param); err != nil {
 		return 400, err
 	}
 
@@ -60,8 +59,7 @@ type userAddParam struct {
 
 func APIAddUser(c *gin.Context, u *sn.User) (int, error) {
 	var param userAddParam
-	err := c.ShouldBind(&param)
-	if err != nil {
+	if err := c.ShouldBind(&param); err != nil {
 		return 400, err
 	}
 	fields := log.Fields{
@@ -92,8 +90,7 @@ type userUpdateParam struct {
 
 func APIUpdateUser(c *gin.Context, u *sn.User) (int, error) {
 	var param userUpdateParam
-	err := c.ShouldBind(&param)
-	if err != nil {
+	if err := c.ShouldBind(&param); err != nil {
 		return 400, err
 	}
 	id, err := strconv.Atoi(c.Param("id"))
@@ -147,8 +144,7 @@ type userDeleteParam struct {
 
 func APIDeleteUser(c *gin.Context, u *sn.User) (int, error) {
 	var param userDeleteParam
-	err := c.ShouldBindUri(&param)
-	if err != nil {
+	if err := c.ShouldBindUri(&param); err != nil {
 		return 400, err
 	}
 	logf := log.WithFields(log.Fields{

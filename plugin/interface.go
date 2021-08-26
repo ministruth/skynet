@@ -1,74 +1,83 @@
-package plugins
+package plugin
 
 import (
+	"path"
 	"skynet/sn"
 
 	"github.com/google/uuid"
 )
 
-type PluginDep struct {
-	ID      uuid.UUID
-	Name    string
-	Version string
-	Option  bool
+// PluginInstance is plugin instance struct.
+type PluginInstance struct {
+	ID            uuid.UUID // plugin unique ID
+	Name          string    // plugin name, unique suggested
+	Version       string    // plugin version
+	Path          string    // auto filled, runtime absolute path, no ending / unless root
+	SkynetVersion string    // compatible skynet version
 }
 
-type PluginConfig struct {
-	ID            uuid.UUID
-	Name          string
-	Dependency    []PluginDep
-	Version       string
-	Path          string
-	SkynetVersion string
-	Priority      int
-}
-
+// PluginInterface is plugin interface, every plugin should export one with NewPlugin function.
+// Signature: func NewPlugin() PluginInterface
 type PluginInterface interface {
+	// Instance will return the instance of the plugin, skynet will fill the runtime fields of it.
+	// You should make sure the instance returned will be persist and the same each time calls.
+	Instance() *PluginInstance
+
+	// PluginInit will be executed when plugin loaded or enabled, return error to stop plugin enable,
+	// note that the plugin initialize order may not stable.
 	PluginInit() error
+
+	// PluginEnable will be executed when plugin enabled, before PluginInit,
+	// return error to stop plugin enable.
 	PluginEnable() error
+
+	// PluginDisable will be executed when plugin disabled, after PluginFini.
+	// return error to stop plugin disable.
+	// Note that skynet will be reloaded after disabled.
 	PluginDisable() error
+
+	// PluginFini will be executed when plugin disabled or skynet exit,
+	// return error to stop plugin disable.
 	PluginFini() error
 }
 
-type SPPaginationParam struct {
+// PaginationParam is the common pagination param for plugins.
+type PaginationParam struct {
 	Order string `form:"order,default=asc" binding:"oneof=asc desc"`
 	Page  int    `form:"page,default=1" binding:"min=1"`
 	Size  int    `form:"size,default=10"`
 }
 
-func SPWithIDPrefixTempPath(c *PluginConfig, p string) string {
-	return "temp/plugin/" + c.ID.String() + "/" + p
+// GetTempFilePath returns the relative temp file path with suffix.
+func (p *PluginInstance) GetTempFilePath(suffix string) string {
+	return path.Join("temp/plugin", p.ID.String(), suffix)
 }
 
-func SPWithIDPrefixPath(c *PluginConfig, p string) string {
-	return "/plugin/" + c.ID.String() + p
-}
-
-func SPWithIDPrefix(c *PluginConfig, n string) string {
-	if n != "" {
-		return "plugin_" + c.ID.String() + "_" + n
-	} else {
-		return "plugin_" + c.ID.String()
-	}
-}
-
-func SPAddSubPath(root string, i []*sn.SNNavItem) {
+// AddSubNav will add sub item item to navbar named root, note that all
+// navbar named root will add the item, if you only need one of the same name navbar,
+// you need to iterate sn.Skynet.Page.GetNav() by yourself.
+func (p *PluginInstance) AddSubNav(root string, item []*sn.SNNavItem) {
 	for _, v := range sn.Skynet.Page.GetNav() {
 		if v.Name == root {
-			v.Child = append(v.Child, i...)
+			v.Child = append(v.Child, item...)
 			sn.SNNavSort(v.Child).Sort()
 		}
 	}
 }
 
-func SPAddStatic(c *PluginConfig, path string, root string) {
-	sn.Skynet.StaticFile.Static(path, c.Path+root)
+// AddStaticRouter will add relativePath to static file routerPath.
+func (p *PluginInstance) AddStaticRouter(routerPath string, relativePath string) {
+	sn.Skynet.StaticFile.Static(routerPath, path.Join(p.Path, relativePath))
 }
 
-func SPWithLayerFiles(c *PluginConfig, n string) []string {
-	return []string{"templates/home.tmpl", c.Path + "templates/" + n + ".tmpl", "templates/header.tmpl", "templates/footer.tmpl"}
+// WithTplLayerFiles return template file list including panel file and tplFile.
+// Note that template file must be stored in templates sub folder of plugin.
+func (p *PluginInstance) WithTplLayerFiles(tplFile string) []string {
+	return []string{"templates/home.tmpl", path.Join(p.Path, "templates", tplFile), "templates/header.tmpl", "templates/footer.tmpl"}
 }
 
-func SPWithSingleFiles(c *PluginConfig, n string) []string {
-	return []string{c.Path + "templates/" + n + ".tmpl", "templates/header.tmpl", "templates/footer.tmpl"}
+// WithSingleFiles return template file list including common file and tplFile.
+// Note that template file must be stored in templates sub folder of plugin.
+func (p *PluginInstance) WithSingleFiles(tplFile string) []string {
+	return []string{path.Join(p.Path, "templates", tplFile), "templates/header.tmpl", "templates/footer.tmpl"}
 }

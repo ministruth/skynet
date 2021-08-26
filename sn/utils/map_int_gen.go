@@ -17,17 +17,15 @@ type IntElement struct {
 type IntSorterFunc func(a *IntElement, b *IntElement) bool
 
 type IntMap struct {
-	Data   sync.Map
-	length int
+	Data sync.Map
 }
 
 func (m *IntMap) Clear() {
-	m.length = 0
 	m.Data = sync.Map{}
 }
 
 func (m *IntMap) Len() int {
-	return m.length
+	return len(m.Keys())
 }
 
 func (m *IntMap) Get(k int) (interface{}, bool) {
@@ -47,27 +45,18 @@ func (m *IntMap) MustGet(k int) interface{} {
 }
 
 func (m *IntMap) Set(k int, v interface{}) {
-	if !m.Has(k) {
-		m.length++
-	}
 	m.Data.Store(k, v)
 }
 
 func (m *IntMap) SetIfAbsent(k int, v interface{}) (interface{}, bool) {
 	ret, ok := m.Data.LoadOrStore(k, v)
-	if !ok {
-		m.length++
-	}
 	if ret == nil {
-		panic("key not found")
+		panic("value is nil")
 	}
 	return ret.(interface{}), ok
 }
 
 func (m *IntMap) Delete(k int) {
-	if m.Has(k) {
-		m.length--
-	}
 	m.Data.Delete(k)
 }
 

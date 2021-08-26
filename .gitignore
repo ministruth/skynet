@@ -7,3 +7,5 @@ log.txt
 skynet
 temp/
 bin/
+coverage.html
+coverage.out

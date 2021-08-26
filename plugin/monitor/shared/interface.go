@@ -87,8 +87,8 @@ type AgentInfo struct {
 
 // PluginShared is monitor shared API.
 type PluginShared interface {
-	// GetConfig return plugin config.
-	GetConfig() *plugins.PluginConfig
+	// GetInstance return plugin instance.
+	GetInstance() *plugins.PluginInstance
 
 	// DeleteAllSetting deletes all agent id setting, return affected rows and error.
 	DeleteAllSetting(id int) (int64, error)

@@ -10,8 +10,7 @@ import (
 
 func APIGetNotification(c *gin.Context, u *sn.User) (int, error) {
 	var param paginationParam
-	err := c.ShouldBindQuery(&param)
-	if err != nil {
+	if err := c.ShouldBindQuery(&param); err != nil {
 		return 400, err
 	}
 
@@ -36,8 +35,7 @@ func APIDeleteNotification(c *gin.Context, u *sn.User) (int, error) {
 		"ip": utils.GetIP(c),
 	})
 
-	err := sn.Skynet.Notification.DeleteAll()
-	if err != nil {
+	if err := sn.Skynet.Notification.DeleteAll(); err != nil {
 		return 500, err
 	}
 	logf.Info("Delete notification")

@@ -19,17 +19,15 @@ type UUIDElement struct {
 type UUIDSorterFunc func(a *UUIDElement, b *UUIDElement) bool
 
 type UUIDMap struct {
-	Data   sync.Map
-	length int
+	Data sync.Map
 }
 
 func (m *UUIDMap) Clear() {
-	m.length = 0
 	m.Data = sync.Map{}
 }
 
 func (m *UUIDMap) Len() int {
-	return m.length
+	return len(m.Keys())
 }
 
 func (m *UUIDMap) Get(k uuid.UUID) (interface{}, bool) {
@@ -49,27 +47,18 @@ func (m *UUIDMap) MustGet(k uuid.UUID) interface{} {
 }
 
 func (m *UUIDMap) Set(k uuid.UUID, v interface{}) {
-	if !m.Has(k) {
-		m.length++
-	}
 	m.Data.Store(k, v)
 }
 
 func (m *UUIDMap) SetIfAbsent(k uuid.UUID, v interface{}) (interface{}, bool) {
 	ret, ok := m.Data.LoadOrStore(k, v)
-	if !ok {
-		m.length++
-	}
 	if ret == nil {
-		panic("key not found")
+		panic("value is nil")
 	}
 	return ret.(interface{}), ok
 }
 
 func (m *UUIDMap) Delete(k uuid.UUID) {
-	if m.Has(k) {
-		m.length--
-	}
 	m.Data.Delete(k)
 }
 

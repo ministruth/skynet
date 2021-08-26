@@ -17,17 +17,15 @@ type StringElement struct {
 type StringSorterFunc func(a *StringElement, b *StringElement) bool
 
 type StringMap struct {
-	Data   sync.Map
-	length int
+	Data sync.Map
 }
 
 func (m *StringMap) Clear() {
-	m.length = 0
 	m.Data = sync.Map{}
 }
 
 func (m *StringMap) Len() int {
-	return m.length
+	return len(m.Keys())
 }
 
 func (m *StringMap) Get(k string) (interface{}, bool) {
@@ -47,27 +45,18 @@ func (m *StringMap) MustGet(k string) interface{} {
 }
 
 func (m *StringMap) Set(k string, v interface{}) {
-	if !m.Has(k) {
-		m.length++
-	}
 	m.Data.Store(k, v)
 }
 
 func (m *StringMap) SetIfAbsent(k string, v interface{}) (interface{}, bool) {
 	ret, ok := m.Data.LoadOrStore(k, v)
-	if !ok {
-		m.length++
-	}
 	if ret == nil {
-		panic("key not found")
+		panic("value is nil")
 	}
 	return ret.(interface{}), ok
 }
 
 func (m *StringMap) Delete(k string) {
-	if m.Has(k) {
-		m.length--
-	}
 	m.Data.Delete(k)
 }
 

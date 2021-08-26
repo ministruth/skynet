@@ -32,8 +32,8 @@ func withAgentOnline(id int) (*shared.AgentInfo, error) {
 	return v, nil
 }
 
-func (s *pluginShared) GetConfig() *plugins.PluginConfig {
-	return Config
+func (s *pluginShared) GetInstance() *plugins.PluginInstance {
+	return Instance
 }
 
 func (s *pluginShared) DeleteAllSetting(id int) (int64, error) {

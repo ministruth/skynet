@@ -5,6 +5,7 @@ import (
 	"errors"
 	"net/http"
 	"os"
+	"path"
 	"skynet/plugin/monitor/msg"
 	"skynet/plugin/monitor/shared"
 	"skynet/sn/utils"
@@ -75,7 +76,7 @@ func msgInfoHandler(c *shared.Websocket, agent *shared.AgentInfo, m *msg.CommonM
 				logf.Error("Platform not supported")
 				return
 			}
-			f, err := os.ReadFile(Config.Path + name)
+			f, err := os.ReadFile(path.Join(Instance.Path, name))
 			if err != nil {
 				logf.Error(err)
 				return

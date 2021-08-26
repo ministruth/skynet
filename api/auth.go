@@ -20,8 +20,7 @@ type authParam struct {
 
 func APISignIn(c *gin.Context, u *sn.User) (int, error) {
 	var param authParam
-	err := c.ShouldBind(&param)
-	if err != nil {
+	if err := c.ShouldBind(&param); err != nil {
 		return 400, err
 	}
 	logf := log.WithFields(log.Fields{
@@ -46,8 +45,7 @@ func APISignIn(c *gin.Context, u *sn.User) (int, error) {
 	case 0: // signin
 		u.LastLogin = time.Now()
 		u.LastIP = utils.GetIP(c)
-		err = utils.GetDB().Save(u).Error
-		if err != nil {
+		if err := utils.GetDB().Save(u).Error; err != nil {
 			return 500, err
 		}
 
@@ -61,7 +59,7 @@ func APISignIn(c *gin.Context, u *sn.User) (int, error) {
 		} else {
 			session.Options.MaxAge = viper.GetInt("session.expire")
 		}
-		if err = utils.SaveCTXSession(c); err != nil {
+		if err := utils.SaveCTXSession(c); err != nil {
 			return 500, err
 		}
 

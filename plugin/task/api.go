@@ -12,7 +12,7 @@ import (
 )
 
 func APIGetAllTask(c *gin.Context, u *sn.User) (int, error) {
-	var param plugins.SPPaginationParam
+	var param plugins.PaginationParam
 	err := c.ShouldBindQuery(&param)
 	if err != nil {
 		return 400, err
@@ -35,15 +35,15 @@ func APIGetAllTask(c *gin.Context, u *sn.User) (int, error) {
 }
 
 func APIDeleteInactiveTask(c *gin.Context, u *sn.User) (int, error) {
-	fields := log.Fields{
+	logf := log.WithFields(log.Fields{
 		"ip": utils.GetIP(c),
-	}
+	})
 	err := utils.GetDB().Where("status <> ? and status <> ?", shared.TaskNotStart, shared.TaskRunning).
 		Delete(&shared.PluginTask{}).Error
 	if err != nil {
 		return 500, err
 	}
-	log.WithFields(defaultField).WithFields(fields).Info("Delete inactive task success")
+	logf.Info("Delete inactive task success")
 	c.JSON(200, gin.H{"code": 0, "msg": "Delete inactive task success"})
 	return 0, nil
 }
@@ -77,17 +77,17 @@ func APIKillTask(c *gin.Context, u *sn.User) (int, error) {
 	if err != nil {
 		return 400, err
 	}
-	fields := log.Fields{
+	logf := log.WithFields(log.Fields{
 		"ip": utils.GetIP(c),
 		"id": param.ID,
-	}
+	})
 
 	err = pluginAPI.CancelByUser(param.ID, "Task killed by user")
 	if err != nil {
 		c.JSON(200, gin.H{"code": 1, "msg": err.Error()})
 		return 0, nil
 	}
-	log.WithFields(defaultField).WithFields(fields).Info("Kill task success")
+	logf.Info("Kill task success")
 	c.JSON(200, gin.H{"code": 0, "msg": "Kill task success"})
 	return 0, nil
 }

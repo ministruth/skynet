@@ -5,6 +5,15 @@
       <h3 class="card-title">Plugin List</h3>
     </div>
     <div class="card-body">
+      <div class="input-group cardbtn col-sm-4 pl-0 pr-0">
+        <div class="custom-file">
+          <input type="file" class="custom-file-input" id="pluginPackage" accept=".sp">
+          <label class="custom-file-label" for="pluginPackage">Choose .sp file</label>
+        </div>
+        <div class="input-group-append" id="upload">
+          <button id="upload" class="btn input-group-text">Upload</button>
+        </div>
+      </div>
       <table class="table table-bordered">
         <thead>
           <tr>
@@ -12,7 +21,7 @@
             <th class="th-200">Name</th>
             <th class="th-70">Version</th>
             <th class="th-70">Status</th>
-            <th>Disable Reason</th>
+            <th>Message</th>
             <th class="th-op1">Operation</th>
           </tr>
         </thead>
@@ -42,7 +51,7 @@
         <td>${d.Name}</td>
         <td>${d.Version}</td>
         <td>${d.Enable ? '<span class="badge bg-success">ENABLED</span>' : '<span class="badge bg-danger">DISABLED</span>'}</td>
-        <td>${d.DisableReason}</td>
+        <td>${d.Message}</td>
         <td>
           ${d.Enable ? '<button data-operation="disable" data-pluginID="' + d.ID + '" type="button" class="btn btn-outline-warning">Disable</button>' :
         '<button data-operation="enable" data-pluginID="' + d.ID + '" type="button" class="btn btn-outline-primary">Enable</button>'}
@@ -76,10 +85,21 @@
       }
     })
   };
-  ParsePage("plugin", 10, [5, 10, 20, 50], ParseFunc, 0);
+  ParsePage('plugin', 10, [5, 10, 20, 50], ParseFunc, 0);
 
-  $("#reload").click((e) => {
-    JSONGet("/api/reload").done(DelayReload(5000));
+  $('#reload').click((e) => {
+    JSONGet('/api/reload').done(DelayReload(5000));
+  });
+
+  $('#upload').click((e) => {
+    var file = $('input[type=file]')[0].files[0];
+    if (file != undefined) {
+      var fr = new FileReader();
+      fr.readAsDataURL(file);
+      fr.onload = (e) => {
+        JSONPost('/api/plugin', { "file": fr.result }).done(DelayReload());
+      };
+    }
   });
 </script>
 {{end}}

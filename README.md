@@ -8,10 +8,10 @@ Skynet master program only support Linux system, we recommand docker image for s
 
 1. `mkdir skynet && cd skynet`
 2. Copy `conf.yml` and `docker-compose.yml` to the folder
-3. `vim conf.yml` to modify your config
-4. `touch data.db` or copy your exist database
-5. `docker-compose up -d` to start skynet
-6. visit `localhost:8080`
+3. `vim conf.yml` to modify your config, you MUST change redis address config to `redis:6379`
+1. `touch data.db` or copy your exist database
+2. `docker-compose up -d` to start skynet
+3. visit `localhost:8080`
 
 ### Create initial user
 
@@ -39,13 +39,6 @@ You can find more plugin in our [official support plugin](#) or other user share
 **!!Please note that all plugins have the same privilege as skynet, use trusted plugins ONLY!!**
 
 ## Develop
-### Create 
-
-1. Create folder under `plugins`, e.g. `plugins/myplugin`
-2. Copy `template.tpl` to `plugins/myplugin/main.go`
-3. Read instructions in file to create your plugin
-4. Run `go build -buildmode=plugin .` to build and test your plugin
-5. Use `github.com/techknowlogick/xgo` command `xgo -buildmode=plugin -ldflags "-s -w" -targets linux/amd64 -dest $(OUTPUTDIR) -pkg $(PLUGINDIR) -out $(NAME) .` to make release version of your plugin, recommand to rename it to strip `-linux-amd64` suffix.
 
 ## Reference Project
 

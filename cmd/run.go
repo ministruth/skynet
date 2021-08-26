@@ -52,6 +52,7 @@ func connectDB() {
 		log.Fatalf("Database type %s not supported", viper.GetString("database.type"))
 	}
 }
+
 func connectRedis() {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
 	defer cancel()

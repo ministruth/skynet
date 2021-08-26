@@ -1,6 +1,7 @@
 package main
 
 import (
+	"fmt"
 	plugins "skynet/plugin"
 	"skynet/plugin/task/shared"
 	"skynet/sn"
@@ -13,73 +14,68 @@ import (
 	"gorm.io/gorm"
 )
 
-// Plugin config, do NOT change the variable name
-var Config = &plugins.PluginConfig{
-	ID:   uuid.MustParse("c1e81895-1f75-4988-9f10-52786b875ec7"), // go https://www.uuidgenerator.net/ to generate your plugin uuid
-	Name: "task",                                                 // change to your plugin name
-	Dependency: []plugins.PluginDep{
-		{
-			ID:      uuid.MustParse("2eb2e1a5-66b4-45f9-ad24-3c4f05c858aa"),
-			Name:    "monitor",
-			Version: ">= 1.0, < 1.1",
-			Option:  true,
-		},
-	}, // if your plugin need dependency, write here
-	Version:       "1.0.0",         // plugin version, better follow https://semver.org/
-	SkynetVersion: ">= 1.0, < 1.1", // skynet version constraints using https://github.com/hashicorp/go-version
-	Priority:      0,               // priority to run PluginInit
+var Instance = &plugins.PluginInstance{
+	ID:            uuid.MustParse("c1e81895-1f75-4988-9f10-52786b875ec7"),
+	Name:          "task",
+	Version:       "1.0.0",
+	SkynetVersion: ">= 1.0, < 1.1",
 }
 
-type PluginInstance struct{}
+type Interface struct{}
 
 // New plugin factory, do NOT change the function name
 func NewPlugin() plugins.PluginInterface {
-	return &PluginInstance{}
+	return &Interface{}
 }
 
 var defaultField = log.Fields{
-	"plugin": Config.ID,
+	"plugin": Instance.ID,
 }
 
-var taskCancel shared.CancelMap
+var (
+	taskCancel shared.CancelMap
+	pluginAPI  = NewShared()
+	sharedKey  = fmt.Sprintf("plugin_%s", Instance.ID.String())
+)
 
-var pluginAPI = NewShared()
+func (p *Interface) Instance() *plugins.PluginInstance {
+	return Instance
+}
 
-// PluginInit will be executed after plugin loaded or enabled, return error to stop skynet run or plugin enable
-func (p *PluginInstance) PluginInit() error {
+func (p *Interface) PluginInit() error {
 	utils.GetDB().AutoMigrate(&shared.PluginTask{})
-	sn.Skynet.SharedData[plugins.SPWithIDPrefix(Config, "")] = pluginAPI
+	sn.Skynet.SharedData[sharedKey] = pluginAPI
 
 	sn.Skynet.Page.AddNav([]*sn.SNNavItem{
 		{
 			Priority: 40,
 			Name:     "Task",
-			Link:     "/plugin/" + Config.ID.String(),
+			Link:     fmt.Sprintf("/plugin/%s", Instance.ID.String()),
 			Icon:     "fa-tasks",
 			Role:     sn.RoleUser,
 		},
 	})
 	sn.Skynet.API.AddAPI([]*sn.SNAPIItem{
 		{
-			Path:   plugins.SPWithIDPrefixPath(Config, "/task"),
+			Path:   fmt.Sprintf("/plugin/%s/task", Instance.ID.String()),
 			Method: sn.APIGet,
 			Role:   sn.RoleUser,
 			Func:   APIGetAllTask,
 		},
 		{
-			Path:   plugins.SPWithIDPrefixPath(Config, "/task"),
+			Path:   fmt.Sprintf("/plugin/%s/task", Instance.ID.String()),
 			Method: sn.APIDelete,
 			Role:   sn.RoleAdmin,
 			Func:   APIDeleteInactiveTask,
 		},
 		{
-			Path:   plugins.SPWithIDPrefixPath(Config, "/task/:id"),
+			Path:   fmt.Sprintf("/plugin/%s/task/:id", Instance.ID.String()),
 			Method: sn.APIGet,
 			Role:   sn.RoleUser,
 			Func:   APIGetTask,
 		},
 		{
-			Path:   plugins.SPWithIDPrefixPath(Config, "/task/:id"),
+			Path:   fmt.Sprintf("/plugin/%s/task/:id", Instance.ID.String()),
 			Method: sn.APIDelete,
 			Role:   sn.RoleAdmin,
 			Func:   APIKillTask,
@@ -87,12 +83,12 @@ func (p *PluginInstance) PluginInit() error {
 	})
 	sn.Skynet.Page.AddPage([]*sn.SNPageItem{
 		{
-			TplName: plugins.SPWithIDPrefix(Config, "menu"),
-			Files:   plugins.SPWithLayerFiles(Config, "menu"),
+			TplName: fmt.Sprintf("plugin_%s_menu", Instance.ID.String()),
+			Files:   Instance.WithTplLayerFiles("menu.tmpl"),
 			FuncMap: sn.Skynet.Page.GetDefaultFunc(),
 			Title:   "Skynet | Task",
 			Name:    "Task",
-			Link:    "/plugin/" + Config.ID.String(),
+			Link:    fmt.Sprintf("/plugin/%s", Instance.ID.String()),
 			Role:    sn.RoleUser,
 			Path: sn.Skynet.Page.GetDefaultPath().WithChild([]*sn.SNPathItem{
 				{
@@ -119,18 +115,15 @@ func (p *PluginInstance) PluginInit() error {
 	return nil
 }
 
-// PluginEnable will be executed when trigger plugin enabled
-func (p *PluginInstance) PluginEnable() error {
+func (p *Interface) PluginEnable() error {
 	return nil
 }
 
-// PluginDisable will be executed when trigger plugin disabled, skynet will be reloaded after disabled
-func (p *PluginInstance) PluginDisable() error {
+func (p *Interface) PluginDisable() error {
 	return nil
 }
 
-// PluginFini will be executed after plugin disabled or skynet exit
-func (p *PluginInstance) PluginFini() error {
+func (p *Interface) PluginFini() error {
 	taskCancel.Range(func(k int, v interface{}) bool {
 		v.(func() error)()
 		return true

@@ -23,8 +23,8 @@ var (
 	TaskNotSupportCancelError = errors.New("Task not support cancel")
 )
 
-func (s *pluginShared) GetConfig() *plugins.PluginConfig {
-	return Config
+func (s *pluginShared) GetInstance() *plugins.PluginInstance {
+	return Instance
 }
 
 func (s *pluginShared) New(name string, detail string, cancel func() error) (int, error) {

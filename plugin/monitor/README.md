@@ -45,3 +45,11 @@ Monitor provides simple file distribution function, you can transfer files to ce
 ### Agent command
 
 Monitor provides asynchronous or synchronize command run in the agent, also provides a web-based shell for user.
+
+## Security
+
+Communication security is protected by SSL, all your traffic is plain text when ssl is not enabled, add option `-s` to use SSL(skynet must run in ssl mode).
+
+Connection is also protected by connection token, you should generate a token when enabling the plugin(a warning will be shown when token is empty).
+
+**Do NOT connect to any untrusted skynet for they will have full access to your system.**

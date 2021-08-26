@@ -19,17 +19,15 @@ type SocketElement struct {
 type SocketSorterFunc func(a *SocketElement, b *SocketElement) bool
 
 type SocketMap struct {
-	Data   sync.Map
-	length int
+	Data sync.Map
 }
 
 func (m *SocketMap) Clear() {
-	m.length = 0
 	m.Data = sync.Map{}
 }
 
 func (m *SocketMap) Len() int {
-	return m.length
+	return len(m.Keys())
 }
 
 func (m *SocketMap) Get(k uuid.UUID) (*Websocket, bool) {
@@ -49,27 +47,18 @@ func (m *SocketMap) MustGet(k uuid.UUID) *Websocket {
 }
 
 func (m *SocketMap) Set(k uuid.UUID, v *Websocket) {
-	if !m.Has(k) {
-		m.length++
-	}
 	m.Data.Store(k, v)
 }
 
 func (m *SocketMap) SetIfAbsent(k uuid.UUID, v *Websocket) (*Websocket, bool) {
 	ret, ok := m.Data.LoadOrStore(k, v)
-	if !ok {
-		m.length++
-	}
 	if ret == nil {
-		panic("key not found")
+		panic("value is nil")
 	}
 	return ret.(*Websocket), ok
 }
 
 func (m *SocketMap) Delete(k uuid.UUID) {
-	if m.Has(k) {
-		m.length--
-	}
 	m.Data.Delete(k)
 }
 

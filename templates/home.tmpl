@@ -124,6 +124,8 @@
   <script nonce="{{ ._nonce }}">
     "use strict"
 
+    bsCustomFileInput.init();
+
     $("#signout").click(function () {
       $.get("/api/signout").fail(function (d) {
         if (d.responseText == undefined) toastr.error("Connect error");

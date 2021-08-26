@@ -13,7 +13,7 @@ import (
 )
 
 func APIGetAllAgent(c *gin.Context, u *sn.User) (int, error) {
-	var param plugins.SPPaginationParam
+	var param plugins.PaginationParam
 	err := c.ShouldBindQuery(&param)
 	if err != nil {
 		return 400, err
@@ -42,11 +42,11 @@ func APISaveSetting(c *gin.Context, u *sn.User) (int, error) {
 	if err != nil {
 		return 400, err
 	}
-	fields := log.Fields{
+	logf := log.WithFields(defaultField).WithFields(log.Fields{
 		"ip": utils.GetIP(c),
-	}
+	})
 
-	err = sn.Skynet.Setting.Update(plugins.SPWithIDPrefix(Config, "token"), param.Token)
+	err = sn.Skynet.Setting.Update(tokenKey, param.Token)
 	if err != nil {
 		return 500, err
 	}
@@ -58,7 +58,7 @@ func APISaveSetting(c *gin.Context, u *sn.User) (int, error) {
 		}
 		return true
 	})
-	log.WithFields(defaultField).WithFields(fields).Info("Set token success")
+	logf.Info("Set token success")
 	c.JSON(200, gin.H{"code": 0, "msg": "Set token success"})
 	return 0, nil
 }
@@ -77,13 +77,13 @@ func APISaveAgent(c *gin.Context, u *sn.User) (int, error) {
 	if err != nil || id <= 0 {
 		return 400, err
 	}
-	fields := log.Fields{
+	logf := log.WithFields(defaultField).WithFields(log.Fields{
 		"ip": utils.GetIP(c),
 		"id": id,
-	}
+	})
 
 	if !agentInstance.Has(id) {
-		log.WithFields(defaultField).WithFields(fields).Warn("Agent not exist")
+		logf.Warn("Agent not exist")
 		c.JSON(200, gin.H{"code": 1, "msg": "Agent not exist"})
 		return 0, nil
 	}
@@ -100,7 +100,7 @@ func APISaveAgent(c *gin.Context, u *sn.User) (int, error) {
 	}
 	agentInstance.MustGet(id).Name = param.Name
 
-	log.WithFields(defaultField).WithFields(fields).Info("Set name success")
+	logf.Info("Set name success")
 	c.JSON(200, gin.H{"code": 0, "msg": "Set name success"})
 	return 0, nil
 }
@@ -115,13 +115,13 @@ func APIDelAgent(c *gin.Context, u *sn.User) (int, error) {
 	if err != nil {
 		return 400, err
 	}
-	fields := log.Fields{
+	logf := log.WithFields(defaultField).WithFields(log.Fields{
 		"ip": utils.GetIP(c),
 		"id": param.ID,
-	}
+	})
 
 	if !agentInstance.Has(param.ID) {
-		log.WithFields(defaultField).WithFields(fields).Warn("Agent not exist")
+		logf.Warn("Agent not exist")
 		c.JSON(200, gin.H{"code": 1, "msg": "Agent not exist"})
 		return 0, nil
 	}
@@ -136,7 +136,7 @@ func APIDelAgent(c *gin.Context, u *sn.User) (int, error) {
 	}
 	agentInstance.Delete(param.ID)
 
-	log.WithFields(defaultField).WithFields(fields).Info("Delete agent success")
+	logf.Info("Delete agent success")
 	c.JSON(200, gin.H{"code": 0, "msg": "Delete agent success"})
 	return 0, nil
 }

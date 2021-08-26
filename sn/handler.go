@@ -44,10 +44,11 @@ type SNNotification interface {
 }
 
 type SNPlugin interface {
-	Count() int64
+	Count() int
 	Enable(id uuid.UUID) error
 	Disable(id uuid.UUID) error
 	GetAll() interface{}
 	Get(id uuid.UUID) interface{}
 	Fini()
+	New(buf []byte) error
 }

@@ -27,7 +27,7 @@ type PluginTask struct {
 }
 
 type PluginShared interface {
-	GetConfig() *plugins.PluginConfig
+	GetInstance() *plugins.PluginInstance
 	New(name string, detail string, cancel func() error) (int, error)
 	CancelByUser(id int, msg string) error
 	Cancel(id int, msg string) error
