@@ -99,7 +99,7 @@ func (h NotificationHook) Fire(e *log.Entry) error {
 	copier.CopyWithOption(&data, &e.Data, copier.Option{DeepCopy: true})
 	delete(data, "caller")
 	delete(data, "stack")
-	d, err := json.Marshal(e.Data)
+	d, err := json.Marshal(data)
 	if err != nil {
 		d = []byte{}
 	}
