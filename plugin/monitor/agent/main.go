@@ -32,7 +32,7 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-var RestartError = errors.New("Restart triggered")
+var ErrRestart = errors.New("restart triggered")
 
 var (
 	token    string
@@ -48,8 +48,6 @@ var rootCmd = &cobra.Command{
 	Args:  cobra.ExactArgs(1),
 	Run:   run,
 }
-
-const Version = "0.1.1"
 
 const pluginPath = "/api/plugin/2eb2e1a5-66b4-45f9-ad24-3c4f05c858aa/ws"
 
@@ -110,7 +108,7 @@ func sendInfoHandler(c *shared.Websocket) error {
 		log.Warn("Could not determine uname")
 	}
 	_, err = msg.SendMsgByte(c, uuid.Nil, msg.OPInfo, msg.Marshal(msg.InfoMsg{
-		Version: Version,
+		Version: shared.AgentVersion,
 		Host:    hostname,
 		Machine: string(bytes.TrimRight(uts.Machine[:], "\x00")),
 		System: string(bytes.TrimRight(uts.Sysname[:], "\x00")) + " " +
@@ -343,7 +341,7 @@ func deadloop(url string) error {
 		case msg.OPReqStat:
 			err = msgReqStatHandler(conn, res)
 		case msg.OPRestart:
-			return RestartError
+			return ErrRestart
 		default:
 			log.Warn("Unknown opcode ", res.OPCode)
 		}
@@ -383,7 +381,7 @@ func run(cmd *cobra.Command, args []string) {
 	for {
 		err := deadloop(u)
 		if err != nil {
-			if errors.Is(err, RestartError) {
+			if errors.Is(err, ErrRestart) {
 				path := os.Args[0]
 				var args []string
 				if len(os.Args) > 1 {

@@ -8,6 +8,7 @@ import (
 	"path"
 	"skynet/plugin/monitor/msg"
 	"skynet/plugin/monitor/shared"
+	"skynet/sn"
 	"skynet/sn/utils"
 	"strconv"
 	"strings"
@@ -105,6 +106,12 @@ func msgInfoHandler(c *shared.Websocket, agent *shared.AgentInfo, m *msg.CommonM
 				logf.Error(err)
 				return
 			}
+			err = sn.Skynet.Notification.New(sn.NotifySuccess, "Plugin monitor", "Agent "+agent.IP+" updated")
+			if err != nil {
+				logf.Error(err)
+				return
+			}
+			logf.Info("Update agent success")
 		}()
 	}
 	return nil
@@ -219,7 +226,7 @@ func WSHandler(ip string, w http.ResponseWriter, r *http.Request) {
 		res, msgRead, err := msg.RecvMsg(conn)
 		if err != nil {
 			if msgRead == nil {
-				logf.Error("Connection lost: ", ip)
+				logf.Error("Connection lost")
 				return
 			} else {
 				logf.Warn(err)

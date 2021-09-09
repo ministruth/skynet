@@ -23,7 +23,7 @@ type shellAgent struct {
 var shellInstance utils.UUIDMap
 
 var (
-	ShellAgentNotExist = errors.New("Shell agent not exist")
+	ErrShellAgentNotExist = errors.New("shell agent not exist")
 )
 
 func getShellAgent(sid uuid.UUID) (*shellAgent, error) {
@@ -31,7 +31,7 @@ func getShellAgent(sid uuid.UUID) (*shellAgent, error) {
 	if ok {
 		return item.(*shellAgent), nil
 	}
-	return nil, ShellAgentNotExist
+	return nil, ErrShellAgentNotExist
 }
 
 // CreateShell creates new shell object.

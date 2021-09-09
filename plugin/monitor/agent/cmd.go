@@ -17,14 +17,14 @@ import (
 var cmdInstance utils.UUIDMap
 
 var (
-	CMDNotRunningError = errors.New("Command not running")
+	ErrCMDNotRunning = errors.New("command not running")
 )
 
 func KillCommand(cid uuid.UUID) error {
 	if c, exist := cmdInstance.Get(cid); exist {
 		return c.(*cmd.Cmd).Stop()
 	}
-	return CMDNotRunningError
+	return ErrCMDNotRunning
 }
 
 func RunCommandSync(c *shared.Websocket, mid uuid.UUID, cid uuid.UUID, name string, args ...string) {
@@ -100,11 +100,9 @@ func RunCommandAsync(c *shared.Websocket, cid uuid.UUID, name string, args ...st
 		}
 	}()
 	go func() {
-		select {
-		case <-s:
-			t.Stop()
-			cancel()
-			cmdInstance.Delete(cid)
-		}
+		<-s
+		t.Stop()
+		cancel()
+		cmdInstance.Delete(cid)
 	}()
 }

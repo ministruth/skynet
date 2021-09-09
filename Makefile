@@ -28,7 +28,7 @@ coverage:
 	@xdg-open coverage.html >/dev/null 2>&1
 
 ## docker: Build docker image
-docker: build
+docker: build build_plugin
 	@docker build -t imwxz/skynet:latest .
 
 ## build_plugin: Build plugin binary file
