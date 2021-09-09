@@ -42,8 +42,12 @@ func (p *Interface) Instance() *plugins.PluginInstance {
 }
 
 func (p *Interface) PluginInit() error {
-	sn.Skynet.Setting.Set(tokenKey, "")
-	token, _ = sn.Skynet.Setting.Get(tokenKey)
+	var ok bool
+	token, ok = sn.Skynet.Setting.Get(tokenKey)
+	if !ok {
+		sn.Skynet.Setting.Set(tokenKey, "")
+		token = ""
+	}
 	if token == "" {
 		log.WithFields(defaultField).Warn("Token is empty, generate a token for safety")
 	}

@@ -95,7 +95,7 @@ func (h NotificationHook) Fire(e *log.Entry) error {
 		level = sn.NotifyFatal
 	}
 	d, err := json.Marshal(e.Data)
-	if err == nil {
+	if err != nil {
 		d = []byte{}
 	}
 	return sn.Skynet.Notification.New(level, "Skynet log", e.Message+" "+string(d))
