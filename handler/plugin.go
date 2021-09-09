@@ -36,10 +36,10 @@ func (p *PluginLoad) Disable(msg string) {
 }
 
 var (
-	PluginNotFoundError    = errors.New("Plugin not found")
-	PluginIDDuplicateError = errors.New("Plugin ID duplicated")
-	PluginInvalidError     = errors.New("Plugin invalid")
-	PluginExistsError      = errors.New("Plugin already exists")
+	ErrPluginNotFound    = errors.New("plugin not found")
+	ErrPluginIDDuplicate = errors.New("plugin ID duplicated")
+	ErrPluginInvalid     = errors.New("plugin invalid")
+	ErrPluginExists      = errors.New("plugin already exists")
 )
 
 type sitePlugin struct {
@@ -59,7 +59,7 @@ func (p *sitePlugin) readPlugin(path string) error {
 	pInstance := pInterface.Instance()
 	pInstance.Path = filepath.Dir(path)
 	if v, ok := p.plugin.Get(pInstance.ID); ok {
-		return fmt.Errorf("%w: %v and %v have same ID %v", PluginIDDuplicateError, v.Name, pInstance.Name, v.ID)
+		return fmt.Errorf("%w: %v and %v have same ID %v", ErrPluginIDDuplicate, v.Name, pInstance.Name, v.ID)
 	}
 	p.plugin.Set(pInstance.ID, &PluginLoad{
 		PluginInstance: pInstance,
@@ -108,7 +108,7 @@ func (p *sitePlugin) cleanPlugin() {
 				setting[name] = "1"
 			}
 		} else {
-			if err := sn.Skynet.Setting.New(name, "0"); err != nil {
+			if err := sn.Skynet.Setting.Set(name, "0"); err != nil {
 				log.Error(err)
 			}
 		}
@@ -128,12 +128,12 @@ func (p *sitePlugin) checkPlugin(v *PluginLoad) bool {
 	// check version
 	c, err := utils.CheckSkynetVersion(v.SkynetVersion)
 	if err != nil {
-		log.Errorf("%w: Version constraint %v invalid (%v)", PluginInvalidError, v.SkynetVersion, err.Error())
+		log.Errorf("%w: Version constraint %v invalid (%v)", ErrPluginInvalid, v.SkynetVersion, err.Error())
 	}
 	if !c {
 		v.Disable(fmt.Sprintf("Skynet version mismatch, need %s", v.SkynetVersion))
 		log.Errorf("Plugin %v need skynet version %v, disable now.", v.Name, v.SkynetVersion)
-		if err := sn.Skynet.Setting.Update("plugin_"+v.ID.String(), "0"); err != nil {
+		if err := sn.Skynet.Setting.Set("plugin_"+v.ID.String(), "0"); err != nil {
 			log.Error(err)
 		}
 		return false
@@ -184,7 +184,7 @@ func (p *sitePlugin) New(buf []byte) error {
 	}
 	baseDir := path.Join("plugin", inst.Name)
 	if utils.FileExist(baseDir) {
-		return PluginExistsError
+		return ErrPluginExists
 	}
 
 	fc := func() error {
@@ -221,7 +221,7 @@ func (p *sitePlugin) New(buf []byte) error {
 	}
 
 	p.readPluginFolder(baseDir)
-	if err := sn.Skynet.Setting.New(fmt.Sprintf("plugin_%s", inst.ID.String()), "0"); err != nil {
+	if err := sn.Skynet.Setting.Set(fmt.Sprintf("plugin_%s", inst.ID.String()), "0"); err != nil {
 		log.Error(err)
 	}
 	if v, ok := p.plugin.Get(inst.ID); ok {
@@ -253,13 +253,13 @@ func (p *sitePlugin) Disable(id uuid.UUID) error {
 		if err := v.Interface.PluginDisable(); err != nil {
 			return err
 		}
-		if err := sn.Skynet.Setting.Update("plugin_"+v.ID.String(), "0"); err != nil {
+		if err := sn.Skynet.Setting.Set("plugin_"+v.ID.String(), "0"); err != nil {
 			log.Error(err)
 		}
 		v.Enable = false
 		return nil
 	}
-	return PluginNotFoundError
+	return ErrPluginNotFound
 }
 
 func (p *sitePlugin) Enable(id uuid.UUID) error {
@@ -276,13 +276,13 @@ func (p *sitePlugin) Enable(id uuid.UUID) error {
 		if err := v.Interface.PluginInit(); err != nil {
 			return err
 		}
-		if err := sn.Skynet.Setting.Update("plugin_"+v.ID.String(), "1"); err != nil {
+		if err := sn.Skynet.Setting.Set("plugin_"+v.ID.String(), "1"); err != nil {
 			log.Error(err)
 		}
 		v.Enable = true
 		return nil
 	}
-	return PluginNotFoundError
+	return ErrPluginNotFound
 }
 
 func (p *sitePlugin) Fini() {

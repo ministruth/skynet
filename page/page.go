@@ -1,10 +1,13 @@
 package page
 
 import (
+	"fmt"
 	"html/template"
+	"math"
 	"net/http"
 	"skynet/sn"
 	"skynet/sn/utils"
+	"strconv"
 
 	"github.com/gin-contrib/multitemplate"
 	"github.com/gin-gonic/gin"
@@ -50,6 +53,26 @@ func (s *sitePage) GetPage() []*sn.SNPageItem {
 }
 
 func (s *sitePage) AddNav(i []*sn.SNNavItem) {
+	var fillPriority func(v *sn.SNNavItem)
+	fillPriority = func(v *sn.SNNavItem) {
+		for _, k := range v.Child {
+			fillPriority(k)
+		}
+		p, ok := sn.Skynet.Setting.Get(fmt.Sprintf("navbar_priority_%v", v.ID))
+		if !ok {
+			v.Priority = math.MaxUint16
+		} else {
+			num, err := strconv.ParseUint(p, 10, 16)
+			if err != nil {
+				log.Error(err)
+				return
+			}
+			v.Priority = uint16(num)
+		}
+	}
+	for _, v := range i {
+		fillPriority(v)
+	}
 	s.navbar = append(s.navbar, i...)
 	sn.SNNavSort(s.navbar).Sort()
 }

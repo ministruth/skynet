@@ -8,8 +8,6 @@ With `monitor` plugin enabled, it can also provide task execute in each agent.
 
 - UUID: c1e81895-1f75-4988-9f10-52786b875ec7
 - Name: task
-- Dependency: 
-  - `monitor`(`2eb2e1a5-66b4-45f9-ad24-3c4f05c858aa`, >= 1.0, < 1.1, *option*)
 - Version: 1.0.0
 - SkynetVersion: >= 1.0, < 1.1
 - Priority: 0

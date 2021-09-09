@@ -35,7 +35,7 @@ func APIGetAllTask(c *gin.Context, u *sn.User) (int, error) {
 }
 
 func APIDeleteInactiveTask(c *gin.Context, u *sn.User) (int, error) {
-	logf := log.WithFields(log.Fields{
+	logf := log.WithFields(defaultField).WithFields(log.Fields{
 		"ip": utils.GetIP(c),
 	})
 	err := utils.GetDB().Where("status <> ? and status <> ?", shared.TaskNotStart, shared.TaskRunning).
@@ -77,7 +77,7 @@ func APIKillTask(c *gin.Context, u *sn.User) (int, error) {
 	if err != nil {
 		return 400, err
 	}
-	logf := log.WithFields(log.Fields{
+	logf := log.WithFields(defaultField).WithFields(log.Fields{
 		"ip": utils.GetIP(c),
 		"id": param.ID,
 	})

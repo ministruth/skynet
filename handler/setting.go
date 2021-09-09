@@ -34,11 +34,15 @@ func (s *siteSetting) GetCache() map[string]interface{} {
 
 func (s *siteSetting) Get(name string) (string, bool) {
 	ret, exist := s.setting.Get(name)
+	if !exist {
+		return "", exist
+	}
 	return ret.(string), exist
 }
 
-func (s *siteSetting) New(name string, value string) error {
-	if i, exist := s.setting.Get(name); !exist || i != value {
+func (s *siteSetting) Set(name string, value string) error {
+	v, exist := s.setting.Get(name)
+	if !exist {
 		err := utils.GetDB().Create(&sn.Setting{
 			Name:  name,
 			Value: value,
@@ -47,14 +51,7 @@ func (s *siteSetting) New(name string, value string) error {
 			return err
 		}
 		s.setting.Set(name, value)
-	}
-	return nil
-}
-
-func (s *siteSetting) Update(name string, value string) error {
-	v, exist := s.setting.Get(name)
-	if !exist {
-		return s.New(name, value)
+		return nil
 	} else {
 		if v != value {
 			s.setting.Set(name, value)

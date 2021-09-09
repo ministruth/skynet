@@ -44,8 +44,8 @@
         </div>
 
         <nav class="mt-2">
-          <ul class="nav nav-pills nav-sidebar flex-column nav-compact nav-flat" data-widget="treeview" role="menu"
-            data-accordion="false">
+          <ul id="navbar" class="nav nav-pills nav-sidebar flex-column nav-compact nav-flat" data-widget="treeview"
+            role="menu" data-accordion="false">
             {{ define "walknav" }}
             {{range .Item}}
             {{if ge $.Role .Role}}
@@ -60,7 +60,7 @@
                 <a href="{{ .Link }}" class="nav-link">
                   {{end}}
                   <i class="nav-icon fas {{ .Icon }}"></i>
-                  <p>{{ .Name }}</p>
+                  <p id="{{ .ID }}">{{ .Name }}</p>
                   {{if .Child}}
                   <i class="fas fa-angle-left right"></i>
                   {{end}}
@@ -126,17 +126,17 @@
 
     bsCustomFileInput.init();
 
-    $("#signout").click(function () {
-      $.get("/api/signout").fail(function (d) {
-        if (d.responseText == undefined) toastr.error("Connect error");
+    $('#signout').click(function () {
+      $.get('/api/signout').fail(function (d) {
+        if (d.responseText == undefined) toastr.error('Connect error');
         else toastr.error(d.responseText);
       }).done(function (d) {
         if (d.code != 0)
           toastr.error(d.msg);
         else
-          toastr.success(d.msg, "", {
+          toastr.success(d.msg, '', {
             timeOut: 500, onHidden: () => {
-              window.location.href = "/";
+              window.location.href = '/';
             }
           });
       })

@@ -14,6 +14,7 @@ import (
 	"skynet/plugin/monitor/shared"
 	"skynet/sn/utils"
 	"strconv"
+	"strings"
 	"time"
 
 	logrus_stack "github.com/Gurpartap/logrus-stack"
@@ -229,10 +230,12 @@ func msgReqStatHandler(c *shared.Websocket, m *msg.CommonMsg) error {
 	cpuUsage, err := cpu.Percent(0, false)
 	if err != nil {
 		log.Warn("Could not determine cpu usage")
+		cpuUsage = []float64{0}
 	}
 	memUsage, err := mem.VirtualMemory()
 	if err != nil {
 		log.Warn("Could not determine mem usage")
+		memUsage = &mem.VirtualMemoryStat{}
 	}
 	partionUsage, err := disk.Partitions(false)
 	if err != nil {
@@ -243,6 +246,7 @@ func msgReqStatHandler(c *shared.Websocket, m *msg.CommonMsg) error {
 		usage, err := disk.Usage(v.Mountpoint)
 		if err != nil {
 			log.Warn("Could not determine disk usage")
+			continue
 		}
 		diskUsage += usage.Used
 		disktotUsage += usage.Total
@@ -250,10 +254,23 @@ func msgReqStatHandler(c *shared.Websocket, m *msg.CommonMsg) error {
 	loadUsage, err := load.Avg()
 	if err != nil {
 		log.Warn("Could not determine load usage")
+		loadUsage = &load.AvgStat{}
 	}
-	netUsage, err := net.IOCounters(false)
+	netUsage, err := net.IOCounters(true)
+	var txByte, rxByte uint64
 	if err != nil {
 		log.Warn("Could not determine net usage")
+	}
+	for _, v := range netUsage {
+		if strings.HasSuffix(v.Name, "br-") ||
+			strings.HasSuffix(v.Name, "docker") ||
+			strings.HasSuffix(v.Name, "lo") ||
+			strings.HasSuffix(v.Name, "veth") {
+			// except virtual interface and loop
+			continue
+		}
+		txByte += v.BytesSent
+		rxByte += v.BytesRecv
 	}
 
 	tm, err := strconv.ParseInt(string(m.Data), 10, 64)
@@ -268,8 +285,8 @@ func msgReqStatHandler(c *shared.Websocket, m *msg.CommonMsg) error {
 		Disk:      diskUsage,
 		TotalDisk: disktotUsage,
 		Load1:     loadUsage.Load1,
-		BandUp:    netUsage[0].BytesSent,
-		BandDown:  netUsage[0].BytesRecv,
+		BandUp:    txByte,
+		BandDown:  rxByte,
 	}))
 	return err
 }

@@ -195,6 +195,12 @@ func run(cmd *cobra.Command, args []string) {
 		SameSite: http.SameSiteStrictMode,
 	})
 
+	// setting
+	sn.Skynet.Setting, err = handler.NewSetting()
+	if err != nil {
+		log.Fatal("Setting init error: ", err)
+	}
+
 	// static files
 	staticFile := r.Group("/")
 	staticFile.Static("/js/main", "./assets/js")
@@ -213,10 +219,6 @@ func run(cmd *cobra.Command, args []string) {
 	sn.Skynet.API = api.NewAPI(v1)
 
 	// plugin
-	sn.Skynet.Setting, err = handler.NewSetting()
-	if err != nil {
-		log.Fatal("Setting init error: ", err)
-	}
 	sn.Skynet.Plugin, err = handler.NewPlugin("plugin")
 	if err != nil {
 		log.Fatal("Plugin init error: ", err)

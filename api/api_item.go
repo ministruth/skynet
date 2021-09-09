@@ -75,4 +75,10 @@ var api = []*sn.SNAPIItem{
 		Role:   sn.RoleAdmin,
 		Func:   APIDeleteNotification,
 	},
+	{
+		Path:   "/setting/navbar",
+		Method: sn.APIPost,
+		Role:   sn.RoleAdmin,
+		Func:   APIUpdateNavbar,
+	},
 }

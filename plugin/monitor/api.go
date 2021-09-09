@@ -46,7 +46,7 @@ func APISaveSetting(c *gin.Context, u *sn.User) (int, error) {
 		"ip": utils.GetIP(c),
 	})
 
-	err = sn.Skynet.Setting.Update(tokenKey, param.Token)
+	err = sn.Skynet.Setting.Set(tokenKey, param.Token)
 	if err != nil {
 		return 500, err
 	}

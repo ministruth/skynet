@@ -36,16 +36,16 @@ func APISignIn(c *gin.Context, u *sn.User) (int, error) {
 		}
 	}
 
-	u, res, err := handler.CheckUserPass(param.Username, param.Password)
+	usr, res, err := handler.CheckUserPass(param.Username, param.Password)
 	if err != nil {
 		return 500, err
 	}
 
 	switch res {
 	case 0: // signin
-		u.LastLogin = time.Now()
-		u.LastIP = utils.GetIP(c)
-		if err := utils.GetDB().Save(u).Error; err != nil {
+		usr.LastLogin = time.Now()
+		usr.LastIP = utils.GetIP(c)
+		if err := utils.GetDB().Save(usr).Error; err != nil {
 			return 500, err
 		}
 
@@ -53,7 +53,7 @@ func APISignIn(c *gin.Context, u *sn.User) (int, error) {
 		if err != nil {
 			return 500, err
 		}
-		session.Values["id"] = int(u.ID)
+		session.Values["id"] = int(usr.ID)
 		if param.Remember {
 			session.Options.MaxAge = viper.GetInt("session.remember")
 		} else {

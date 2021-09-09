@@ -31,8 +31,21 @@
         </div>
       </div>
     </div>
-    <button type="submit" class="btn btn-primary">Save & Refresh</button>
+    <button type="submit" class="btn btn-primary mb-4">Save & Refresh</button>
   </form>
+  {{ if eq ._role 2 }}
+  <div class="card card-success">
+    <div class="card-header">
+      <h3 class="card-title">UI Setting</h3>
+    </div>
+    <div class="card-body">
+      <div class="form-group row">
+        <label class="col-sm-2 col-form-label">Navbar order</label>
+        <button id="navOrder" class="btn btn-primary">Drag to edit</button>
+      </div>
+    </div>
+  </div>
+  {{ end }}
 </div>
 {{end}}
 
@@ -40,22 +53,46 @@
 <script nonce="{{ ._nonce }}">
   "use strict"
 
-  $("#userSettingForm").submit(function (e) {
+  $('#userSettingForm').submit(function (e) {
     e.preventDefault();
-    let form = document.getElementById("userSettingForm");
+    let form = document.getElementById('userSettingForm');
     let d = GetData(form);
-    delete d["avatar"];
+    delete d['avatar'];
 
     var file = $('input[type=file]')[0].files[0];
     if (file != undefined) {
       var fr = new FileReader();
       fr.readAsDataURL(file);
       fr.onload = (e) => {
-        d["avatar"] = fr.result;
+        d['avatar'] = fr.result;
         JSONPatch(GetUrl(form), d).done(DelayReload());
       };
     } else {
       JSONPatch(GetUrl(form), d).done(DelayReload());
+    }
+  });
+
+  $('#navOrder').click((e) => {
+    if (e.target.innerText == 'Save') {
+      JSONPost('/api/setting/navbar', {
+        'order': $('#navbar li a p[id]').map(function () { return this.id; }).get(),
+      }).done(DelayReload());
+    } else {
+      new Sortable($('#navbar')[0], {
+        animation: 150,
+        swapThreshold: 0.65
+      });
+      let subBar = $('.nav-treeview');
+      for (var i = 0; i < subBar.length; i++) {
+        new Sortable(subBar[i], {
+          group: 'nest-' + i,
+          animation: 150,
+          fallbackOnBody: true,
+          swapThreshold: 0.65
+        });
+      }
+      $('#navOrder').text('Save');
+      $('#navOrder').removeClass('btn-primary').addClass('btn-danger');
     }
   });
 </script>

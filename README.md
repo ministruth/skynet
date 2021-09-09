@@ -31,6 +31,7 @@ We provide some built-in plugins to simplify some operation:
 
 - [Monitor](plugin/monitor): All-in-one agent for server monitor, file transfer and shell manage.
 - [Task](plugin/task): Long time task support for skynet.
+- [ACME](plugin/acme): Let's Encrypt certificate updater and distributer.
 
 ## More plugins
 

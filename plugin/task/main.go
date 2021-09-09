@@ -48,11 +48,11 @@ func (p *Interface) PluginInit() error {
 
 	sn.Skynet.Page.AddNav([]*sn.SNNavItem{
 		{
-			Priority: 40,
-			Name:     "Task",
-			Link:     fmt.Sprintf("/plugin/%s", Instance.ID.String()),
-			Icon:     "fa-tasks",
-			Role:     sn.RoleUser,
+			ID:   fmt.Sprintf("%s-task", Instance.ID.String()),
+			Name: "Task",
+			Link: fmt.Sprintf("/plugin/%s", Instance.ID.String()),
+			Icon: "fa-tasks",
+			Role: sn.RoleUser,
 		},
 	})
 	sn.Skynet.API.AddAPI([]*sn.SNAPIItem{

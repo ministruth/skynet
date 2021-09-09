@@ -62,23 +62,23 @@
 
   const ParseFunc = (obj, page, size) => {
     JSONGet(`/api/plugin?page=${page}&size=${size}`).done((e) => {
-      if (UpdateTotal("plugin", e.total, ParseFunc))
+      if (UpdateTotal('plugin', e.total, ParseFunc))
         return;
       if (JSON.stringify(e.data) !== JSON.stringify(obj.data)) {
-        $("#plugin").empty();
+        $('#plugin').empty();
         $.each(e.data, function (_, e) {
-          $("#plugin").append(ParseData(e));
+          $('#plugin').append(ParseData(e));
         });
 
-        $("[data-operation='enable']").click((e) => {
-          JSONPatch(`/api/plugin/${e.target.getAttribute("data-pluginID")}`, {
-            "enable": true,
+        $('[data-operation="enable"]').click((e) => {
+          JSONPatch(`/api/plugin/${e.target.getAttribute('data-pluginID')}`, {
+            'enable': true,
           }).done(DelayReload());
         });
 
-        $("[data-operation='disable']").click((e) => {
-          JSONPatch(`/api/plugin/${e.target.getAttribute("data-pluginID")}`, {
-            "enable": false,
+        $('[data-operation="disable"]').click((e) => {
+          JSONPatch(`/api/plugin/${e.target.getAttribute('data-pluginID')}`, {
+            'enable': false,
           }).done(DelayReload(5000));
         });
         obj.data = e.data;
@@ -97,7 +97,7 @@
       var fr = new FileReader();
       fr.readAsDataURL(file);
       fr.onload = (e) => {
-        JSONPost('/api/plugin', { "file": fr.result }).done(DelayReload());
+        JSONPost('/api/plugin', { 'file': fr.result }).done(DelayReload());
       };
     }
   });

@@ -69,11 +69,11 @@
   <script nonce="{{ ._nonce }}">
     "use strict"
 
-    $("#loginForm").submit((e) => {
+    $('#loginForm').submit((e) => {
       e.preventDefault();
-      let form = document.getElementById("loginForm");
+      let form = document.getElementById('loginForm');
       let d = GetData(form);
-      d["remember"] = "remember" in d ? true : false;
+      d['remember'] = 'remember' in d ? true : false;
       JSONPost(GetUrl(form), d)
         .done(function (d) {
           if (d.code != 0) {
@@ -81,9 +81,9 @@
             if (typeof grecaptcha !== 'undefined')
               grecaptcha.reset();
           } else {
-            toastr.success(d.msg, "", {
+            toastr.success(d.msg, '', {
               timeOut: 500, onHidden: () => {
-                window.location.href = "/dashboard";
+                window.location.href = '/dashboard';
               }
             });
           }

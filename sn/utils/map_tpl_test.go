@@ -22,14 +22,14 @@ func TestMPrefixMap(t *testing.T) {
 		var m MPrefixMap
 		m.Set(data[0].Key, data[0].Value)
 		res, ok := m.Get(data[0].Key)
-		assert.Equal(t, res, data[0].Value)
+		assert.Equal(t, data[0].Value, res)
 		assert.True(t, ok)
 		res, ok = m.Get(data[1].Key)
-		assert.Equal(t, res, nil)
+		assert.Equal(t, nil, res)
 		assert.False(t, ok)
 		m.Set(data[0].Key, data[1].Value)
 		res, ok = m.Get(data[0].Key)
-		assert.Equal(t, res, data[1].Value)
+		assert.Equal(t, data[1].Value, res)
 		assert.True(t, ok)
 	})
 
@@ -54,10 +54,10 @@ func TestMPrefixMap(t *testing.T) {
 	t.Run("SetIfAbsent", func(t *testing.T) {
 		var m MPrefixMap
 		res, ok := m.SetIfAbsent(data[0].Key, data[0].Value)
-		assert.Equal(t, res, data[0].Value)
+		assert.Equal(t, data[0].Value, res)
 		assert.False(t, ok)
 		res, ok = m.SetIfAbsent(data[0].Key, data[1].Value)
-		assert.Equal(t, res, data[0].Value)
+		assert.Equal(t, data[0].Value, res)
 		assert.True(t, ok)
 		m.Set(data[0].Key, nil)
 		assert.Panics(t, func() {
@@ -76,18 +76,18 @@ func TestMPrefixMap(t *testing.T) {
 	t.Run("Len", func(t *testing.T) {
 		var m MPrefixMap
 		m.Set(data[0].Key, data[0].Value)
-		assert.Equal(t, m.Len(), 1)
+		assert.Equal(t, 1, m.Len())
 		m.Set(data[0].Key, data[1].Value)
-		assert.Equal(t, m.Len(), 1)
+		assert.Equal(t, 1, m.Len())
 		m.Set(data[1].Key, data[1].Value)
-		assert.Equal(t, m.Len(), 2)
+		assert.Equal(t, 2, m.Len())
 	})
 
 	t.Run("clear", func(t *testing.T) {
 		var m MPrefixMap
 		m.Set(data[0].Key, data[0].Value)
 		m.Clear()
-		assert.Equal(t, m.Len(), 0)
+		assert.Equal(t, 0, m.Len())
 	})
 
 	t.Run("Range", func(t *testing.T) {
@@ -102,7 +102,7 @@ func TestMPrefixMap(t *testing.T) {
 			})
 			return true
 		})
-		assert.Equal(t, len(res), 2)
+		assert.Equal(t, 2, len(res))
 		var res2 []*MPrefixElement
 		m.Range(func(k MTypeA, v MTypeB) bool {
 			res2 = append(res2, &MPrefixElement{
@@ -111,17 +111,17 @@ func TestMPrefixMap(t *testing.T) {
 			})
 			return false
 		})
-		assert.Equal(t, len(res2), 1)
+		assert.Equal(t, 1, len(res2))
 	})
 
 	t.Run("Element", func(t *testing.T) {
 		var m MPrefixMap
 		m.Set(data[0].Key, data[0].Value)
 		m.Set(data[1].Key, data[1].Value)
-		assert.Equal(t, len(m.Keys()), 2)
-		assert.Equal(t, len(m.Values()), 2)
-		assert.Equal(t, len(m.Elements()), 2)
-		assert.Equal(t, len(m.Map()), 2)
+		assert.Equal(t, 2, len(m.Keys()))
+		assert.Equal(t, 2, len(m.Values()))
+		assert.Equal(t, 2, len(m.Elements()))
+		assert.Equal(t, 2, len(m.Map()))
 	})
 
 	t.Run("Sort", func(t *testing.T) {
@@ -131,19 +131,19 @@ func TestMPrefixMap(t *testing.T) {
 		res := m.SortElement(func(a, b *MPrefixElement) bool {
 			return a.Value.(int) > b.Value.(int)
 		})
-		assert.Equal(t, res[0].Key, data[1].Key)
-		assert.Equal(t, res[0].Value, data[1].Value)
-		assert.Equal(t, res[1].Key, data[0].Key)
-		assert.Equal(t, res[1].Value, data[0].Value)
+		assert.Equal(t, data[1].Key, res[0].Key)
+		assert.Equal(t, data[1].Value, res[0].Value)
+		assert.Equal(t, data[0].Key, res[1].Key)
+		assert.Equal(t, data[0].Value, res[1].Value)
 		res2 := m.SortKey(func(a, b *MPrefixElement) bool {
 			return a.Value.(int) > b.Value.(int)
 		})
-		assert.Equal(t, res2[0], data[1].Key)
-		assert.Equal(t, res2[1], data[0].Key)
+		assert.Equal(t, data[1].Key, res2[0])
+		assert.Equal(t, data[0].Key, res2[1])
 		res3 := m.SortValue(func(a, b *MPrefixElement) bool {
 			return a.Value.(int) > b.Value.(int)
 		})
-		assert.Equal(t, res3[0], data[1].Value)
-		assert.Equal(t, res3[1], data[0].Value)
+		assert.Equal(t, data[1].Value, res3[0])
+		assert.Equal(t, data[0].Value, res3[1])
 	})
 }

@@ -42,7 +42,7 @@ func (p *Interface) Instance() *plugins.PluginInstance {
 }
 
 func (p *Interface) PluginInit() error {
-	sn.Skynet.Setting.New(tokenKey, "")
+	sn.Skynet.Setting.Set(tokenKey, "")
 	token, _ = sn.Skynet.Setting.Get(tokenKey)
 	if token == "" {
 		log.WithFields(defaultField).Warn("Token is empty, generate a token for safety")
@@ -74,26 +74,26 @@ func (p *Interface) PluginInit() error {
 	Instance.AddStaticRouter(fmt.Sprintf("/css/plugin/%s", Instance.ID), "assets/css")
 	Instance.AddStaticRouter(fmt.Sprintf("/js/plugin/%s", Instance.ID), "assets/js")
 
-	Instance.AddSubNav("Service", []*sn.SNNavItem{
+	Instance.AddSubNav("skynet-service", []*sn.SNNavItem{
 		{
-			Priority: 16,
-			Name:     "Monitor",
-			Link:     fmt.Sprintf("/service/%s/monitor", Instance.ID.String()),
-			Role:     sn.RoleUser,
+			ID:   fmt.Sprintf("%s-service-monitor", Instance.ID.String()),
+			Name: "Monitor",
+			Link: fmt.Sprintf("/service/%s/monitor", Instance.ID.String()),
+			Role: sn.RoleUser,
 		},
 		{
-			Priority: 17,
-			Name:     "Shell",
-			Link:     fmt.Sprintf("/service/%s/shell", Instance.ID.String()),
-			Role:     sn.RoleAdmin,
+			ID:   fmt.Sprintf("%s-service-shell", Instance.ID.String()),
+			Name: "Shell",
+			Link: fmt.Sprintf("/service/%s/shell", Instance.ID.String()),
+			Role: sn.RoleAdmin,
 		},
 	})
-	Instance.AddSubNav("Plugin", []*sn.SNNavItem{
+	Instance.AddSubNav("skynet-plugin", []*sn.SNNavItem{
 		{
-			Priority: 16,
-			Name:     "Monitor",
-			Link:     fmt.Sprintf("/plugin/%s", Instance.ID.String()),
-			Role:     sn.RoleAdmin,
+			ID:   fmt.Sprintf("%s-plugin-monitor", Instance.ID.String()),
+			Name: "Monitor",
+			Link: fmt.Sprintf("/plugin/%s", Instance.ID.String()),
+			Role: sn.RoleAdmin,
 		},
 	})
 

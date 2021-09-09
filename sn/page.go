@@ -2,7 +2,6 @@ package sn
 
 import (
 	"html/template"
-	"net/http"
 	"sort"
 
 	"github.com/gin-gonic/gin"
@@ -34,18 +33,20 @@ func (i SNPathItem) WithChild(c []*SNPathItem) *SNPathItem {
 	return &i
 }
 
+// SNNavItem is struct for navbar item.
 type SNNavItem struct {
-	Priority      int
-	Name          string
-	Active        bool
-	Open          bool
-	Link          string
-	Icon          string
-	Role          UserRole
-	Badge         string
-	BadgeClass    string
-	RenderPrepare func(*gin.Context, *SNNavItem, []*SNNavItem) bool
-	Child         []*SNNavItem
+	ID            string                                            // unique id
+	Name          string                                            // show name
+	Priority      uint16                                            // inner priority, auto filled by setting
+	Active        bool                                              // is activate by default
+	Open          bool                                              // is open subnav by default
+	Link          string                                            // nav link
+	Icon          string                                            // nav icon, use font-awesome icon string
+	Role          UserRole                                          // user permission
+	Badge         string                                            // nav badge text
+	BadgeClass    string                                            // nav badge class, see adminlte3 badge class
+	RenderPrepare func(*gin.Context, *SNNavItem, []*SNNavItem) bool // hook when prepare render
+	Child         []*SNNavItem                                      // child navbar
 }
 
 func (i *SNNavItem) SortChild() {
@@ -80,9 +81,5 @@ type SNPageItem struct {
 	BeforeRender       SNRenderHookFunc
 	AfterRenderPrepare SNRenderHookFunc
 	AfterRender        SNRenderHookFunc
-	Param              gin.H // will be parse in advance, do not use dynamic value
-}
-
-func (i *SNPageItem) Render(c *gin.Context) {
-	c.HTML(http.StatusOK, i.TplName, i.Param)
+	Param              gin.H // Page param, will be parse in advance, do not use dynamic value
 }

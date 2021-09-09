@@ -53,14 +53,18 @@ func (p *PluginInstance) GetTempFilePath(suffix string) string {
 	return path.Join("temp/plugin", p.ID.String(), suffix)
 }
 
-// AddSubNav will add sub item item to navbar named root, note that all
-// navbar named root will add the item, if you only need one of the same name navbar,
-// you need to iterate sn.Skynet.Page.GetNav() by yourself.
+// GetDataFilePath returns the relative data file path with suffix.
+func (p *PluginInstance) GetDataFilePath(suffix string) string {
+	return path.Join("data/plugin", p.ID.String(), suffix)
+}
+
+// AddSubNav will add sub item item to navbar ID root.
 func (p *PluginInstance) AddSubNav(root string, item []*sn.SNNavItem) {
 	for _, v := range sn.Skynet.Page.GetNav() {
-		if v.Name == root {
+		if v.ID == root {
 			v.Child = append(v.Child, item...)
 			sn.SNNavSort(v.Child).Sort()
+			break
 		}
 	}
 }

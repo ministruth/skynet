@@ -101,6 +101,10 @@ func msgInfoHandler(c *shared.Websocket, agent *shared.AgentInfo, m *msg.CommonM
 				return
 			}
 			_, err = msg.SendMsgByte(c, uuid.Nil, msg.OPRestart, []byte{})
+			if err != nil {
+				logf.Error(err)
+				return
+			}
 		}()
 	}
 	return nil
@@ -356,7 +360,7 @@ func ShellHandler(ip string, w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 		}
-		if id != 0 && agentInstance.MustGet(id).Online == false {
+		if id != 0 && !agentInstance.MustGet(id).Online {
 			logf.Info("Agent closed")
 			msg.SendShellMsgStr(conn, uuid.Nil, msg.ShellError, "Agent offline")
 			id = 0 // not send exit to agent

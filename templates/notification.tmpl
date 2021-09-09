@@ -36,7 +36,7 @@
   "use strict"
 
   const ParseData = (d) => {
-    let level = "";
+    let level = '';
     switch (d.Level) {
       case 0:
         level = '<span class="badge bg-primary">INFO</span>';
@@ -60,28 +60,28 @@
         <td>${level}</td>
         <td>${d.Name}</td>
         <td>${d.Message}</td>
-        <td>${new Date(d.Track.CreatedAt).Format("yyyy-MM-dd hh:mm:ss")}</td>
+        <td>${new Date(d.Track.CreatedAt).Format('yyyy-MM-dd hh:mm:ss')}</td>
       </tr>
     `;
   };
 
   const ParseFunc = (obj, page, size) => {
     JSONGet(`/api/notification?page=${page}&size=${size}&order=desc`).done((e) => {
-      if (UpdateTotal("notification", e.total, ParseFunc))
+      if (UpdateTotal('notification', e.total, ParseFunc))
         return;
       if (JSON.stringify(e.data) !== JSON.stringify(obj.data)) {
-        $("#notification").empty();
+        $('#notification').empty();
         $.each(e.data, function (_, e) {
-          $("#notification").append(ParseData(e));
+          $('#notification').append(ParseData(e));
         });
         obj.data = e.data;
       }
     })
   };
-  ParsePage("notification", 10, [5, 10, 20, 50], ParseFunc, 1000);
+  ParsePage('notification', 10, [5, 10, 20, 50], ParseFunc, 1000);
 
-  $("#deleteAll").click((e) => {
-    JSONDelete("/api/notification").done(DelayHide());
+  $('#deleteAll').click((e) => {
+    JSONDelete('/api/notification').done(DelayHide());
   })
 </script>
 {{end}}

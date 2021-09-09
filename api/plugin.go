@@ -48,11 +48,11 @@ func APIAddPlugin(c *gin.Context, u *sn.User) (int, error) {
 		return 500, err
 	}
 	if err := sn.Skynet.Plugin.New(f.Data); err != nil {
-		if errors.Is(err, handler.PluginInvalidError) {
+		if errors.Is(err, handler.ErrPluginInvalid) {
 			c.JSON(200, gin.H{"code": 1, "msg": "Plugin package format error"})
 			return 0, nil
 		}
-		if errors.Is(err, handler.PluginExistsError) {
+		if errors.Is(err, handler.ErrPluginExists) {
 			c.JSON(200, gin.H{"code": 2, "msg": "Plugin already exists"})
 			return 0, nil
 		}

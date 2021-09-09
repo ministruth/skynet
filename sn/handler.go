@@ -12,8 +12,7 @@ type SNCondition struct {
 }
 
 type SNSetting interface {
-	New(name string, value string) error
-	Update(name string, value string) error
+	Set(name string, value string) error
 	Delete(name string) error
 	Get(name string) (string, bool)
 	GetCache() map[string]interface{}

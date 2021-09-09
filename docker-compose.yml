@@ -8,11 +8,6 @@ services:
     volumes:
       - ./data.db:/app/data.db
       - ./conf.yml:/app/conf.yml
+      - ./data:/app/data
   redis:
     image: redis:latest
-
-networks:
-  default:
-    ipam:
-      config:
-        - subnet: 172.27.0.0/16

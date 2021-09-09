@@ -19,8 +19,8 @@ func NewShared() shared.PluginShared {
 type pluginShared struct{}
 
 var (
-	MonitorPluginError        = errors.New("Monitor plugin not available")
-	TaskNotSupportCancelError = errors.New("Task not support cancel")
+	ErrLoadMonitorPlugin    = errors.New("monitor plugin not available")
+	ErrTaskNotSupportCancel = errors.New("task not support cancel")
 )
 
 func (s *pluginShared) GetInstance() *plugins.PluginInstance {
@@ -49,7 +49,7 @@ func (s *pluginShared) Cancel(id int, msg string) error {
 		}
 		return c()
 	}
-	return TaskNotSupportCancelError
+	return ErrTaskNotSupportCancel
 }
 
 func (s *pluginShared) CancelByUser(id int, msg string) error {
@@ -60,7 +60,7 @@ func (s *pluginShared) CancelByUser(id int, msg string) error {
 		}
 		return c()
 	}
-	return TaskNotSupportCancelError
+	return ErrTaskNotSupportCancel
 }
 
 func (s *pluginShared) Get(id int) (*shared.PluginTask, error) {
@@ -190,7 +190,7 @@ func (s *pluginShared) UpdatePercent(id int, percent int) error {
 func (s *pluginShared) NewCommand(agentID int, cmd string, name string, detail string) (chan bool, error) {
 	m, exist := sn.Skynet.SharedData["plugin_2eb2e1a5-66b4-45f9-ad24-3c4f05c858aa"].(monitor.PluginShared)
 	if !exist {
-		return nil, MonitorPluginError
+		return nil, ErrLoadMonitorPlugin
 	}
 	uid, resChan, err := m.RunCMDAsync(agentID, cmd)
 	if err != nil {
@@ -253,7 +253,7 @@ func (s *pluginShared) NewCustom(agentID int, name string, detail string, c func
 		if errors.Is(err, context.Canceled) {
 			s.CancelByUser(tid, "Task killed by user")
 		} else if err != nil {
-			log.Error(err)
+			log.WithFields(defaultField).Error(err)
 			s.Cancel(tid, "Task fail: "+err.Error())
 			s.UpdateStatus(tid, shared.TaskFail)
 		}

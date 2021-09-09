@@ -149,8 +149,8 @@
         <td>${d.Username}</td>
         <td>${d.Online ? '<span class="badge bg-success">ONLINE</span>' : '<span class="badge bg-secondary">OFFLINE</span>'}</td>
         <td>${d.Role == 2 ? '<span class="badge bg-orange">Admin</span>' : '<span class="badge bg-secondary">User</span>'}</td>
-        <td>${new Date(d.Track.CreatedAt).Format("yyyy-MM-dd hh:mm:ss")}</td>
-        <td>${new Date(d.LastLogin).Format("yyyy-MM-dd hh:mm:ss")}</td>
+        <td>${new Date(d.Track.CreatedAt).Format('yyyy-MM-dd hh:mm:ss')}</td>
+        <td>${new Date(d.LastLogin).Format('yyyy-MM-dd hh:mm:ss')}</td>
         <td>${d.LastIP}</td>
         <td>
           <button data-operation="edit" data-userID="${d.ID}" data-edituser="${d.Username}"
@@ -166,37 +166,37 @@
   };
 
   const convUser = (d) => {
-    switch (d["role"]) {
-      case "User":
-        d["role"] = 1;
+    switch (d['role']) {
+      case 'User':
+        d['role'] = 1;
         break;
-      case "Admin":
-        d["role"] = 2;
+      case 'Admin':
+        d['role'] = 2;
         break;
     }
     return d;
   }
 
-  $("#addUser").submit((e) => {
+  $('#addUser').submit((e) => {
     e.preventDefault();
-    let form = document.getElementById("addUser");
+    let form = document.getElementById('addUser');
     JSONPost(GetUrl(form), convUser(GetData(form))).done((d) => {
       $('#modal-add').modal('hide');
       DelayHide()(d);
     });
   });
 
-  $("#editUser").submit((e) => {
+  $('#editUser').submit((e) => {
     e.preventDefault();
-    let form = document.getElementById("editUser");
+    let form = document.getElementById('editUser');
     JSONPatch(GetUrl(form), convUser(GetData(form))).done((d) => {
       $('#modal-edit').modal('hide');
       DelayHide()(d);
     });
   })
 
-  $("#deleteConfirm").click((e) => {
-    JSONDelete(`/api/user/${e.target.getAttribute("data-userID")}`).done((d) => {
+  $('#deleteConfirm').click((e) => {
+    JSONDelete(`/api/user/${e.target.getAttribute('data-userID')}`).done((d) => {
       $('#modal-delete').modal('hide');
       DelayHide()(d);
     });
@@ -204,29 +204,29 @@
 
   const ParseFunc = (obj, page, size) => {
     JSONGet(`/api/user?page=${page}&size=${size}`).done((e) => {
-      if (UpdateTotal("user", e.total, ParseFunc))
+      if (UpdateTotal('user', e.total, ParseFunc))
         return;
       if (JSON.stringify(e.data) !== JSON.stringify(obj.data)) {
-        $("#user").empty();
+        $('#user').empty();
         $.each(e.data, function (_, e) {
-          $("#user").append(ParseData(e));
+          $('#user').append(ParseData(e));
         });
 
-        $("[data-operation='edit']").click((e) => {
-          $("#editUser").attr("action", `/api/user/${e.target.getAttribute("data-userID")}`)
-          $("#editUsername").val(e.target.getAttribute("data-edituser"));
-          $("#editRole").get(0).selectedIndex = e.target.getAttribute("data-editrole") - 1;
+        $('[data-operation="edit"]').click((e) => {
+          $('#editUser').attr('action', `/api/user/${e.target.getAttribute('data-userID')}`)
+          $('#editUsername').val(e.target.getAttribute('data-edituser'));
+          $('#editRole').get(0).selectedIndex = e.target.getAttribute('data-editrole') - 1;
         })
-        $("[data-operation='kick']").click((e) => {
-          JSONPatch(`/api/user/${e.target.getAttribute("data-userID")}`, {}).done(DelayHide());
+        $('[data-operation="kick"]').click((e) => {
+          JSONPatch(`/api/user/${e.target.getAttribute('data-userID')}`, {}).done(DelayHide());
         })
-        $("[data-operation='delete']").click((e) => {
-          $("#deleteConfirm").attr("data-userID", e.target.getAttribute("data-userID"));
+        $('[data-operation="delete"]').click((e) => {
+          $('#deleteConfirm').attr('data-userID', e.target.getAttribute('data-userID'));
         })
         obj.data = e.data;
       }
     })
   };
-  ParsePage("user", 10, [5, 10, 20, 50], ParseFunc, 1000);
+  ParsePage('user', 10, [5, 10, 20, 50], ParseFunc, 1000);
 </script>
 {{end}}

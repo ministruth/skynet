@@ -12,7 +12,6 @@ import (
 )
 
 var defaultFunc = template.FuncMap{
-	// TODO: Add page functions
 	"time":    formatTime,
 	"since":   sinceTime,
 	"bytes":   formatBytes,
@@ -21,14 +20,14 @@ var defaultFunc = template.FuncMap{
 }
 
 var (
-	InvalidDictCallError = errors.New("Invalid dict call")
-	DictValueError       = errors.New("Dict values must be maps")
-	NonArrayValueError   = errors.New("Specify the key for non array values")
+	ErrInvalidDictCall  = errors.New("invalid dict call")
+	ErrInvalidDictValue = errors.New("dict values must be maps")
+	ErrNonArrayValue    = errors.New("specify the key for non array values")
 )
 
 func templateDict(values ...interface{}) (map[string]interface{}, error) {
 	if len(values) == 0 {
-		return nil, InvalidDictCallError
+		return nil, ErrInvalidDictCall
 	}
 
 	dict := make(map[string]interface{})
@@ -42,12 +41,12 @@ func templateDict(values ...interface{}) (map[string]interface{}, error) {
 					dict[i] = v
 				}
 			} else {
-				return nil, DictValueError
+				return nil, ErrInvalidDictValue
 			}
 		} else {
 			i++
 			if i == len(values) {
-				return nil, NonArrayValueError
+				return nil, ErrNonArrayValue
 			}
 			dict[key] = values[i]
 		}
@@ -61,7 +60,7 @@ func formatTime(t time.Time) string {
 }
 
 func sinceTime(t time.Time) string {
-	d := durafmt.Parse(time.Now().Sub(t)).LimitFirstN(1)
+	d := durafmt.Parse(time.Since(t)).LimitFirstN(1)
 	return d.String()
 }
 
