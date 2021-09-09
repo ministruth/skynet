@@ -5,6 +5,7 @@ import (
 	"skynet/sn"
 	"skynet/sn/utils"
 
+	"github.com/jinzhu/copier"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -94,9 +95,16 @@ func (h NotificationHook) Fire(e *log.Entry) error {
 	case log.FatalLevel:
 		level = sn.NotifyFatal
 	}
+	data := make(log.Fields, len(e.Data))
+	copier.CopyWithOption(&data, &e.Data, copier.Option{DeepCopy: true})
+	delete(data, "caller")
+	delete(data, "stack")
 	d, err := json.Marshal(e.Data)
 	if err != nil {
 		d = []byte{}
+	}
+	if string(d) == "{}" || string(d) == "" {
+		return sn.Skynet.Notification.New(level, "Skynet log", e.Message)
 	}
 	return sn.Skynet.Notification.New(level, "Skynet log", e.Message+" "+string(d))
 }
