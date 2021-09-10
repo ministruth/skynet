@@ -6,11 +6,12 @@ import (
 
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
+	"github.com/ztrue/tracerr"
 )
 
 func APIGetNotification(c *gin.Context, u *sn.User) (int, error) {
 	var param paginationParam
-	if err := c.ShouldBindQuery(&param); err != nil {
+	if err := tracerr.Wrap(c.ShouldBindQuery(&param)); err != nil {
 		return 400, err
 	}
 

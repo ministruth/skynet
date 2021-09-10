@@ -13,7 +13,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/csrf"
 	"github.com/jinzhu/copier"
-	log "github.com/sirupsen/logrus"
+	"github.com/ztrue/tracerr"
 )
 
 type sitePage struct {
@@ -64,7 +64,7 @@ func (s *sitePage) AddNav(i []*sn.SNNavItem) {
 		} else {
 			num, err := strconv.ParseUint(p, 10, 16)
 			if err != nil {
-				log.Error(err)
+				utils.WithTrace(tracerr.Wrap(err)).Error(err)
 				return
 			}
 			v.Priority = uint16(num)
@@ -93,7 +93,7 @@ func (r *sitePage) RenderSingle(c *gin.Context, u *sn.User, p *sn.SNPageItem) {
 func (r *sitePage) Render(c *gin.Context, u *sn.User, p *sn.SNPageItem) {
 	avatar, err := utils.ConvertWebp(u.Avatar)
 	if err != nil {
-		log.Fatal(err)
+		utils.WithTrace(err).Panic(err)
 	}
 	tmpNav := make([]*sn.SNNavItem, len(r.navbar))
 	copier.CopyWithOption(&tmpNav, &r.navbar, copier.Option{DeepCopy: true})

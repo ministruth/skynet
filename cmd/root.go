@@ -5,6 +5,7 @@ import (
 	"io/ioutil"
 	"skynet/handler"
 	"skynet/sn"
+	"skynet/sn/utils"
 
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
@@ -27,10 +28,10 @@ var rootCmd = &cobra.Command{
 		viper.SetConfigType("yml")
 		content, err := ioutil.ReadFile(conf)
 		if err != nil {
-			log.Fatal("Can not read config file: ", err)
+			utils.WithTrace(err).Fatal(err)
 		}
 		if err = viper.ReadConfig(bytes.NewBuffer(content)); err != nil {
-			log.Fatal("Config file invalid: ", err)
+			utils.WithTrace(err).Fatal(err)
 		}
 
 		if verbose {

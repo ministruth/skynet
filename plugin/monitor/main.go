@@ -10,6 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
+	"github.com/ztrue/tracerr"
 )
 
 var Instance = &plugins.PluginInstance{
@@ -55,8 +56,7 @@ func (p *Interface) PluginInit() error {
 	utils.GetDB().AutoMigrate(&shared.PluginMonitorAgent{}, &shared.PluginMonitorAgentSetting{})
 
 	var rec []shared.PluginMonitorAgent
-	err := utils.GetDB().Find(&rec).Error
-	if err != nil {
+	if err := tracerr.Wrap(utils.GetDB().Find(&rec).Error); err != nil {
 		return err
 	}
 

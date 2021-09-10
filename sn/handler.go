@@ -50,4 +50,9 @@ type SNPlugin interface {
 	Get(id uuid.UUID) interface{}
 	Fini()
 	New(buf []byte) error
+
+	// Update plugin id with same plugin id package buf.
+	// Note that you need to trigger restart if no error happened after calling this function!
+	Update(id uuid.UUID, buf []byte) error
+	Delete(id uuid.UUID) error
 }

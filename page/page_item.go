@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"path"
 	"skynet/sn"
+	"skynet/sn/utils"
 
 	"github.com/gin-gonic/gin"
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 )
 
@@ -127,7 +127,7 @@ var pages = []*sn.SNPageItem{
 		BeforeRender: func(c *gin.Context, u *sn.User, v *sn.SNPageItem) bool {
 			count, err := sn.Skynet.User.Count()
 			if err != nil {
-				log.Error(err)
+				utils.WithTrace(err).Error(err)
 				c.AbortWithStatus(500)
 				return false
 			}
@@ -152,14 +152,14 @@ var pages = []*sn.SNPageItem{
 		BeforeRender: func(c *gin.Context, u *sn.User, v *sn.SNPageItem) bool {
 			count, err := sn.Skynet.Notification.Count(nil)
 			if err != nil {
-				log.Error(err)
+				utils.WithTrace(err).Error(err)
 				c.AbortWithStatus(500)
 				return false
 			}
 			v.Param["_total"] = count
 			err = sn.Skynet.Notification.MarkAllRead()
 			if err != nil {
-				log.Error(err)
+				utils.WithTrace(err).Error(err)
 				c.AbortWithStatus(500)
 				return false
 			}
@@ -208,7 +208,7 @@ var navbar = []*sn.SNNavItem{
 		RenderPrepare: func(c *gin.Context, s *sn.SNNavItem, l []*sn.SNNavItem) bool {
 			count, err := sn.Skynet.Notification.Count(false)
 			if err != nil {
-				log.Error(err)
+				utils.WithTrace(err).Error(err)
 				c.AbortWithStatus(500)
 				return false
 			}

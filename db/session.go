@@ -34,7 +34,7 @@ func NewSession(ctx context.Context, conf *SessionConfig) sn.SNDB {
 
 func (c *sessionClient) Get() interface{} {
 	if c.sessionClient == nil {
-		log.Fatal("Session not init")
+		panic("Session not init")
 	}
 	return c.sessionClient
 }

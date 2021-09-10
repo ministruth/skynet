@@ -10,18 +10,19 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"
 	"github.com/gorilla/sessions"
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"github.com/ztrue/tracerr"
 )
 
 // GetCTXSession gets session object from gin context.
 func GetCTXSession(c *gin.Context) (*sessions.Session, error) {
-	return GetSession().Get(c.Request, viper.GetString("session.cookie"))
+	ret, err := GetSession().Get(c.Request, viper.GetString("session.cookie"))
+	return ret, tracerr.Wrap(err)
 }
 
 // SaveCTXSession saves session object to gin context.
 func SaveCTXSession(c *gin.Context) error {
-	return sessions.Save(c.Request, c.Writer)
+	return tracerr.Wrap(sessions.Save(c.Request, c.Writer))
 }
 
 // WithAdmin is middleware for gin handler that need admin privilege.
@@ -45,21 +46,20 @@ func WithSignIn(f sn.SNAPIFunc, redirect bool) func(c *gin.Context) {
 	return func(c *gin.Context) {
 		res, err := CheckSignIn(c)
 		if err != nil {
-			log.Error(err)
+			WithTrace(err).Error(err)
 			c.AbortWithStatus(500)
 			return
 		}
 		if res {
 			var u sn.User
-			err := GetDB().First(&u, c.MustGet("id")).Error
-			if err != nil {
-				log.Error(err)
+			if err := tracerr.Wrap(GetDB().First(&u, c.MustGet("id")).Error); err != nil {
+				WithTrace(err).Error(err)
 				c.AbortWithStatus(500)
 				return
 			}
 			code, err := f(c, &u)
 			if err != nil {
-				log.Error(err)
+				WithTrace(err).Error(err)
 				c.AbortWithStatus(code)
 				return
 			}
@@ -75,24 +75,20 @@ func WithSignIn(f sn.SNAPIFunc, redirect bool) func(c *gin.Context) {
 
 // CheckSignIn checks context signin state and set "id" in the context if state is valid.
 func CheckSignIn(c *gin.Context) (bool, error) {
-	if data, err := c.Cookie(viper.GetString("session.cookie")); err == nil && data != "" {
-		session, err := GetCTXSession(c)
-		if err != nil {
-			return false, err
-		}
-
-		if session.Values["id"] != nil {
-			c.Set("id", session.Values["id"])
-			return true, nil
-		} else {
-			session.Options.MaxAge = -1
-			err = SaveCTXSession(c)
-			if err != nil {
-				return false, err
-			}
-		}
+	data, err := c.Cookie(viper.GetString("session.cookie"))
+	if err != nil || data == "" {
+		return false, tracerr.Wrap(err)
 	}
-	return false, nil
+	session, err := GetCTXSession(c)
+	if err != nil {
+		return false, err
+	}
+	if session.Values["id"] != nil {
+		c.Set("id", session.Values["id"])
+		return true, nil
+	}
+	session.Options.MaxAge = -1
+	return false, SaveCTXSession(c)
 }
 
 // FindSessionsByID find all sessions associate to user by id.
@@ -103,7 +99,7 @@ func FindSessionsByID(userID int) (map[string]map[interface{}]interface{}, error
 	ret := make(map[string]map[interface{}]interface{})
 	res, err := GetRedis().Keys(ctx, viper.GetString("session.prefix")+"*").Result()
 	if err != nil {
-		return nil, err
+		return nil, tracerr.Wrap(err)
 	}
 
 	// pipeline to accelerate
@@ -114,11 +110,11 @@ func FindSessionsByID(userID int) (map[string]map[interface{}]interface{}, error
 	}
 	_, err = pipe.Exec(ctx)
 	if err != nil {
-		return nil, err
+		return nil, tracerr.Wrap(err)
 	}
 	for _, v := range piperes {
 		if v.Err() != nil {
-			return nil, err
+			return nil, tracerr.Wrap(v.Err())
 		}
 	}
 
@@ -126,8 +122,7 @@ func FindSessionsByID(userID int) (map[string]map[interface{}]interface{}, error
 	for k, v := range piperes {
 		var tmp map[interface{}]interface{}
 		dec := gob.NewDecoder(strings.NewReader(v.Val()))
-		err = dec.Decode(&tmp)
-		if err != nil {
+		if err = tracerr.Wrap(dec.Decode(&tmp)); err != nil {
 			return nil, err
 		}
 		if tmp["id"] == userID { // filter by user id
@@ -154,11 +149,11 @@ func DeleteSessionsByID(userID int) error {
 	}
 	_, err = pipe.Exec(ctx)
 	if err != nil {
-		return err
+		return tracerr.Wrap(err)
 	}
 	for _, v := range piperes {
 		if v.Err() != nil {
-			return err
+			return tracerr.Wrap(v.Err())
 		}
 	}
 	return nil

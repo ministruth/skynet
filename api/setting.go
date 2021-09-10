@@ -8,6 +8,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
+	"github.com/ztrue/tracerr"
 )
 
 type updateNavbarParam struct {
@@ -16,7 +17,7 @@ type updateNavbarParam struct {
 
 func APIUpdateNavbar(c *gin.Context, u *sn.User) (int, error) {
 	var param updateNavbarParam
-	if err := c.ShouldBind(&param); err != nil {
+	if err := tracerr.Wrap(c.ShouldBind(&param)); err != nil {
 		return 400, err
 	}
 	logf := log.WithFields(log.Fields{

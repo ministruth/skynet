@@ -9,16 +9,20 @@ import (
 
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
+	"github.com/ztrue/tracerr"
 )
 
 func APIGetAllTask(c *gin.Context, u *sn.User) (int, error) {
 	var param plugins.PaginationParam
-	err := c.ShouldBindQuery(&param)
-	if err != nil {
+	if err := tracerr.Wrap(c.ShouldBindQuery(&param)); err != nil {
 		return 400, err
 	}
 
-	rec, err := pluginAPI.GetAll([]interface{}{"id " + param.Order}, param.Size, (param.Page-1)*param.Size, nil)
+	rec, err := pluginAPI.GetAll(&sn.SNCondition{
+		Order:  []interface{}{"id " + param.Order},
+		Limit:  param.Size,
+		Offset: (param.Page - 1) * param.Size,
+	})
 	if err != nil {
 		return 500, err
 	}
@@ -38,8 +42,8 @@ func APIDeleteInactiveTask(c *gin.Context, u *sn.User) (int, error) {
 	logf := log.WithFields(defaultField).WithFields(log.Fields{
 		"ip": utils.GetIP(c),
 	})
-	err := utils.GetDB().Where("status <> ? and status <> ?", shared.TaskNotStart, shared.TaskRunning).
-		Delete(&shared.PluginTask{}).Error
+	err := tracerr.Wrap(utils.GetDB().Where("status <> ? and status <> ?", shared.TaskNotStart, shared.TaskRunning).
+		Delete(&shared.PluginTask{}).Error)
 	if err != nil {
 		return 500, err
 	}
@@ -54,8 +58,7 @@ type getTaskParam struct {
 
 func APIGetTask(c *gin.Context, u *sn.User) (int, error) {
 	var param getTaskParam
-	err := c.ShouldBindUri(&param)
-	if err != nil {
+	if err := tracerr.Wrap(c.ShouldBindUri(&param)); err != nil {
 		return 400, err
 	}
 
@@ -73,8 +76,7 @@ type killTaskParam struct {
 
 func APIKillTask(c *gin.Context, u *sn.User) (int, error) {
 	var param killTaskParam
-	err := c.ShouldBindUri(&param)
-	if err != nil {
+	if err := tracerr.Wrap(c.ShouldBindUri(&param)); err != nil {
 		return 400, err
 	}
 	logf := log.WithFields(defaultField).WithFields(log.Fields{
@@ -82,7 +84,7 @@ func APIKillTask(c *gin.Context, u *sn.User) (int, error) {
 		"id": param.ID,
 	})
 
-	err = pluginAPI.CancelByUser(param.ID, "Task killed by user")
+	err := pluginAPI.CancelByUser(param.ID, "Task killed by user")
 	if err != nil {
 		c.JSON(200, gin.H{"code": 1, "msg": err.Error()})
 		return 0, nil

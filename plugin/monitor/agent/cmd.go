@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"skynet/plugin/monitor/msg"
 	"skynet/plugin/monitor/shared"
@@ -11,13 +10,13 @@ import (
 
 	"github.com/go-cmd/cmd"
 	"github.com/google/uuid"
-	log "github.com/sirupsen/logrus"
+	"github.com/ztrue/tracerr"
 )
 
 var cmdInstance utils.UUIDMap
 
 var (
-	ErrCMDNotRunning = errors.New("command not running")
+	ErrCMDNotRunning = tracerr.New("command not running")
 )
 
 func KillCommand(cid uuid.UUID) error {
@@ -47,7 +46,7 @@ func RunCommandSync(c *shared.Websocket, mid uuid.UUID, cid uuid.UUID, name stri
 		End:      true,
 	})))
 	if err != nil {
-		log.Warn("Could not send cmd result")
+		utils.WithTrace(err).Warn(err)
 	}
 }
 
@@ -67,7 +66,7 @@ func RunCommandAsync(c *shared.Websocket, cid uuid.UUID, name string, args ...st
 			End:      end,
 		}))
 		if err != nil {
-			log.Warn("Could not send cmd result")
+			utils.WithTrace(err).Warn(err)
 		}
 	}
 

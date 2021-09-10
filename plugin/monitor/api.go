@@ -10,12 +10,12 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"
+	"github.com/ztrue/tracerr"
 )
 
 func APIGetAllAgent(c *gin.Context, u *sn.User) (int, error) {
 	var param plugins.PaginationParam
-	err := c.ShouldBindQuery(&param)
-	if err != nil {
+	if err := tracerr.Wrap(c.ShouldBindQuery(&param)); err != nil {
 		return 400, err
 	}
 
@@ -38,16 +38,14 @@ type saveSettingParam struct {
 
 func APISaveSetting(c *gin.Context, u *sn.User) (int, error) {
 	var param saveSettingParam
-	err := c.ShouldBind(&param)
-	if err != nil {
+	if err := tracerr.Wrap(c.ShouldBind(&param)); err != nil {
 		return 400, err
 	}
 	logf := log.WithFields(defaultField).WithFields(log.Fields{
 		"ip": utils.GetIP(c),
 	})
 
-	err = sn.Skynet.Setting.Set(tokenKey, param.Token)
-	if err != nil {
+	if err := sn.Skynet.Setting.Set(tokenKey, param.Token); err != nil {
 		return 500, err
 	}
 	token = param.Token
@@ -69,13 +67,12 @@ type saveAgentParam struct {
 
 func APISaveAgent(c *gin.Context, u *sn.User) (int, error) {
 	var param saveAgentParam
-	err := c.ShouldBind(&param)
-	if err != nil {
+	if err := tracerr.Wrap(c.ShouldBind(&param)); err != nil {
 		return 400, err
 	}
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil || id <= 0 {
-		return 400, err
+		return 400, tracerr.Wrap(err)
 	}
 	logf := log.WithFields(defaultField).WithFields(log.Fields{
 		"ip": utils.GetIP(c),
@@ -89,13 +86,11 @@ func APISaveAgent(c *gin.Context, u *sn.User) (int, error) {
 	}
 
 	var rec shared.PluginMonitorAgent
-	err = utils.GetDB().First(&rec, id).Error
-	if err != nil {
+	if err := tracerr.Wrap(utils.GetDB().First(&rec, id).Error); err != nil {
 		return 500, err
 	}
 	rec.Name = param.Name
-	err = utils.GetDB().Save(&rec).Error
-	if err != nil {
+	if err := tracerr.Wrap(utils.GetDB().Save(&rec).Error); err != nil {
 		return 500, err
 	}
 	agentInstance.MustGet(id).Name = param.Name
@@ -111,8 +106,7 @@ type deleteAgentParam struct {
 
 func APIDelAgent(c *gin.Context, u *sn.User) (int, error) {
 	var param deleteAgentParam
-	err := c.ShouldBindUri(&param)
-	if err != nil {
+	if err := tracerr.Wrap(c.ShouldBindUri(&param)); err != nil {
 		return 400, err
 	}
 	logf := log.WithFields(defaultField).WithFields(log.Fields{
@@ -127,7 +121,7 @@ func APIDelAgent(c *gin.Context, u *sn.User) (int, error) {
 	}
 
 	pluginAPI.DeleteAllSetting(param.ID)
-	err = utils.GetDB().Delete(&shared.PluginMonitorAgent{}, param.ID).Error
+	err := tracerr.Wrap(utils.GetDB().Delete(&shared.PluginMonitorAgent{}, param.ID).Error)
 	if err != nil {
 		return 500, err
 	}

@@ -33,7 +33,7 @@ var (
 
 			content, err := ioutil.ReadFile(avatar)
 			if err != nil {
-				log.Fatal("Can not read file: ", err)
+				utils.WithTrace(err).Fatal(err)
 			}
 			log.WithFields(log.Fields{
 				"file": avatar,
@@ -54,7 +54,7 @@ var (
 			}
 
 			if err != nil {
-				log.Fatal("Database error: ", err)
+				utils.WithTrace(err).Fatal(err)
 			}
 			if len(args) == 1 {
 				log.Info("New pass: ", newpass)
@@ -89,11 +89,11 @@ var (
 				if errors.Is(err, gorm.ErrRecordNotFound) {
 					log.Fatalf("User %v not found", args[0])
 				} else if err != nil {
-					log.Fatal("Database error: ", err)
+					utils.WithTrace(err).Fatal(err)
 				}
 				newpass, err := sn.Skynet.User.Reset(int(uid.ID))
 				if err != nil {
-					log.Fatal("Database error: ", err)
+					utils.WithTrace(err).Fatal(err)
 				}
 				log.Info("New pass: ", newpass)
 			} else {
@@ -103,7 +103,7 @@ var (
 
 				newpass, err := sn.Skynet.User.ResetAll()
 				if err != nil {
-					log.Fatal("Database error: ", err)
+					utils.WithTrace(err).Fatal(err)
 				}
 				if len(newpass) == 0 {
 					log.Warn("No user in database")

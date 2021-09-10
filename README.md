@@ -1,5 +1,7 @@
 # skynet
 
+[![Go Report Card](https://goreportcard.com/badge/github.com/mxwxz/skynet)](https://goreportcard.com/report/github.com/mxwxz/skynet)
+
 Skynet is a service integration and management system, especially optimized for personal and home-lab use. With plugin support, you can easily embed whatever software you want to satisfy your need.
 
 ## Quick start
@@ -40,6 +42,8 @@ You can find more plugin in our [official support plugin](#) or other user share
 **!!Please note that all plugins have the same privilege as skynet, use trusted plugins ONLY!!**
 
 ## Develop
+
+See [develop note](develop.md)
 
 ## Reference Project
 

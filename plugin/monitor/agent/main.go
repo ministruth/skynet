@@ -29,10 +29,11 @@ import (
 	"github.com/shirou/gopsutil/net"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
+	"github.com/ztrue/tracerr"
 	"golang.org/x/sys/unix"
 )
 
-var ErrRestart = errors.New("restart triggered")
+var ErrRestart = tracerr.New("restart triggered")
 
 var (
 	token    string
@@ -65,7 +66,7 @@ func sleep() {
 func loginHandler(c *shared.Websocket) error {
 	id, err := machineid.ID()
 	if err != nil {
-		log.Fatal(err)
+		utils.WithTrace(tracerr.Wrap(err)).Fatal(err)
 	}
 
 	mid, err := msg.SendMsgByte(c, uuid.Nil, msg.OPLogin, msg.Marshal(msg.LoginMsg{
@@ -100,12 +101,12 @@ func loginHandler(c *shared.Websocket) error {
 func sendInfoHandler(c *shared.Websocket) error {
 	hostname, err := os.Hostname()
 	if err != nil {
-		log.Warn("Could not determine hostname")
+		utils.WithTrace(tracerr.Wrap(err)).Warn(err)
 	}
 	uts := &unix.Utsname{}
 	err = unix.Uname(uts)
 	if err != nil {
-		log.Warn("Could not determine uname")
+		utils.WithTrace(tracerr.Wrap(err)).Warn(err)
 	}
 	_, err = msg.SendMsgByte(c, uuid.Nil, msg.OPInfo, msg.Marshal(msg.InfoMsg{
 		Version: shared.AgentVersion,
@@ -134,7 +135,7 @@ func msgCMDHandler(c *shared.Websocket, m *msg.CommonMsg) error {
 	}
 	w, err := shellquote.Split(data.Payload)
 	if err != nil {
-		log.Warn(err)
+		utils.WithTrace(tracerr.Wrap(err)).Warn(err)
 		if data.Sync {
 			err = msg.SendMsgRet(c, m.ID, -1, err.Error())
 		} else {
@@ -181,7 +182,7 @@ func msgFileHandler(c *shared.Websocket, m *msg.CommonMsg) error {
 	os.Remove(data.Path) // support override running program
 	err := ioutil.WriteFile(data.Path, data.File, data.Perm)
 	if err != nil {
-		log.Warn(err)
+		utils.WithTrace(tracerr.Wrap(err)).Warn(err)
 		return msg.SendMsgRet(c, m.ID, -1, err.Error())
 	} else {
 		return msg.SendMsgRet(c, m.ID, 0, "Write file success")
@@ -201,7 +202,7 @@ func msgShellHandler(c *shared.Websocket, m *msg.CommonMsg) error {
 		}
 		id, err := CreateShell(&cmsg.ShellSizeMsg)
 		if err != nil {
-			log.Warn(err)
+			utils.WithTrace(err).Warn(err)
 			return msg.SendMsgRet(c, m.ID, -1, err.Error())
 		}
 		go HandleShellOutput(c, id)
@@ -227,23 +228,23 @@ func msgShellHandler(c *shared.Websocket, m *msg.CommonMsg) error {
 func msgReqStatHandler(c *shared.Websocket, m *msg.CommonMsg) error {
 	cpuUsage, err := cpu.Percent(0, false)
 	if err != nil {
-		log.Warn("Could not determine cpu usage")
+		utils.WithTrace(tracerr.Wrap(err)).Warn(err)
 		cpuUsage = []float64{0}
 	}
 	memUsage, err := mem.VirtualMemory()
 	if err != nil {
-		log.Warn("Could not determine mem usage")
+		utils.WithTrace(tracerr.Wrap(err)).Warn(err)
 		memUsage = &mem.VirtualMemoryStat{}
 	}
 	partionUsage, err := disk.Partitions(false)
 	if err != nil {
-		log.Warn("Could not determine disk usage")
+		utils.WithTrace(tracerr.Wrap(err)).Warn(err)
 	}
 	var diskUsage, disktotUsage uint64
 	for _, v := range partionUsage {
 		usage, err := disk.Usage(v.Mountpoint)
 		if err != nil {
-			log.Warn("Could not determine disk usage")
+			utils.WithTrace(tracerr.Wrap(err)).Warn(err)
 			continue
 		}
 		diskUsage += usage.Used
@@ -251,19 +252,19 @@ func msgReqStatHandler(c *shared.Websocket, m *msg.CommonMsg) error {
 	}
 	loadUsage, err := load.Avg()
 	if err != nil {
-		log.Warn("Could not determine load usage")
+		utils.WithTrace(tracerr.Wrap(err)).Warn(err)
 		loadUsage = &load.AvgStat{}
 	}
 	netUsage, err := net.IOCounters(true)
 	var txByte, rxByte uint64
 	if err != nil {
-		log.Warn("Could not determine net usage")
+		utils.WithTrace(tracerr.Wrap(err)).Warn(err)
 	}
 	for _, v := range netUsage {
-		if strings.HasSuffix(v.Name, "br-") ||
-			strings.HasSuffix(v.Name, "docker") ||
-			strings.HasSuffix(v.Name, "lo") ||
-			strings.HasSuffix(v.Name, "veth") {
+		if strings.HasPrefix(v.Name, "br-") ||
+			strings.HasPrefix(v.Name, "docker") ||
+			strings.HasPrefix(v.Name, "lo") ||
+			strings.HasPrefix(v.Name, "veth") {
 			// except virtual interface and loop
 			continue
 		}
@@ -273,7 +274,7 @@ func msgReqStatHandler(c *shared.Websocket, m *msg.CommonMsg) error {
 
 	tm, err := strconv.ParseInt(string(m.Data), 10, 64)
 	if err != nil {
-		return err
+		return tracerr.Wrap(err)
 	}
 	_, err = msg.SendMsgByte(c, uuid.Nil, msg.OPStat, msg.Marshal(msg.StatMsg{
 		Time:      time.Unix(0, tm),
@@ -323,7 +324,7 @@ func deadloop(url string) error {
 			if msgRead == nil {
 				break
 			} else {
-				log.Warn(err)
+				utils.WithTrace(err).Warn(err)
 				continue
 			}
 		}
@@ -346,7 +347,7 @@ func deadloop(url string) error {
 			log.Warn("Unknown opcode ", res.OPCode)
 		}
 		if err != nil {
-			log.Warn(err)
+			utils.WithTrace(err).Warn(err)
 		}
 	}
 	log.Error("lost connection")
@@ -393,12 +394,12 @@ func run(cmd *cobra.Command, args []string) {
 				cmd.Stderr = os.Stderr
 				cmd.Stdin = os.Stdin
 
-				if err = cmd.Start(); err != nil {
-					log.Fatalf("Restart: Failed to launch, error: %v", err)
+				if err = tracerr.Wrap(cmd.Start()); err != nil {
+					utils.WithTrace(err).Fatalf("Restart: Failed to launch, error: %v", err)
 				}
 				return
 			} else {
-				log.Error(err)
+				utils.WithTrace(err).Error(err)
 			}
 		}
 		sleep()

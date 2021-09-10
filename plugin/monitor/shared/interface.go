@@ -1,7 +1,6 @@
 package shared
 
 import (
-	"errors"
 	"os"
 	"skynet/sn"
 	"time"
@@ -9,19 +8,20 @@ import (
 	plugins "skynet/plugin"
 
 	"github.com/google/uuid"
+	"github.com/ztrue/tracerr"
 )
 
 const AgentVersion = "0.1.2"
 
 var (
 	// AgentNotExistError represents agent not exist.
-	AgentNotExistError = errors.New("Agent not exist")
+	AgentNotExistError = tracerr.New("Agent not exist")
 	// AgentNotOnlineError represents agent not online.
-	AgentNotOnlineError = errors.New("Agent not online")
+	AgentNotOnlineError = tracerr.New("Agent not online")
 	// CMDIDNotFoundError represents command id not found.
-	CMDIDNotFoundError = errors.New("Command ID not found")
+	CMDIDNotFoundError = tracerr.New("Command ID not found")
 	// OPTimeoutError represents operation timeout.
-	OPTimeoutError = errors.New("Operation timeout")
+	OPTimeoutError = tracerr.New("Operation timeout")
 )
 
 // PluginMonitorAgent is agent database record.

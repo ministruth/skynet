@@ -11,6 +11,7 @@ import (
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"github.com/ztrue/tracerr"
 	"gorm.io/gorm"
 )
 
@@ -103,7 +104,7 @@ func (p *Interface) PluginInit() error {
 			BeforeRender: func(c *gin.Context, u *sn.User, v *sn.SNPageItem) bool {
 				count, err := pluginAPI.Count()
 				if err != nil {
-					log.Error(err)
+					utils.WithTrace(err).Error(err)
 					c.AbortWithStatus(500)
 					return false
 				}
@@ -138,8 +139,8 @@ func (p *Interface) PluginFini() error {
 			Where("status = ? or status = ?", shared.TaskNotStart, shared.TaskRunning).
 			Update("output", gorm.Expr("CONCAT(output, '\nTask force killed by Skynet because of exit.')"))
 	}
-	err := utils.GetDB().Model(&shared.PluginTask{}).
+	err := tracerr.Wrap(utils.GetDB().Model(&shared.PluginTask{}).
 		Where("status = ? or status = ?", shared.TaskNotStart, shared.TaskRunning).
-		Update("status", shared.TaskFail).Error
+		Update("status", shared.TaskFail).Error)
 	return err
 }

@@ -48,7 +48,7 @@ func NewDB(ctx context.Context, conf *DBConfig) sn.SNDB {
 
 func (c *dbClient) Get() interface{} {
 	if c.dbClient == nil {
-		log.Fatal("DB not init")
+		panic("DB not init")
 	}
 	return c.dbClient
 }

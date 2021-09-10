@@ -1,7 +1,6 @@
 package page
 
 import (
-	"errors"
 	"html/template"
 	"reflect"
 	"strconv"
@@ -9,6 +8,7 @@ import (
 
 	"github.com/hako/durafmt"
 	"github.com/inhies/go-bytesize"
+	"github.com/ztrue/tracerr"
 )
 
 var defaultFunc = template.FuncMap{
@@ -20,9 +20,9 @@ var defaultFunc = template.FuncMap{
 }
 
 var (
-	ErrInvalidDictCall  = errors.New("invalid dict call")
-	ErrInvalidDictValue = errors.New("dict values must be maps")
-	ErrNonArrayValue    = errors.New("specify the key for non array values")
+	ErrInvalidDictCall  = tracerr.New("invalid dict call")
+	ErrInvalidDictValue = tracerr.New("dict values must be maps")
+	ErrNonArrayValue    = tracerr.New("specify the key for non array values")
 )
 
 func templateDict(values ...interface{}) (map[string]interface{}, error) {

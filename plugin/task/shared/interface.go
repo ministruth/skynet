@@ -32,7 +32,7 @@ type PluginShared interface {
 	CancelByUser(id int, msg string) error
 	Cancel(id int, msg string) error
 	Get(id int) (*PluginTask, error)
-	GetAll(order []interface{}, limit interface{}, offset interface{}, where interface{}, args ...interface{}) ([]*PluginTask, error)
+	GetAll(cond *sn.SNCondition) ([]*PluginTask, error)
 	AppendOutput(id int, out string) error
 	AppendOutputNewLine(id int, out string) error
 	UpdateOutput(id int, out string) error

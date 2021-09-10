@@ -61,7 +61,7 @@ var api = []*sn.SNAPIItem{
 		Path:   "/plugin/:id",
 		Method: sn.APIPatch,
 		Role:   sn.RoleAdmin,
-		Func:   APIUpdatePlugin,
+		Func:   APIEnablePlugin,
 	},
 	{
 		Path:   "/notification",

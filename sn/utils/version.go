@@ -4,6 +4,7 @@ import (
 	"skynet/sn"
 
 	"github.com/hashicorp/go-version"
+	"github.com/ztrue/tracerr"
 )
 
 // CheckSkynetVersion checks skynet version with constraint string.
@@ -17,11 +18,11 @@ func CheckSkynetVersion(constraint string) (bool, error) {
 func CheckVersion(ver string, constraint string) (bool, error) {
 	v, err := version.NewVersion(ver)
 	if err != nil {
-		return false, err
+		return false, tracerr.Wrap(err)
 	}
 	cst, err := version.NewConstraint(constraint)
 	if err != nil {
-		return false, err
+		return false, tracerr.Wrap(err)
 	}
 	return cst.Check(v), nil
 }

@@ -11,6 +11,7 @@ import (
 	plugins "skynet/plugin"
 
 	"github.com/google/uuid"
+	"github.com/ztrue/tracerr"
 	"gorm.io/gorm"
 )
 
@@ -38,16 +39,16 @@ func (s *pluginShared) GetInstance() *plugins.PluginInstance {
 
 func (s *pluginShared) DeleteAllSetting(id int) (int64, error) {
 	res := utils.GetDB().Where("agent_id = ?", id).Delete(&shared.PluginMonitorAgentSetting{})
-	return res.RowsAffected, res.Error
+	return res.RowsAffected, tracerr.Wrap(res.Error)
 }
 
 func (s *pluginShared) DeleteSetting(id int, name string) error {
-	return utils.GetDB().Where("agent_id = ? and name = ?", id, name).Delete(&shared.PluginMonitorAgentSetting{}).Error
+	return tracerr.Wrap(utils.GetDB().Where("agent_id = ? and name = ?", id, name).Delete(&shared.PluginMonitorAgentSetting{}).Error)
 }
 
 func (s *pluginShared) GetAllSetting(id int) ([]*shared.PluginMonitorAgentSetting, error) {
 	var rec []*shared.PluginMonitorAgentSetting
-	err := utils.GetDB().Where("agent_id = ?", id).Find(&rec).Error
+	err := tracerr.Wrap(utils.GetDB().Where("agent_id = ?", id).Find(&rec).Error)
 	if err != nil {
 		return nil, err
 	}
@@ -56,7 +57,7 @@ func (s *pluginShared) GetAllSetting(id int) ([]*shared.PluginMonitorAgentSettin
 
 func (s *pluginShared) GetSetting(id int, name string) (*shared.PluginMonitorAgentSetting, error) {
 	var rec shared.PluginMonitorAgentSetting
-	err := utils.GetDB().Where("agent_id = ? and name = ?", id, name).First(&rec).Error
+	err := tracerr.Wrap(utils.GetDB().Where("agent_id = ? and name = ?", id, name).First(&rec).Error)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
 		return nil, nil
 	} else if err != nil {
@@ -72,11 +73,11 @@ func (s *pluginShared) NewSetting(id int, name string, value string) (int, error
 		Value:   value,
 	}
 	res := utils.GetDB().Create(&rec)
-	return int(rec.ID), res.Error
+	return int(rec.ID), tracerr.Wrap(res.Error)
 }
 
 func (s *pluginShared) UpdateSetting(id int, name string, value string) error {
-	return utils.GetDB().Model(&shared.PluginMonitorAgentSetting{}).Where("agent_id = ? and name = ?", id, name).Update("value", value).Error
+	return tracerr.Wrap(utils.GetDB().Model(&shared.PluginMonitorAgentSetting{}).Where("agent_id = ? and name = ?", id, name).Update("value", value).Error)
 }
 
 func (s *pluginShared) WriteFile(id int, remotePath string, localPath string, recursive bool, override bool, perm os.FileMode, timeout time.Duration) error {
@@ -87,7 +88,7 @@ func (s *pluginShared) WriteFile(id int, remotePath string, localPath string, re
 
 	fileData, err := os.ReadFile(localPath)
 	if err != nil {
-		return err
+		return tracerr.Wrap(err)
 	}
 
 	msgID, err := msg.SendMsgByte(v.Conn, uuid.Nil, msg.OPFile, msg.Marshal(msg.FileMsg{
@@ -163,8 +164,7 @@ func (s *pluginShared) RunCMDSync(id int, cmd string, timeout time.Duration) (uu
 	}
 
 	var data msg.CMDResMsg
-	err = msg.Unmarshal([]byte(ret.Data), &data)
-	if err != nil {
+	if err := msg.Unmarshal([]byte(ret.Data), &data); err != nil {
 		return uuid.Nil, "", err
 	}
 	res := v.CMDRes.MustGet(data.CID)
@@ -186,7 +186,6 @@ func (s *pluginShared) RunCMDAsync(id int, cmd string) (uuid.UUID, chan string, 
 	}
 
 	cid := uuid.New()
-
 	v.CMDRes.SetIfAbsent(cid, &shared.CMDRes{
 		End:      false,
 		DataChan: make(chan string, 60),

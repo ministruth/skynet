@@ -16,6 +16,7 @@ import (
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"github.com/ztrue/tracerr"
 )
 
 func init() {
@@ -93,32 +94,29 @@ func DownloadFile(ctx context.Context, url string, path string) error {
 
 	req, err := http.NewRequest("GET", url, nil)
 	if err != nil {
-		return err
+		return tracerr.Wrap(err)
 	}
-	tr := &http.Transport{}
-	client := &http.Client{
-		Transport: tr,
-	}
+	req = req.WithContext(ctx)
+	client := &http.Client{}
 	finish := make(chan error, 1)
 	go func() {
 		resp, err := client.Do(req)
 		if err != nil {
-			finish <- err
+			finish <- tracerr.Wrap(err)
 			return
 		}
 		defer resp.Body.Close()
 		file, err := ioutil.ReadAll(resp.Body)
 		if err != nil {
-			finish <- err
+			finish <- tracerr.Wrap(err)
 			return
 		}
 		err = ioutil.WriteFile(path, file, 0755)
-		finish <- err
+		finish <- tracerr.Wrap(err)
 	}()
 
 	select {
 	case <-ctx.Done():
-		tr.CancelRequest(req)
 		return ctx.Err()
 	case err := <-finish:
 		return err

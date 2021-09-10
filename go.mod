@@ -27,6 +27,7 @@ require (
 	github.com/inhies/go-bytesize v0.0.0-20201103132853-d0aed0d254f8
 	github.com/jinzhu/copier v0.3.2
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
+	github.com/logrusorgru/aurora v2.0.3+incompatible // indirect
 	github.com/mattn/go-isatty v0.0.13 // indirect
 	github.com/mattn/go-sqlite3 v1.14.8 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
@@ -42,6 +43,7 @@ require (
 	github.com/ugorji/go v1.2.6 // indirect
 	github.com/unrolled/secure v1.0.9
 	github.com/vincent-petithory/dataurl v0.0.0-20191104211930-d1553a71de50
+	github.com/ztrue/tracerr v0.3.0 // indirect
 	golang.org/x/crypto v0.0.0-20210817164053-32db794688a5 // indirect
 	golang.org/x/sys v0.0.0-20210817190340-bfb29a6856f2
 	golang.org/x/text v0.3.7 // indirect

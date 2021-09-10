@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/gorilla/websocket"
+	"github.com/ztrue/tracerr"
 )
 
 type Websocket struct {
@@ -19,7 +20,7 @@ func NewWebsocket(up *websocket.Upgrader, w http.ResponseWriter, r *http.Request
 	var ret Websocket
 	connTemp, err := up.Upgrade(w, r, responseHeader)
 	if err != nil {
-		return nil, err
+		return nil, tracerr.Wrap(err)
 	}
 	ret.Conn = *connTemp
 	return &ret, nil
@@ -29,56 +30,59 @@ func DialWebsocket(d *websocket.Dialer, urlStr string, requestHeader http.Header
 	var ret Websocket
 	connTemp, resp, err := d.Dial(urlStr, requestHeader)
 	if err != nil {
-		return nil, resp, err
+		return nil, resp, tracerr.Wrap(err)
 	}
 	ret.Conn = *connTemp
 	return &ret, resp, nil
 }
 
-func (c *Websocket) NextReader() (messageType int, r io.Reader, err error) {
+func (c *Websocket) NextReader() (int, io.Reader, error) {
 	c.rMutex.Lock()
 	defer c.rMutex.Unlock()
-	return c.Conn.NextReader()
+	m, r, err := c.Conn.NextReader()
+	return m, r, tracerr.Wrap(err)
 }
 
 func (c *Websocket) NextWriter(messageType int) (io.WriteCloser, error) {
 	c.wMutex.Lock()
 	defer c.wMutex.Unlock()
-	return c.Conn.NextWriter(messageType)
+	w, err := c.Conn.NextWriter(messageType)
+	return w, tracerr.Wrap(err)
 }
 
 func (c *Websocket) SetReadDeadline(t time.Time) error {
 	c.rMutex.Lock()
 	defer c.rMutex.Unlock()
-	return c.Conn.SetReadDeadline(t)
+	return tracerr.Wrap(c.Conn.SetReadDeadline(t))
 }
 
 func (c *Websocket) SetWriteDeadline(t time.Time) error {
 	c.wMutex.Lock()
 	defer c.wMutex.Unlock()
-	return c.Conn.SetWriteDeadline(t)
+	return tracerr.Wrap(c.Conn.SetWriteDeadline(t))
 }
 
 func (c *Websocket) WriteJSON(v interface{}) error {
 	c.wMutex.Lock()
 	defer c.wMutex.Unlock()
-	return c.Conn.WriteJSON(v)
+	return tracerr.Wrap(c.Conn.WriteJSON(v))
 }
 
 func (c *Websocket) WriteMessage(messageType int, data []byte) error {
 	c.wMutex.Lock()
 	defer c.wMutex.Unlock()
-	return c.Conn.WriteMessage(messageType, data)
+	return tracerr.Wrap(c.Conn.WriteMessage(messageType, data))
 }
 
 func (c *Websocket) ReadJSON(v interface{}) error {
 	c.rMutex.Lock()
 	defer c.rMutex.Unlock()
-	return c.Conn.ReadJSON(v)
+	return tracerr.Wrap(c.Conn.ReadJSON(v))
 }
 
-func (c *Websocket) ReadMessage() (messageType int, p []byte, err error) {
+func (c *Websocket) ReadMessage() (int, []byte, error) {
 	c.rMutex.Lock()
 	defer c.rMutex.Unlock()
-	return c.Conn.ReadMessage()
+	m, p, err := c.Conn.ReadMessage()
+	return m, p, tracerr.Wrap(err)
 }

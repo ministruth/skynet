@@ -1,11 +1,11 @@
 package api
 
 import (
+	"fmt"
 	"skynet/sn"
 	"skynet/sn/utils"
 
 	"github.com/gin-gonic/gin"
-	log "github.com/sirupsen/logrus"
 )
 
 type siteAPI struct {
@@ -30,7 +30,7 @@ func (s *siteAPI) AddAPI(i []*sn.SNAPIItem) {
 				return func(c *gin.Context) {
 					code, err := f(c, nil)
 					if err != nil {
-						log.Error(err)
+						utils.WithTrace(err).Error(err)
 						c.AbortWithStatus(code)
 						return
 					}
@@ -40,6 +40,8 @@ func (s *siteAPI) AddAPI(i []*sn.SNAPIItem) {
 			fun = utils.WithSignIn(v.Func, false)
 		case sn.RoleAdmin:
 			fun = utils.WithAdmin(v.Func, false)
+		default:
+			panic(fmt.Sprintf("Role undefined: %v", v.Role))
 		}
 		switch v.Method {
 		case sn.APIGet:

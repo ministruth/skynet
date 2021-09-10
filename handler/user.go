@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"skynet/sn"
 	"skynet/sn/utils"
+
+	"github.com/ztrue/tracerr"
 )
 
 type siteUser struct{}
@@ -15,7 +17,7 @@ func NewUser() sn.SNUser {
 
 func (u *siteUser) Count() (int64, error) {
 	var count int64
-	err := utils.GetDB().Model(&sn.User{}).Count(&count).Error
+	err := tracerr.Wrap(utils.GetDB().Model(&sn.User{}).Count(&count).Error)
 	return count, err
 }
 
@@ -38,8 +40,7 @@ func (u *siteUser) New(username string, password string, avatar []byte, role sn.
 		Avatar:   webpAvatar.Data,
 		Role:     role,
 	}
-	err = utils.GetDB().Create(&user).Error
-	if err != nil {
+	if err := tracerr.Wrap(utils.GetDB().Create(&user).Error); err != nil {
 		return "", err
 	}
 	err = sn.Skynet.Notification.New(sn.NotifySuccess, "User operation", "Add new user "+username+" success")
@@ -52,8 +53,7 @@ func (u *siteUser) New(username string, password string, avatar []byte, role sn.
 func (u *siteUser) Update(id int, username string, password string, role sn.UserRole, avatar []byte, kick bool) error {
 	var err error
 	if kick {
-		err = utils.DeleteSessionsByID(id)
-		if err != nil {
+		if err := utils.DeleteSessionsByID(id); err != nil {
 			return err
 		}
 	}
@@ -70,8 +70,7 @@ func (u *siteUser) Update(id int, username string, password string, role sn.User
 	}
 
 	var rec sn.User
-	err = utils.GetDB().First(&rec, id).Error
-	if err != nil {
+	if err := tracerr.Wrap(utils.GetDB().First(&rec, id).Error); err != nil {
 		return err
 	}
 	if username != "" {
@@ -86,13 +85,12 @@ func (u *siteUser) Update(id int, username string, password string, role sn.User
 	if avatar != nil {
 		rec.Avatar = webpAvatar.Data
 	}
-	return utils.GetDB().Save(&rec).Error
+	return tracerr.Wrap(utils.GetDB().Save(&rec).Error)
 }
 
 func (u *siteUser) Delete(id int) (bool, error) {
 	// kick first
-	err := utils.DeleteSessionsByID(id)
-	if err != nil {
+	if err := utils.DeleteSessionsByID(id); err != nil {
 		return false, err
 	}
 
@@ -100,9 +98,9 @@ func (u *siteUser) Delete(id int) (bool, error) {
 	if res.RowsAffected == 0 {
 		return false, nil
 	} else if res.Error != nil {
-		return false, err
+		return false, tracerr.Wrap(res.Error)
 	}
-	err = sn.Skynet.Notification.New(sn.NotifyWarning, "User operation", fmt.Sprintf("Delete user id %v success", id))
+	err := sn.Skynet.Notification.New(sn.NotifyWarning, "User operation", fmt.Sprintf("Delete user id %v success", id))
 	if err != nil {
 		return false, err
 	}
@@ -111,7 +109,7 @@ func (u *siteUser) Delete(id int) (bool, error) {
 
 func (u *siteUser) GetByUsername(username string) (*sn.User, error) {
 	var rec sn.User
-	err := utils.GetDB().Where("username = ?", username).First(&rec).Error
+	err := tracerr.Wrap(utils.GetDB().Where("username = ?", username).First(&rec).Error)
 	if err != nil {
 		return nil, err
 	}
@@ -120,8 +118,7 @@ func (u *siteUser) GetByUsername(username string) (*sn.User, error) {
 
 func (u *siteUser) GetByID(id int) (*sn.User, error) {
 	var rec sn.User
-	err := utils.GetDB().First(&rec, id).Error
-	if err != nil {
+	if err := tracerr.Wrap(utils.GetDB().First(&rec, id).Error); err != nil {
 		return nil, err
 	}
 	return &rec, nil
@@ -129,24 +126,21 @@ func (u *siteUser) GetByID(id int) (*sn.User, error) {
 
 func (u *siteUser) Reset(id int) (string, error) {
 	var rec sn.User
-	err := utils.GetDB().First(&rec, id).Error
-	if err != nil {
+	if err := tracerr.Wrap(utils.GetDB().First(&rec, id).Error); err != nil {
 		return "", err
 	}
 
 	// ensure security, kick first
-	err = utils.DeleteSessionsByID(int(rec.ID))
-	if err != nil {
+	if err := utils.DeleteSessionsByID(int(rec.ID)); err != nil {
 		return "", err
 	}
 
 	newpass := utils.RandString(8)
 	rec.Password = HashPass(newpass)
-	err = utils.GetDB().Save(&rec).Error
-	if err != nil {
+	if err := tracerr.Wrap(utils.GetDB().Save(&rec).Error); err != nil {
 		return "", err
 	}
-	err = sn.Skynet.Notification.New(sn.NotifyWarning, "User operation", fmt.Sprintf("Reset user id %v success", id))
+	err := sn.Skynet.Notification.New(sn.NotifyWarning, "User operation", fmt.Sprintf("Reset user id %v success", id))
 	if err != nil {
 		return "", err
 	}
@@ -156,8 +150,7 @@ func (u *siteUser) Reset(id int) (string, error) {
 func (u *siteUser) ResetAll() (map[string]string, error) {
 	var rec []sn.User
 	ret := make(map[string]string)
-	err := utils.GetDB().Find(&rec).Error
-	if err != nil {
+	if err := tracerr.Wrap(utils.GetDB().Find(&rec).Error); err != nil {
 		return nil, err
 	}
 	if len(rec) == 0 {
@@ -165,8 +158,7 @@ func (u *siteUser) ResetAll() (map[string]string, error) {
 	}
 
 	// ensure security, kick first
-	err = utils.GetRedis().FlushDB(context.Background()).Err()
-	if err != nil {
+	if err := tracerr.Wrap(utils.GetRedis().FlushDB(context.Background()).Err()); err != nil {
 		return nil, err
 	}
 
@@ -176,8 +168,7 @@ func (u *siteUser) ResetAll() (map[string]string, error) {
 		ret[rec[i].Username] = newpass
 	}
 
-	err = utils.GetDB().Save(&rec).Error
-	if err != nil {
+	if err := tracerr.Wrap(utils.GetDB().Save(&rec).Error); err != nil {
 		return nil, err
 	}
 	return ret, nil
@@ -185,5 +176,5 @@ func (u *siteUser) ResetAll() (map[string]string, error) {
 
 func (u *siteUser) GetAll(cond *sn.SNCondition) ([]*sn.User, error) {
 	var ret []*sn.User
-	return ret, utils.DBParseCondition(cond).Find(&ret).Error
+	return ret, tracerr.Wrap(utils.DBParseCondition(cond).Find(&ret).Error)
 }

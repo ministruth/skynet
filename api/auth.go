@@ -1,6 +1,7 @@
 package api
 
 import (
+	"fmt"
 	"skynet/handler"
 	"skynet/sn"
 	"skynet/sn/utils"
@@ -9,6 +10,7 @@ import (
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
+	"github.com/ztrue/tracerr"
 )
 
 type authParam struct {
@@ -20,7 +22,7 @@ type authParam struct {
 
 func APISignIn(c *gin.Context, u *sn.User) (int, error) {
 	var param authParam
-	if err := c.ShouldBind(&param); err != nil {
+	if err := tracerr.Wrap(c.ShouldBind(&param)); err != nil {
 		return 400, err
 	}
 	logf := log.WithFields(log.Fields{
@@ -30,7 +32,7 @@ func APISignIn(c *gin.Context, u *sn.User) (int, error) {
 
 	if viper.GetBool("recaptcha.enable") {
 		if err := utils.VerifyCAPTCHA(param.Recaptcha, utils.GetIP(c)); err != nil {
-			log.Warn(err)
+			utils.WithLogTrace(logf, err).Warn(err)
 			c.JSON(200, gin.H{"code": 2, "msg": "reCAPTCHA not valid"})
 			return 0, nil
 		}
@@ -45,7 +47,7 @@ func APISignIn(c *gin.Context, u *sn.User) (int, error) {
 	case 0: // signin
 		usr.LastLogin = time.Now()
 		usr.LastIP = utils.GetIP(c)
-		if err := utils.GetDB().Save(usr).Error; err != nil {
+		if err := tracerr.Wrap(utils.GetDB().Save(usr).Error); err != nil {
 			return 500, err
 		}
 
@@ -63,7 +65,7 @@ func APISignIn(c *gin.Context, u *sn.User) (int, error) {
 			return 500, err
 		}
 
-		err = sn.Skynet.Notification.New(sn.NotifySuccess, "User signin", "User "+param.Username+" signin")
+		err = sn.Skynet.Notification.New(sn.NotifySuccess, "User signin", fmt.Sprintf("User %v signin", param.Username))
 		if err != nil {
 			return 500, err
 		}

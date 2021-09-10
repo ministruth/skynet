@@ -3,7 +3,6 @@ package msg
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"os"
 	"skynet/plugin/monitor/shared"
 	"time"
@@ -11,6 +10,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	log "github.com/sirupsen/logrus"
+	"github.com/ztrue/tracerr"
 )
 
 // OPCode is agent message operation.
@@ -44,7 +44,7 @@ const (
 )
 
 var (
-	MsgFormatError = errors.New("Msg format error")
+	MsgFormatError = tracerr.New("Msg format error")
 )
 
 type CommonMsg struct {
@@ -127,18 +127,18 @@ type StatMsg struct {
 	BandDown  uint64    // unit bytes
 }
 
-// Marshal uses json marshal to convert v to bytes, exit when facing any error.
+// Marshal uses json marshal to convert v to bytes, panic when facing any error.
 func Marshal(v interface{}) []byte {
 	d, err := json.Marshal(v)
 	if err != nil {
-		log.Fatal(err)
+		log.Panic(err)
 	}
 	return d
 }
 
 // Unmarshal just wrapper for json.Unmarshal.
 func Unmarshal(data []byte, v interface{}) error {
-	return json.Unmarshal(data, v)
+	return tracerr.Wrap(json.Unmarshal(data, v))
 }
 
 // SendMsgStr send string message s to c, return message uuid and error.
@@ -192,7 +192,7 @@ func RecvMsgRet(id uuid.UUID, recvChan *shared.ChanMap, timeout time.Duration) (
 		return nil, shared.OPTimeoutError
 	}
 	if ret.Code == -1 {
-		return ret, errors.New(ret.Data)
+		return ret, tracerr.New(ret.Data)
 	}
 	return ret, nil
 }
@@ -218,8 +218,7 @@ func RecvShellMsg(c *shared.Websocket) (*ShellMsg, []byte, error) {
 		return nil, nil, err
 	}
 	var res ShellMsg
-	err = Unmarshal(msgRead, &res)
-	if err != nil {
+	if err := Unmarshal(msgRead, &res); err != nil {
 		return nil, msgRead, err
 	}
 	return &res, msgRead, nil
@@ -232,8 +231,7 @@ func RecvMsg(c *shared.Websocket) (*CommonMsg, []byte, error) {
 		return nil, nil, err
 	}
 	var res CommonMsg
-	err = Unmarshal(msgRead, &res)
-	if err != nil {
+	if err := Unmarshal(msgRead, &res); err != nil {
 		return nil, msgRead, err
 	}
 	return &res, msgRead, nil

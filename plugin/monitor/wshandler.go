@@ -2,7 +2,6 @@ package main
 
 import (
 	"context"
-	"errors"
 	"net/http"
 	"os"
 	"path"
@@ -18,6 +17,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/hashicorp/go-version"
 	log "github.com/sirupsen/logrus"
+	"github.com/ztrue/tracerr"
 )
 
 var agentInstance shared.AgentMap
@@ -30,21 +30,20 @@ func msgInfoHandler(c *shared.Websocket, agent *shared.AgentInfo, m *msg.CommonM
 	var data msg.InfoMsg
 	err := msg.Unmarshal(m.Data, &data)
 	if err != nil || len(data.Host) > 256 || len(data.Machine) > 32 || len(data.System) > 128 {
-		return errors.New("Message format error: " + err.Error())
+		return tracerr.New("Message format error: " + err.Error())
 	}
 	agent.HostName = data.Host
 	agent.Machine = data.Machine
 	agent.System = data.System
 
 	var rec shared.PluginMonitorAgent
-	if err = utils.GetDB().First(&rec, agent.ID).Error; err != nil {
+	if err := tracerr.Wrap(utils.GetDB().First(&rec, agent.ID).Error); err != nil {
 		return err
 	}
 	rec.Hostname = data.Host
 	rec.Machine = data.Machine
 	rec.System = data.System
-	err = utils.GetDB().Save(&rec).Error
-	if err != nil {
+	if err := tracerr.Wrap(utils.GetDB().Save(&rec).Error); err != nil {
 		return err
 	}
 
@@ -52,7 +51,7 @@ func msgInfoHandler(c *shared.Websocket, agent *shared.AgentInfo, m *msg.CommonM
 	v1 := version.Must(version.NewVersion(shared.AgentVersion))
 	v2, err := version.NewVersion(data.Version)
 	if err != nil {
-		return err
+		return tracerr.Wrap(err)
 	}
 	if v1.GreaterThan(v2) {
 		go func() {
@@ -79,7 +78,7 @@ func msgInfoHandler(c *shared.Websocket, agent *shared.AgentInfo, m *msg.CommonM
 			}
 			f, err := os.ReadFile(path.Join(Instance.Path, name))
 			if err != nil {
-				logf.Error(err)
+				utils.WithLogTrace(logf, tracerr.Wrap(err)).Error(err)
 				return
 			}
 			id, err := msg.SendMsgByte(c, uuid.Nil, msg.OPFile, msg.Marshal(msg.FileMsg{
@@ -89,12 +88,12 @@ func msgInfoHandler(c *shared.Websocket, agent *shared.AgentInfo, m *msg.CommonM
 				Perm:     0755,
 			}))
 			if err != nil {
-				logf.Error(err)
+				utils.WithLogTrace(logf, err).Error(err)
 				return
 			}
 			ret, err := msg.RecvMsgRet(id, agent.MsgRetChan, 3600*time.Second)
 			if err != nil {
-				logf.Error(err)
+				utils.WithLogTrace(logf, err).Error(err)
 				return
 			}
 			if ret.Code != 0 {
@@ -103,12 +102,12 @@ func msgInfoHandler(c *shared.Websocket, agent *shared.AgentInfo, m *msg.CommonM
 			}
 			_, err = msg.SendMsgByte(c, uuid.Nil, msg.OPRestart, []byte{})
 			if err != nil {
-				logf.Error(err)
+				utils.WithLogTrace(logf, err).Error(err)
 				return
 			}
 			err = sn.Skynet.Notification.New(sn.NotifySuccess, "Plugin monitor", "Agent "+agent.IP+" updated")
 			if err != nil {
-				logf.Error(err)
+				utils.WithLogTrace(logf, err).Error(err)
 				return
 			}
 			logf.Info("Update agent success")
@@ -129,12 +128,12 @@ func msgStatHandler(c *shared.Websocket, agent *shared.AgentInfo, m *msg.CommonM
 	agent.TotalDisk = data.TotalDisk
 	agent.Load1 = data.Load1
 	agent.Latency = time.Since(data.Time).Milliseconds() / 2 // round-trip
-	current := time.Since(agent.LastRsp).Seconds()
+	current := data.Time.Sub(agent.LastRsp).Seconds()
 	agent.NetUp = uint64(float64(data.BandUp-agent.BandUp) / current)
 	agent.NetDown = uint64(float64(data.BandDown-agent.BandDown) / current)
 	agent.BandUp = data.BandUp
 	agent.BandDown = data.BandDown
-	agent.LastRsp = time.Now()
+	agent.LastRsp = data.Time
 	return nil
 }
 
@@ -174,7 +173,7 @@ func msgShellHandler(c *shared.Websocket, agent *shared.AgentInfo, m *msg.Common
 	var data msg.ShellMsg
 	err := msg.Unmarshal(m.Data, &data)
 	if err != nil || data.OPCode != msg.ShellOutput {
-		return errors.New("Message format error: " + err.Error())
+		return tracerr.New("Message format error: " + err.Error())
 	}
 	return msg.SendShellMsgByte(agent.ShellConn.MustGet(data.SID), uuid.Nil, msg.ShellOutput, data.Data)
 }
@@ -187,7 +186,7 @@ func ReqStat(ctx context.Context, c *shared.Websocket) {
 		case <-ticker.C:
 			_, err := msg.SendMsgStr(c, uuid.Nil, msg.OPReqStat, strconv.FormatInt(time.Now().UnixNano(), 10))
 			if err != nil {
-				log.Warn(err)
+				utils.WithTrace(err).Warn(err)
 			}
 			id++
 		case <-ctx.Done():
@@ -213,7 +212,7 @@ func WSHandler(ip string, w http.ResponseWriter, r *http.Request) {
 		EnableCompression: true,
 	}, w, r, nil)
 	if err != nil {
-		logf.Error(err)
+		utils.WithLogTrace(logf, err).Error(err)
 		return
 	}
 	defer func() {
@@ -226,10 +225,10 @@ func WSHandler(ip string, w http.ResponseWriter, r *http.Request) {
 		res, msgRead, err := msg.RecvMsg(conn)
 		if err != nil {
 			if msgRead == nil {
-				logf.Error("Connection lost")
+				utils.WithLogTrace(logf, err).Error("Connection lost")
 				return
 			} else {
-				logf.Warn(err)
+				utils.WithLogTrace(logf, err).Warn(err)
 				continue
 			}
 		}
@@ -238,7 +237,7 @@ func WSHandler(ip string, w http.ResponseWriter, r *http.Request) {
 				var data msg.LoginMsg
 				err = msg.Unmarshal(res.Data, &data)
 				if err != nil || len(data.UID) != 32 {
-					logf.Warn("Message format error: ", err)
+					utils.WithLogTrace(logf, err).Warn("Message format error: ", err)
 					continue
 				}
 				if data.Token == token {
@@ -247,9 +246,9 @@ func WSHandler(ip string, w http.ResponseWriter, r *http.Request) {
 						Name: data.UID[:6],
 					})
 					var rec shared.PluginMonitorAgent
-					err = utils.GetDB().Where("uid = ?", data.UID).First(&rec).Error
+					err = tracerr.Wrap(utils.GetDB().Where("uid = ?", data.UID).First(&rec).Error)
 					if err != nil {
-						logf.Error(err)
+						utils.WithLogTrace(logf, err).Error(err)
 						return
 					}
 					id = int(rec.ID)
@@ -263,9 +262,8 @@ func WSHandler(ip string, w http.ResponseWriter, r *http.Request) {
 					connTime := time.Now()
 					rec.LastIP = ip
 					rec.LastLogin = connTime
-					err = utils.GetDB().Save(&rec).Error
-					if err != nil {
-						logf.Error(err)
+					if err := tracerr.Wrap(utils.GetDB().Save(&rec).Error); err != nil {
+						utils.WithLogTrace(logf, err).Error(err)
 						return
 					}
 
@@ -323,7 +321,7 @@ func WSHandler(ip string, w http.ResponseWriter, r *http.Request) {
 				logf.Warn("Unknown opcode ", res.OPCode)
 			}
 			if err != nil {
-				logf.Warn(err)
+				utils.WithLogTrace(logf, err).Warn(err)
 			}
 		}
 	}
@@ -346,7 +344,7 @@ func ShellHandler(ip string, w http.ResponseWriter, r *http.Request) {
 		EnableCompression: true,
 	}, w, r, nil)
 	if err != nil {
-		logf.Error(err)
+		utils.WithLogTrace(logf, err).Error(err)
 		return
 	}
 	defer func() {
@@ -363,7 +361,7 @@ func ShellHandler(ip string, w http.ResponseWriter, r *http.Request) {
 				logf.Info("Shell closed")
 				return
 			} else {
-				logf.Warn(err)
+				utils.WithLogTrace(logf, err).Warn(err)
 				continue
 			}
 		}
@@ -377,7 +375,7 @@ func ShellHandler(ip string, w http.ResponseWriter, r *http.Request) {
 			if res.OPCode == msg.ShellConnect {
 				var data msg.ShellConnectMsg
 				if err := msg.Unmarshal(res.Data, &data); err != nil {
-					logf.Warn(err)
+					utils.WithLogTrace(logf, err).Warn(err)
 					continue
 				}
 				agent, ok := agentInstance.Get(data.ID)
@@ -394,23 +392,23 @@ func ShellHandler(ip string, w http.ResponseWriter, r *http.Request) {
 
 				msgID, err := msg.SendMsgByte(agent.Conn, uuid.Nil, msg.OPShell, msgRead)
 				if err != nil {
-					logf.Error(err)
+					utils.WithLogTrace(logf, err).Error(err)
 					continue
 				}
 				id = data.ID
 				rec, err := msg.RecvMsgRet(msgID, agent.MsgRetChan, time.Second*3)
 				if err != nil {
-					logf.Error(err)
+					utils.WithLogTrace(logf, err).Error(err)
 					return
 				}
 				err = msg.SendShellMsgStr(conn, msgID, msg.ShellReturn, rec.Data)
 				if err != nil {
-					logf.Error(err)
+					utils.WithLogTrace(logf, err).Error(err)
 					return
 				}
 				sid, err := uuid.Parse(rec.Data)
 				if err != nil {
-					logf.Error(err)
+					utils.WithLogTrace(logf, tracerr.Wrap(err)).Error(err)
 					return
 				}
 				agent.ShellConn.Set(sid, conn)
@@ -420,7 +418,7 @@ func ShellHandler(ip string, w http.ResponseWriter, r *http.Request) {
 						OPCode: msg.ShellDisconnect,
 					}))
 					if err != nil {
-						logf.Warn(err)
+						utils.WithLogTrace(logf, err).Warn(err)
 					}
 					logf.Debug("Shell disconnected")
 				}()
@@ -438,7 +436,7 @@ func ShellHandler(ip string, w http.ResponseWriter, r *http.Request) {
 			case msg.ShellSize:
 				_, err := msg.SendMsgByte(agent.Conn, uuid.Nil, msg.OPShell, msgRead)
 				if err != nil {
-					logf.Warn(err)
+					utils.WithLogTrace(logf, err).Warn(err)
 					msg.SendShellMsgStr(conn, uuid.Nil, msg.ShellError, err.Error())
 				}
 			case msg.ShellDisconnect:

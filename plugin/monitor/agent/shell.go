@@ -1,7 +1,6 @@
 package main
 
 import (
-	"errors"
 	"io"
 	"os"
 	"os/exec"
@@ -11,7 +10,7 @@ import (
 
 	"github.com/creack/pty"
 	"github.com/google/uuid"
-	log "github.com/sirupsen/logrus"
+	"github.com/ztrue/tracerr"
 )
 
 type shellAgent struct {
@@ -23,7 +22,7 @@ type shellAgent struct {
 var shellInstance utils.UUIDMap
 
 var (
-	ErrShellAgentNotExist = errors.New("shell agent not exist")
+	ErrShellAgentNotExist = tracerr.New("shell agent not exist")
 )
 
 func getShellAgent(sid uuid.UUID) (*shellAgent, error) {
@@ -41,7 +40,7 @@ func CreateShell(size *msg.ShellSizeMsg) (uuid.UUID, error) {
 	cmd.Env = append(os.Environ(), "TERM=xterm")
 	tty, err := pty.Start(cmd)
 	if err != nil {
-		return uuid.Nil, err
+		return uuid.Nil, tracerr.Wrap(err)
 	}
 	pty.Setsize(tty, &pty.Winsize{
 		Rows: size.Rows,
@@ -75,7 +74,7 @@ func CloseShell(sid uuid.UUID) {
 func HandleShellInput(sid uuid.UUID, str string) {
 	item, err := getShellAgent(sid)
 	if err != nil {
-		log.Warn(err)
+		utils.WithTrace(err).Warn(err)
 		return
 	}
 	io.WriteString(item.TTY, str)
@@ -84,7 +83,7 @@ func HandleShellInput(sid uuid.UUID, str string) {
 func SetShellSize(sid uuid.UUID, size *msg.ShellSizeMsg) {
 	item, err := getShellAgent(sid)
 	if err != nil {
-		log.Warn(err)
+		utils.WithTrace(err).Warn(err)
 		return
 	}
 	pty.Setsize(item.TTY, &pty.Winsize{
@@ -99,7 +98,7 @@ func SetShellSize(sid uuid.UUID, size *msg.ShellSizeMsg) {
 func HandleShellOutput(conn *shared.Websocket, sid uuid.UUID) {
 	item, err := getShellAgent(sid)
 	if err != nil {
-		log.Warn(err)
+		utils.WithTrace(err).Warn(err)
 		return
 	}
 	for {
@@ -116,7 +115,7 @@ func HandleShellOutput(conn *shared.Websocket, sid uuid.UUID) {
 			Data:   buf[:bufLen],
 		}))
 		if err != nil {
-			log.Warn(err)
+			utils.WithTrace(err).Warn(err)
 		}
 	}
 }

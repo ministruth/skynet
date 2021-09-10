@@ -1,12 +1,12 @@
 package handler
 
 import (
-	"encoding/json"
+	"fmt"
 	"skynet/sn"
 	"skynet/sn/utils"
 
-	"github.com/jinzhu/copier"
 	log "github.com/sirupsen/logrus"
+	"github.com/ztrue/tracerr"
 )
 
 type siteNotification struct{}
@@ -21,50 +21,49 @@ func (s *siteNotification) New(level sn.NotifyLevel, name string, message string
 		Name:    name,
 		Message: message,
 	}
-	return utils.GetDB().Create(&notify).Error
+	return tracerr.Wrap(utils.GetDB().Create(&notify).Error)
 }
 
 func (s *siteNotification) Delete(id int) error {
 	if id == 0 {
 		return s.DeleteAll()
 	} else {
-		return utils.GetDB().Delete(&sn.Notification{}, id).Error
+		return tracerr.Wrap(utils.GetDB().Delete(&sn.Notification{}, id).Error)
 	}
 }
 
 func (s *siteNotification) DeleteAll() error {
-	return utils.GetDB().Where("1 = 1").Delete(&sn.Notification{}).Error
+	return tracerr.Wrap(utils.GetDB().Where("1 = 1").Delete(&sn.Notification{}).Error)
 }
 
 func (s *siteNotification) MarkRead(id int) error {
 	if id == 0 {
 		return s.MarkAllRead()
 	} else {
-		return utils.GetDB().Model(&sn.Notification{}).Where("id = ?", id).Update("read", 1).Error
+		return tracerr.Wrap(utils.GetDB().Model(&sn.Notification{}).Where("id = ?", id).Update("read", 1).Error)
 	}
 }
 
 func (s *siteNotification) MarkAllRead() error {
-	return utils.GetDB().Model(&sn.Notification{}).Where("read = ?", "0").Update("read", 1).Error
+	return tracerr.Wrap(utils.GetDB().Model(&sn.Notification{}).Where("read = ?", "0").Update("read", 1).Error)
 }
 
 func (s *siteNotification) Count(read interface{}) (int64, error) {
 	var count int64
 	var err error
 	if read == nil {
-		err = utils.GetDB().Model(&sn.Notification{}).Count(&count).Error
+		err = tracerr.Wrap(utils.GetDB().Model(&sn.Notification{}).Count(&count).Error)
 	} else if read.(bool) {
-		err = utils.GetDB().Model(&sn.Notification{}).Where("read = ?", 1).Count(&count).Error
+		err = tracerr.Wrap(utils.GetDB().Model(&sn.Notification{}).Where("read = ?", 1).Count(&count).Error)
 	} else {
-		err = utils.GetDB().Model(&sn.Notification{}).Where("read = ?", 0).Count(&count).Error
+		err = tracerr.Wrap(utils.GetDB().Model(&sn.Notification{}).Where("read = ?", 0).Count(&count).Error)
 	}
 	return count, err
 }
 
 func (s *siteNotification) GetByID(id int) (*sn.Notification, error) {
 	var ret sn.Notification
-	err := utils.GetDB().First(&ret, id).Error
-	if err != nil {
+	if err := tracerr.Wrap(utils.GetDB().First(&ret, id).Error); err != nil {
 		return nil, err
 	}
 	return &ret, nil
@@ -72,7 +71,7 @@ func (s *siteNotification) GetByID(id int) (*sn.Notification, error) {
 
 func (s *siteNotification) GetAll(cond *sn.SNCondition) ([]*sn.Notification, error) {
 	var ret []*sn.Notification
-	return ret, utils.DBParseCondition(cond).Find(&ret).Error
+	return ret, tracerr.Wrap(utils.DBParseCondition(cond).Find(&ret).Error)
 }
 
 type NotificationHook struct{}
@@ -95,16 +94,11 @@ func (h NotificationHook) Fire(e *log.Entry) error {
 	case log.FatalLevel:
 		level = sn.NotifyFatal
 	}
-	data := make(log.Fields, len(e.Data))
-	copier.CopyWithOption(&data, &e.Data, copier.Option{DeepCopy: true})
-	delete(data, "caller")
-	delete(data, "stack")
-	d, err := json.Marshal(data)
-	if err != nil {
-		d = []byte{}
+	var msg string
+	for k, v := range e.Data {
+		if k != "caller" && k != "stack" && k != "debug" {
+			msg = fmt.Sprintf("%v %v:%v", msg, k, v)
+		}
 	}
-	if string(d) == "{}" || string(d) == "" {
-		return sn.Skynet.Notification.New(level, "Skynet log", e.Message)
-	}
-	return sn.Skynet.Notification.New(level, "Skynet log", e.Message+" "+string(d))
+	return sn.Skynet.Notification.New(level, "Skynet log", e.Message+msg)
 }

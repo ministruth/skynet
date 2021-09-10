@@ -20,13 +20,21 @@ type SNAPI interface {
 type SNAPIMethod int
 
 const (
+	// APIGet represents HTTP Get method
 	APIGet SNAPIMethod = iota
+	// APIPost represents HTTP Post method
 	APIPost
+	// APIPut represents HTTP Put method
 	APIPut
+	// APIPatch represents HTTP Patch method
 	APIPatch
+	// APIDelete represents HTTP Delete method
 	APIDelete
+	// APIOptions represents HTTP Options method
 	APIOptions
+	// APIHead represents HTTP Head method
 	APIHead
+	// APIAny represents any HTTP method
 	APIAny
 )
 

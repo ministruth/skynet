@@ -11,11 +11,12 @@ import (
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 	"github.com/vincent-petithory/dataurl"
+	"github.com/ztrue/tracerr"
 )
 
 func APIGetPlugin(c *gin.Context, u *sn.User) (int, error) {
 	var param paginationParam
-	if err := c.ShouldBindQuery(&param); err != nil {
+	if err := tracerr.Wrap(c.ShouldBindQuery(&param)); err != nil {
 		return 400, err
 	}
 
@@ -36,7 +37,7 @@ type addPluginParam struct {
 
 func APIAddPlugin(c *gin.Context, u *sn.User) (int, error) {
 	var param addPluginParam
-	if err := c.ShouldBind(&param); err != nil {
+	if err := tracerr.Wrap(c.ShouldBind(&param)); err != nil {
 		return 400, err
 	}
 	logf := log.WithFields(log.Fields{
@@ -45,7 +46,7 @@ func APIAddPlugin(c *gin.Context, u *sn.User) (int, error) {
 
 	f, err := dataurl.DecodeString(param.File)
 	if err != nil {
-		return 500, err
+		return 500, tracerr.Wrap(err)
 	}
 	if err := sn.Skynet.Plugin.New(f.Data); err != nil {
 		if errors.Is(err, handler.ErrPluginInvalid) {
@@ -63,18 +64,18 @@ func APIAddPlugin(c *gin.Context, u *sn.User) (int, error) {
 	return 0, nil
 }
 
-type updatePluginParam struct {
+type enablePluginParam struct {
 	Enable bool `json:"enable"`
 }
 
-func APIUpdatePlugin(c *gin.Context, u *sn.User) (int, error) {
-	var param updatePluginParam
-	if err := c.ShouldBind(&param); err != nil {
+func APIEnablePlugin(c *gin.Context, u *sn.User) (int, error) {
+	var param enablePluginParam
+	if err := tracerr.Wrap(c.ShouldBind(&param)); err != nil {
 		return 400, err
 	}
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		return 400, err
+		return 400, tracerr.Wrap(err)
 	}
 	logf := log.WithFields(log.Fields{
 		"ip":     utils.GetIP(c),
@@ -84,7 +85,7 @@ func APIUpdatePlugin(c *gin.Context, u *sn.User) (int, error) {
 
 	if param.Enable {
 		if err := sn.Skynet.Plugin.Enable(id); err != nil {
-			logf.Warn("Enable plugin fail")
+			utils.WithLogTrace(logf, err).Warn("Enable plugin fail")
 			c.JSON(200, gin.H{"code": 1, "msg": err.Error()})
 			return 0, nil
 		}
@@ -92,7 +93,7 @@ func APIUpdatePlugin(c *gin.Context, u *sn.User) (int, error) {
 		c.JSON(200, gin.H{"code": 0, "msg": "Enable plugin success"})
 	} else {
 		if err := sn.Skynet.Plugin.Disable(id); err != nil {
-			logf.Warn("Disable plugin fail")
+			utils.WithLogTrace(logf, err).Warn("Disable plugin fail")
 			c.JSON(200, gin.H{"code": 1, "msg": err.Error()})
 			return 0, nil
 		}

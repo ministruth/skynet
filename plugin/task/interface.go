@@ -9,7 +9,7 @@ import (
 	"skynet/sn"
 	"skynet/sn/utils"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/ztrue/tracerr"
 )
 
 func NewShared() shared.PluginShared {
@@ -19,8 +19,8 @@ func NewShared() shared.PluginShared {
 type pluginShared struct{}
 
 var (
-	ErrLoadMonitorPlugin    = errors.New("monitor plugin not available")
-	ErrTaskNotSupportCancel = errors.New("task not support cancel")
+	ErrLoadMonitorPlugin    = tracerr.New("monitor plugin not available")
+	ErrTaskNotSupportCancel = tracerr.New("task not support cancel")
 )
 
 func (s *pluginShared) GetInstance() *plugins.PluginInstance {
@@ -32,8 +32,7 @@ func (s *pluginShared) New(name string, detail string, cancel func() error) (int
 		Name:   name,
 		Detail: detail,
 	}
-	err := utils.GetDB().Create(&rec).Error
-	if err != nil {
+	if err := tracerr.Wrap(utils.GetDB().Create(&rec).Error); err != nil {
 		return 0, err
 	}
 	if cancel != nil {
@@ -65,38 +64,20 @@ func (s *pluginShared) CancelByUser(id int, msg string) error {
 
 func (s *pluginShared) Get(id int) (*shared.PluginTask, error) {
 	var ret shared.PluginTask
-	err := utils.GetDB().First(&ret, id).Error
-	if err != nil {
+	if err := tracerr.Wrap(utils.GetDB().First(&ret, id).Error); err != nil {
 		return nil, err
 	}
 	return &ret, nil
 }
 
-func (s *pluginShared) GetAll(order []interface{}, limit interface{}, offset interface{}, where interface{}, args ...interface{}) ([]*shared.PluginTask, error) {
+func (s *pluginShared) GetAll(cond *sn.SNCondition) ([]*shared.PluginTask, error) {
 	var ret []*shared.PluginTask
-	db := utils.GetDB()
-	for _, v := range order {
-		db = db.Order(v)
-	}
-	if limit != nil {
-		db = db.Limit(limit.(int))
-	}
-	if offset != nil {
-		db = db.Offset(offset.(int))
-	}
-	if where != nil {
-		db = db.Where(where, args...)
-	}
-	err := db.Find(&ret).Error
-	if err != nil {
-		return nil, err
-	}
-	return ret, nil
+	return ret, tracerr.Wrap(utils.DBParseCondition(cond).Find(&ret).Error)
 }
 
 func (s *pluginShared) Count() (int64, error) {
 	var count int64
-	err := utils.GetDB().Model(&shared.PluginTask{}).Count(&count).Error
+	err := tracerr.Wrap(utils.GetDB().Model(&shared.PluginTask{}).Count(&count).Error)
 	if err != nil {
 		return 0, err
 	}
@@ -109,8 +90,7 @@ func (s *pluginShared) AppendOutput(id int, out string) error {
 		return err
 	}
 	rec.Output += out
-	err = utils.GetDB().Save(rec).Error
-	if err != nil {
+	if err := tracerr.Wrap(utils.GetDB().Save(rec).Error); err != nil {
 		return err
 	}
 	return nil
@@ -125,8 +105,7 @@ func (s *pluginShared) AppendOutputNewLine(id int, out string) error {
 		rec.Output += "\n"
 	}
 	rec.Output += out
-	err = utils.GetDB().Save(rec).Error
-	if err != nil {
+	if err := tracerr.Wrap(utils.GetDB().Save(rec).Error); err != nil {
 		return err
 	}
 	return nil
@@ -138,8 +117,7 @@ func (s *pluginShared) UpdateOutput(id int, out string) error {
 		return err
 	}
 	rec.Output = out
-	err = utils.GetDB().Save(rec).Error
-	if err != nil {
+	if err := tracerr.Wrap(utils.GetDB().Save(rec).Error); err != nil {
 		return err
 	}
 	return nil
@@ -151,8 +129,7 @@ func (s *pluginShared) UpdateStatus(id int, status shared.TaskStatus) error {
 		return err
 	}
 	rec.Status = status
-	err = utils.GetDB().Save(rec).Error
-	if err != nil {
+	if err := tracerr.Wrap(utils.GetDB().Save(rec).Error); err != nil {
 		return err
 	}
 	if status == shared.TaskFail || status == shared.TaskStop || status == shared.TaskSuccess {
@@ -167,8 +144,7 @@ func (s *pluginShared) AddPercent(id int, percent int) error {
 		return err
 	}
 	rec.Percent += int32(percent)
-	err = utils.GetDB().Save(rec).Error
-	if err != nil {
+	if err := tracerr.Wrap(utils.GetDB().Save(rec).Error); err != nil {
 		return err
 	}
 	return nil
@@ -180,8 +156,7 @@ func (s *pluginShared) UpdatePercent(id int, percent int) error {
 		return err
 	}
 	rec.Percent = int32(percent)
-	err = utils.GetDB().Save(rec).Error
-	if err != nil {
+	if err := tracerr.Wrap(utils.GetDB().Save(rec).Error); err != nil {
 		return err
 	}
 	return nil
@@ -253,7 +228,7 @@ func (s *pluginShared) NewCustom(agentID int, name string, detail string, c func
 		if errors.Is(err, context.Canceled) {
 			s.CancelByUser(tid, "Task killed by user")
 		} else if err != nil {
-			log.WithFields(defaultField).Error(err)
+			utils.WithTrace(err).WithFields(defaultField).Error(err)
 			s.Cancel(tid, "Task fail: "+err.Error())
 			s.UpdateStatus(tid, shared.TaskFail)
 		}

@@ -12,12 +12,13 @@ import (
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/vincent-petithory/dataurl"
+	"github.com/ztrue/tracerr"
 	"gorm.io/gorm"
 )
 
 func APIGetUser(c *gin.Context, u *sn.User) (int, error) {
 	var param paginationParam
-	if err := c.ShouldBindQuery(&param); err != nil {
+	if err := tracerr.Wrap(c.ShouldBindQuery(&param)); err != nil {
 		return 400, err
 	}
 
@@ -59,7 +60,7 @@ type userAddParam struct {
 
 func APIAddUser(c *gin.Context, u *sn.User) (int, error) {
 	var param userAddParam
-	if err := c.ShouldBind(&param); err != nil {
+	if err := tracerr.Wrap(c.ShouldBind(&param)); err != nil {
 		return 400, err
 	}
 	fields := log.Fields{
@@ -70,7 +71,7 @@ func APIAddUser(c *gin.Context, u *sn.User) (int, error) {
 
 	content, err := ioutil.ReadFile(viper.GetString("default_avatar"))
 	if err != nil {
-		return 500, err
+		return 500, tracerr.Wrap(err)
 	}
 	_, err = sn.Skynet.User.New(param.Username, param.Password, content, param.Role)
 	if err != nil {
@@ -90,12 +91,12 @@ type userUpdateParam struct {
 
 func APIUpdateUser(c *gin.Context, u *sn.User) (int, error) {
 	var param userUpdateParam
-	if err := c.ShouldBind(&param); err != nil {
+	if err := tracerr.Wrap(c.ShouldBind(&param)); err != nil {
 		return 400, err
 	}
 	id, err := strconv.Atoi(c.Param("id"))
 	if err != nil || id <= 0 {
-		return 400, err
+		return 400, tracerr.Wrap(err)
 	}
 	logf := log.WithFields(log.Fields{
 		"ip":       utils.GetIP(c),
@@ -116,13 +117,13 @@ func APIUpdateUser(c *gin.Context, u *sn.User) (int, error) {
 	if param.Avatar != "" {
 		tmp, err := dataurl.DecodeString(param.Avatar)
 		if err != nil {
-			return 500, err
+			return 500, tracerr.Wrap(err)
 		}
 		avatar = tmp.Data
 	}
 	err = sn.Skynet.User.Update(id, param.Username, param.Password, param.Role, avatar, int(u.ID) != id)
 	if errors.Is(err, gorm.ErrRecordNotFound) {
-		logf.Warn("Edit user not exist")
+		utils.WithLogTrace(logf, err).Warn("Edit user not exist")
 		c.JSON(200, gin.H{"code": 1, "msg": "User not exists"})
 		return 0, nil
 	} else if err != nil {
@@ -144,7 +145,7 @@ type userDeleteParam struct {
 
 func APIDeleteUser(c *gin.Context, u *sn.User) (int, error) {
 	var param userDeleteParam
-	if err := c.ShouldBindUri(&param); err != nil {
+	if err := tracerr.Wrap(c.ShouldBindUri(&param)); err != nil {
 		return 400, err
 	}
 	logf := log.WithFields(log.Fields{
