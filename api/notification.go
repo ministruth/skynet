@@ -34,6 +34,7 @@ func APIGetNotification(c *gin.Context, u *sn.User) (int, error) {
 func APIDeleteNotification(c *gin.Context, u *sn.User) (int, error) {
 	logf := log.WithFields(log.Fields{
 		"ip": utils.GetIP(c),
+		"id": u.ID,
 	})
 
 	if err := sn.Skynet.Notification.DeleteAll(); err != nil {

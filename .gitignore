@@ -9,3 +9,5 @@ temp/
 bin/
 coverage.html
 coverage.out
+.VSCodeCounter
+packer/packer

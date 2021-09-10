@@ -18,11 +18,11 @@
         <thead>
           <tr>
             <th class="th-300">ID</th>
-            <th class="th-200">Name</th>
+            <th class="th-150">Name</th>
             <th class="th-70">Version</th>
             <th class="th-70">Status</th>
             <th>Message</th>
-            <th class="th-op1">Operation</th>
+            <th class="th-270">Operation</th>
           </tr>
         </thead>
         <tbody id="plugin">
@@ -37,6 +37,26 @@
   </div>
   <button id="reload" class="btn btn-primary">Reload Skynet</button>
 </div>
+</div>
+
+<div class="modal fade" id="modal-delete" aria-hidden="true">
+  <div class="modal-dialog">
+    <div class="modal-content bg-danger">
+      <div class="modal-header">
+        <h4 class="modal-title">Delete Plugin</h4>
+        <button type="button" class="close" data-dismiss="modal" aria-label="Close">
+          <span aria-hidden="true">×</span>
+        </button>
+      </div>
+      <div class="modal-body">
+        <p>Once delete, all data associated to this plugin will be deleted PERMANENTLY!</p>
+      </div>
+      <div class="modal-footer justify-content-between">
+        <button type="button" class="btn btn-outline-light" data-dismiss="modal">Cancel</button>
+        <button id="deleteConfirm" type="button" class="btn btn-outline-light">Confirm</button>
+      </div>
+    </div>
+  </div>
 </div>
 {{end}}
 
@@ -53,8 +73,12 @@
         <td>${d.Enable ? '<span class="badge bg-success">ENABLED</span>' : '<span class="badge bg-danger">DISABLED</span>'}</td>
         <td>${d.Message}</td>
         <td>
-          ${d.Enable ? '<button data-operation="disable" data-pluginID="' + d.ID + '" type="button" class="btn btn-outline-warning">Disable</button>' :
-        '<button data-operation="enable" data-pluginID="' + d.ID + '" type="button" class="btn btn-outline-primary">Enable</button>'}
+          ${d.Enable ? '<button data-operation="disable" data-pluginID="' + d.ID + '" type="button" class="btn btn-outline-warning mr-1">Disable</button>' :
+        '<button data-operation="enable" data-pluginID="' + d.ID + '" type="button" class="btn btn-outline-primary mr-1">Enable</button>'}
+          <button data-operation="update" data-pluginID="${d.ID}" type="button" class="btn btn-outline-warning mr-1">Update</button>
+          <input id="${d.ID}-file" data-pluginID="${d.ID}" type="file" name="file" class="hide" />
+          <button data-operation="delete" data-pluginID="${d.ID}" type="button" class="btn btn-outline-danger"
+            data-toggle="modal" data-target="#modal-delete">Delete</button>
         </td>
       </tr>
     `;
@@ -81,6 +105,44 @@
             'enable': false,
           }).done(DelayReload(5000));
         });
+
+        $('[data-operation="delete"]').click((e) => {
+          $('#deleteConfirm').attr('data-pluginID', e.target.getAttribute('data-pluginID'));
+        });
+
+        $('[data-operation="update"]').click((e) => {
+          $(`#${e.target.getAttribute('data-pluginID')}-file`).trigger('click');
+          $(`#${e.target.getAttribute('data-pluginID')}-file`)[0].onchange = (e) => {
+            var file = e.target.files[0];
+            if (file != undefined) {
+              var fr = new FileReader();
+              fr.readAsDataURL(file);
+              fr.onload = (ee) => {
+                JSONPatch(`/api/plugin/${e.target.getAttribute('data-pluginID')}`, { 'file': fr.result }).done((d) => {
+                  if (d.code != 0) {
+                    toastr.error(d.msg);
+                  } else {
+                    if (d.msg.includes('reload'))
+                      toastr.success(d.msg, "", {
+                        timeOut: 5000,
+                        onHidden: () => {
+                          location.reload();
+                        },
+                      });
+                    else
+                      toastr.success(d.msg, "", {
+                        timeOut: 1000,
+                        onHidden: () => {
+                          location.reload();
+                        },
+                      });
+                  }
+                });
+              };
+            }
+          }
+        });
+
         obj.data = e.data;
       }
     })
@@ -91,8 +153,13 @@
     JSONGet('/api/reload').done(DelayReload(5000));
   });
 
+  $('#deleteConfirm').click((e) => {
+    JSONDelete(`/api/plugin/${e.target.getAttribute('data-pluginID')}`).done(DelayReload(5000));
+  });
+
+
   $('#upload').click((e) => {
-    var file = $('input[type=file]')[0].files[0];
+    var file = $('#pluginPackage')[0].files[0];
     if (file != undefined) {
       var fr = new FileReader();
       fr.readAsDataURL(file);

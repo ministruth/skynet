@@ -78,20 +78,20 @@ func (p *sitePlugin) readPlugin(path string) error {
 	return nil
 }
 
-func (p *sitePlugin) readPluginFolder(dir string) {
+func (p *sitePlugin) readPluginFolder(dir string) error {
 	dirFile, err := ioutil.ReadDir(dir)
 	if err != nil {
-		utils.WithTrace(tracerr.Wrap(err)).Error(err)
-		return
+		return tracerr.Wrap(err)
 	}
 	for _, df := range dirFile {
 		if strings.HasSuffix(df.Name(), ".so") {
 			soFile := dir + "/" + df.Name()
 			if err := tracerr.Wrap(p.readPlugin(soFile)); err != nil {
-				utils.WithTrace(err).Error(err)
+				return err
 			}
 		}
 	}
+	return nil
 }
 
 func (p *sitePlugin) cleanPlugin() {
@@ -154,7 +154,9 @@ func NewPlugin(base string) (sn.SNPlugin, error) {
 	}
 	for _, f := range files {
 		if f.IsDir() {
-			ret.readPluginFolder(path.Join(base, f.Name()))
+			if err := ret.readPluginFolder(path.Join(base, f.Name())); err != nil {
+				utils.WithTrace(err).Error(err)
+			}
 		}
 	}
 	ret.cleanPlugin()
@@ -273,8 +275,10 @@ func (p *sitePlugin) New(buf []byte) error {
 	if err = p.UnzipPlugin(baseDir, zipReader); err != nil {
 		return err
 	}
-
-	p.readPluginFolder(baseDir)
+	if err := p.readPluginFolder(baseDir); err != nil {
+		os.RemoveAll(baseDir)
+		return err
+	}
 	if err := sn.Skynet.Setting.Set(pluginPrefix+pInstance.ID.String(), "0"); err != nil {
 		utils.WithTrace(err).Error(err)
 	}

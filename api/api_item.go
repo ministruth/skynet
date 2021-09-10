@@ -59,9 +59,15 @@ var api = []*sn.SNAPIItem{
 	},
 	{
 		Path:   "/plugin/:id",
+		Method: sn.APIDelete,
+		Role:   sn.RoleAdmin,
+		Func:   APIDeletePlugin,
+	},
+	{
+		Path:   "/plugin/:id",
 		Method: sn.APIPatch,
 		Role:   sn.RoleAdmin,
-		Func:   APIEnablePlugin,
+		Func:   APIUpdatePlugin,
 	},
 	{
 		Path:   "/notification",

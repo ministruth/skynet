@@ -39,7 +39,7 @@ func init() {
 }
 
 func connectDB() {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*time.Duration(viper.GetInt("database.timeout")))
 	defer cancel()
 
 	switch viper.GetString("database.type") {
@@ -54,7 +54,7 @@ func connectDB() {
 }
 
 func connectRedis() {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*time.Duration(viper.GetInt("redis.timeout")))
 	defer cancel()
 
 	sn.Skynet.Redis = db.NewRedis(ctx, &db.RedisConfig{
@@ -65,7 +65,7 @@ func connectRedis() {
 }
 
 func connectSession() {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*time.Duration(viper.GetInt("session.timeout")))
 	defer cancel()
 
 	sn.Skynet.Session = db.NewSession(ctx, &db.SessionConfig{

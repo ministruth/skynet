@@ -2,18 +2,21 @@ redis:
   address: "127.0.0.1:6379" # redis address
   password: "" # redis password
   db: 0 # redis database
+  timeout: 3 # connect timeout seconds
 
 database:
   type: "sqlite" # Support sqlite
   path: "data.db" # sqlite:db path
   salt_prefix: "en[7" # password salt prefix, modify need reset all user password
   salt_suffix: "z1&." # password salt suffix, modify need reset all user password
+  timeout: 3 # connect timeout seconds
 
 session:
   cookie: "GOSESSIONID" # session cookie name
   prefix: "session_" # prefix in redis, please prevent glob pattern keywords like ? and *
   expire: 3600 # default expire time seconds
   remember: 5184000 # remember expire time seconds
+  timeout: 3 # connect timeout seconds
 
 listen:
   address: "0.0.0.0:8080" # listen address

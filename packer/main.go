@@ -85,6 +85,7 @@ func main() {
 	if err != nil {
 		log.Fatal(err)
 	}
+	ok := false
 	for _, f := range files {
 		if strings.HasSuffix(f.Name(), ".so") {
 			pPlugin, err := plugin.Open(path.Join(srcFolder, f.Name()))
@@ -99,8 +100,13 @@ func main() {
 			if err := zipFolder(pInterface.Instance(), srcFolder, destFile); err != nil {
 				log.Fatal(err)
 			}
+			ok = true
 			break
 		}
 	}
-	log.Println("Plugin generated ", destFile)
+	if ok {
+		log.Println("Plugin generated ", destFile)
+	} else {
+		log.Println("No .so file found")
+	}
 }

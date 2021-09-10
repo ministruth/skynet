@@ -30,6 +30,14 @@ th.th-200 {
   width: 200px;
 }
 
+th.th-250 {
+  width: 250px;
+}
+
+th.th-270 {
+  width: 270px;
+}
+
 th.th-300 {
   width: 300px;
 }
@@ -71,4 +79,8 @@ th.th-op1 {
 
 td {
   vertical-align: middle !important;
+}
+
+.hide {
+  display: none;
 }

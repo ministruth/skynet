@@ -57,3 +57,5 @@ We use [tracerr](https://github.com/ztrue/tracerr) for stack trace and error wra
         return tracerr.Wrap(err)
     }
     ```
+- You must use `utils.WithTrace` or `utils.WithLogTrace` for error log to trace stack.
+- In http handler, prefer throw error to trigger 500 response other than `panic`, never use `log.Fatal`.

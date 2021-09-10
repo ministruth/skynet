@@ -52,14 +52,14 @@ func APIGetUser(c *gin.Context, u *sn.User) (int, error) {
 	return 0, nil
 }
 
-type userAddParam struct {
+type addUserParam struct {
 	Username string      `json:"username" binding:"required,max=32"`
 	Password string      `json:"password" binding:"required"`
 	Role     sn.UserRole `json:"role"`
 }
 
 func APIAddUser(c *gin.Context, u *sn.User) (int, error) {
-	var param userAddParam
+	var param addUserParam
 	if err := tracerr.Wrap(c.ShouldBind(&param)); err != nil {
 		return 400, err
 	}
@@ -82,7 +82,7 @@ func APIAddUser(c *gin.Context, u *sn.User) (int, error) {
 	return 0, nil
 }
 
-type userUpdateParam struct {
+type updateUserParam struct {
 	Username string      `json:"username" binding:"max=32"`
 	Password string      `json:"password"`
 	Role     sn.UserRole `json:"role"`
@@ -90,7 +90,7 @@ type userUpdateParam struct {
 }
 
 func APIUpdateUser(c *gin.Context, u *sn.User) (int, error) {
-	var param userUpdateParam
+	var param updateUserParam
 	if err := tracerr.Wrap(c.ShouldBind(&param)); err != nil {
 		return 400, err
 	}
@@ -139,12 +139,12 @@ func APIUpdateUser(c *gin.Context, u *sn.User) (int, error) {
 	return 0, nil
 }
 
-type userDeleteParam struct {
+type deleteUserParam struct {
 	ID int32 `uri:"id" binding:"required,min=1"`
 }
 
 func APIDeleteUser(c *gin.Context, u *sn.User) (int, error) {
-	var param userDeleteParam
+	var param deleteUserParam
 	if err := tracerr.Wrap(c.ShouldBindUri(&param)); err != nil {
 		return 400, err
 	}

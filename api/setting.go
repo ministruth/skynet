@@ -22,6 +22,7 @@ func APIUpdateNavbar(c *gin.Context, u *sn.User) (int, error) {
 	}
 	logf := log.WithFields(log.Fields{
 		"ip": utils.GetIP(c),
+		"id": u.ID,
 	})
 
 	navbar := sn.Skynet.Page.GetNav()
