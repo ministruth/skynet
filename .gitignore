@@ -3,7 +3,6 @@ data.db
 log.txt
 *.crt
 *.key
-*.so
 skynet
 temp/
 bin/

@@ -27,17 +27,9 @@ For security reasons, we do not support specify certain initial password, you mu
 
 to reset the password.
 
-## Built-in plugin
+## Plugins
 
-We provide some built-in plugins to simplify some operation:
-
-- [Monitor](plugin/monitor): All-in-one agent for server monitor, file transfer and shell manage.
-- [Task](plugin/task): Long time task support for skynet.
-- [ACME](plugin/acme): Let's Encrypt certificate updater and distributer.
-
-## More plugins
-
-You can find more plugin in our [official support plugin](#) or other user shares.
+You can find plugins in our [official support plugin](https://github.com/MXWXZ/skynet_plugin) or other user shares.
 
 **!!Please note that all plugins have the same privilege as skynet, use trusted plugins ONLY!!**
 
