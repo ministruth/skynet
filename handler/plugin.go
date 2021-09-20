@@ -145,6 +145,21 @@ func (p *sitePlugin) checkPlugin(v *PluginLoad) bool {
 	return true
 }
 
+func (p *sitePlugin) Call(cb sn.SNPluginCBType, param interface{}) []error {
+	var ret []error = nil
+	p.plugin.Range(func(k uuid.UUID, v *PluginLoad) bool {
+		if v.Enable {
+			if f, ok := v.Callback.Get(cb); ok && f != nil {
+				if err := f(param); err != nil {
+					ret = append(ret, err)
+				}
+			}
+		}
+		return true
+	})
+	return ret
+}
+
 func NewPlugin(base string) (sn.SNPlugin, error) {
 	var ret sitePlugin
 

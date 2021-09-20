@@ -118,11 +118,14 @@ func run(cmd *cobra.Command, args []string) {
 		}
 	}
 
+	// check debug mode
 	if !viper.GetBool("debug") {
 		gin.SetMode(gin.ReleaseMode)
 	} else {
 		log.Warn("Debug mode is on, make it off when put into production")
 	}
+
+	// check recaptcha
 	if !viper.GetBool("recaptcha.enable") {
 		log.Warn("reCAPTCHA is disabled, enable it when put into production")
 	} else {
@@ -131,6 +134,8 @@ func run(cmd *cobra.Command, args []string) {
 			panic(err)
 		}
 	}
+
+	// init gin
 	r := gin.Default()
 	sn.Skynet.Engine = r
 
@@ -167,8 +172,8 @@ func run(cmd *cobra.Command, args []string) {
 				c.Abort()
 			}
 		}
-	}()
-	r.Use(secureFunc)
+	}
+	r.Use(secureFunc())
 
 	r.ForwardedByClientIP = false // disable ip forward to prevent sproof
 	// BUG: gin
@@ -200,6 +205,15 @@ func run(cmd *cobra.Command, args []string) {
 	if err != nil {
 		log.Fatal("Setting init error: ", err)
 	}
+
+	// gin middleware is in order, so plugin middleware should use callback instead of direct use
+	r.Use(func(c *gin.Context) {
+		if errs := sn.Skynet.Plugin.Call(sn.BeforeMiddleware, c); errs != nil {
+			return
+		}
+		c.Next()
+		sn.Skynet.Plugin.Call(sn.AfterMiddleware, c)
+	})
 
 	// static files
 	staticFile := r.Group("/")

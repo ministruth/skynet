@@ -42,6 +42,14 @@ type SNNotification interface {
 	Count(read interface{}) (int64, error)
 }
 
+// SNPluginCBType is plugin callback type.
+type SNPluginCBType int
+
+const (
+	BeforeMiddleware SNPluginCBType = iota // (*gin.Context): invoked as middleware before request, return non-nil to abort.
+	AfterMiddleware                        // (*gin.Context): invoked as middleware after request.
+)
+
 type SNPlugin interface {
 	Count() int
 	Enable(id uuid.UUID) error
@@ -50,6 +58,9 @@ type SNPlugin interface {
 	Get(id uuid.UUID) interface{}
 	Fini()
 	New(buf []byte) error
+
+	// Call invoke all plugin cb callback with param
+	Call(cb SNPluginCBType, param interface{}) []error
 
 	// Update plugin id with same plugin id package buf.
 	// Note that you need to trigger restart if true returned!

@@ -73,6 +73,7 @@ generate:
 	@genny -in=./sn/utils/map_tpl.go -out=./sn/utils/map_string_gen.go gen "MPrefix=String MTypeA=string MTypeB=interface{}"
 	@genny -in=./sn/utils/map_tpl.go -out=./sn/utils/map_uuid_gen.go gen "MPrefix=UUID MTypeA=uuid.UUID MTypeB=interface{}"
 	@genny -in=./sn/utils/map_tpl.go -out=./handler/map_plugin_gen.go -pkg=handler gen "MPrefix=Plugin MTypeA=uuid.UUID MTypeB=*PluginLoad"
+	@genny -in=./sn/utils/map_tpl.go -out=./plugin/map_plugincb_gen.go -pkg=plugin gen "MPrefix=PluginCB MTypeA=sn.SNPluginCBType MTypeB=PluginCallback"
 
 	@for d in ./plugin/*/;do	\
 		pushd . > /dev/null;	\
