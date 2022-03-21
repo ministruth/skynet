@@ -1,0 +1,60 @@
+syntax = "proto3";
+package msg;
+import "agent.proto";
+import "server.proto";
+import "shell.proto";
+
+option go_package = "./msg";
+
+message AgentMessage {
+  enum MsgType {
+    UNKNOWN = 0;
+    LOGIN = 1;   // agent login
+    RETURN = 2;  // return value message
+    INFO = 3;    // agent info
+    STATUS = 4;  // status req/rsp
+    COMMAND = 5; // command operation
+    FILE = 6;    // send file
+    SHELL = 7;   // shell operation
+    RESTART = 8; // restart
+  }
+  string id = 1;
+  MsgType type = 2;
+  oneof data {
+    LoginMessage login = 3;
+    ReturnMessage return = 4;
+    StatusReqMessage statusReq = 5;
+    StatusRspMessage statusRsp = 6;
+    InfoMessage info = 7;
+    CommandMessage command = 8;
+    FileMessage file = 9;
+    ShellMessage shell = 10;
+  }
+}
+
+message ReturnMessage {
+  enum ReturnCode {
+    OK = 0;
+    ERROR = -1;
+    INVALID = 1;
+    ONLINE = 2;
+    NEED_LOGIN = 3;
+  }
+  ReturnCode code = 1; // return code
+  string data = 2;     // return data
+}
+
+message CommandMessage {
+  enum CommandType {
+    UNKNOWN = 0;
+    RUN = 1;
+    RESULT = 2;
+    KILL = 3;
+  }
+  CommandType type = 1;
+  oneof data {
+    CMDRunMessage run = 2;
+    CMDKillMessage kill = 3;
+    CMDResMessage res = 4;
+  }
+}

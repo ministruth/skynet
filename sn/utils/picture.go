@@ -7,7 +7,7 @@ import (
 	_ "image/jpeg"
 	_ "image/png"
 
-	"github.com/chai2010/webp"
+	"github.com/MXWXZ/webp"
 	"github.com/ztrue/tracerr"
 )
 

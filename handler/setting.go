@@ -2,76 +2,84 @@ package handler
 
 import (
 	"skynet/sn"
-	"skynet/sn/utils"
+	"skynet/sn/impl"
+	"skynet/sn/tpl"
 
-	"github.com/ztrue/tracerr"
+	"gorm.io/gorm"
 )
 
 type siteSetting struct {
-	setting *utils.StringMap
+	*impl.ORM[sn.Setting]
+	cache *tpl.SafeMap[string, string]
 }
 
 func NewSetting() (sn.SNSetting, error) {
-	var ret siteSetting
-	ret.setting = &utils.StringMap{}
-	var rec []sn.Setting
-	if err := tracerr.Wrap(utils.GetDB().Find(&rec).Error); err != nil {
-		return nil, err
+	ret := siteSetting{
+		ORM:   impl.NewORM[sn.Setting](nil),
+		cache: new(tpl.SafeMap[string, string]),
 	}
-	for _, v := range rec {
-		ret.setting.Set(v.Name, v.Value)
+	if err := ret.BuildCache(); err != nil {
+		return nil, err
 	}
 	return &ret, nil
 }
 
-func (s *siteSetting) GetAll(cond *sn.SNCondition) ([]*sn.Setting, error) {
-	var ret []*sn.Setting
-	return ret, tracerr.Wrap(utils.DBParseCondition(cond).Find(&ret).Error)
+func (p *siteSetting) WithTx(tx *gorm.DB) sn.SNSetting {
+	return &siteSetting{
+		ORM:   impl.NewORM[sn.Setting](tx),
+		cache: p.cache,
+	}
 }
 
-func (s *siteSetting) GetCache() map[string]interface{} {
-	return s.setting.Map()
+func (s *siteSetting) BuildCache() error {
+	rec, err := s.Impl.Find()
+	if err != nil {
+		return err
+	}
+	for _, v := range rec {
+		s.cache.Set(v.Name, v.Value)
+	}
+	return nil
+}
+
+func (s *siteSetting) GetAll() map[string]string {
+	return s.cache.Map()
 }
 
 func (s *siteSetting) Get(name string) (string, bool) {
-	ret, exist := s.setting.Get(name)
-	if !exist {
-		return "", exist
-	}
-	return ret.(string), exist
+	return s.cache.Get(name)
 }
 
 func (s *siteSetting) Set(name string, value string) error {
-	v, exist := s.setting.Get(name)
-	if !exist {
-		err := tracerr.Wrap(utils.GetDB().Create(&sn.Setting{
+	v, ok := s.cache.Get(name)
+	if !ok {
+		if err := s.Impl.Create(&sn.Setting{
 			Name:  name,
 			Value: value,
-		}).Error)
-		if err != nil {
+		}); err != nil {
 			return err
 		}
-		s.setting.Set(name, value)
+		s.cache.Set(name, value)
 		return nil
 	} else {
 		if v != value {
-			s.setting.Set(name, value)
-			err := tracerr.Wrap(utils.GetDB().Model(&sn.Setting{}).Where("name = ?", name).Update("value", value).Error)
-			if err != nil {
+			if err := s.Impl.Where("name = ?", name).Update("value", value); err != nil {
 				return err
 			}
+			s.cache.Set(name, value)
 		}
 	}
 	return nil
 }
 
-func (s *siteSetting) Delete(name string) error {
-	if _, exist := s.setting.Get(name); exist {
-		s.setting.Delete(name)
-		err := tracerr.Wrap(utils.GetDB().Where("name = ?", name).Delete(&sn.Setting{}).Error)
+func (s *siteSetting) Delete(name string) (bool, error) {
+	if s.cache.Has(name) {
+		row, err := s.Impl.Where("name = ?", name).Delete()
 		if err != nil {
-			return err
+			return false, err
 		}
+		s.cache.Delete(name)
+		return row == 1, nil
 	}
-	return nil
+	return false, nil
 }

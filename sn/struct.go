@@ -1,41 +1,98 @@
 package sn
 
 import (
-	"time"
+	"github.com/google/uuid"
+	"github.com/ztrue/tracerr"
+	"gorm.io/gorm"
 )
 
-type Track struct {
-	CreatedAt time.Time
-	UpdatedAt time.Time
+// DBStruct identify database struct.
+type DBStruct interface {
+	ValidDBStruct()
 }
 
-type UserRole int
+type GeneralFields struct {
+	ID        uuid.UUID `gorm:"type:uuid;primaryKey;not null" json:"id"`
+	CreatedAt int64     `gorm:"autoCreateTime:milli" json:"created_at"` // create time
+	UpdatedAt int64     `gorm:"autoUpdateTime:milli" json:"updated_at"` // update time
+}
 
-const (
-	RoleEmpty UserRole = iota
-	RoleUser
-	RoleAdmin
-)
+func (u *GeneralFields) BeforeCreate(tx *gorm.DB) error {
+	if u.ID == uuid.Nil {
+		u.ID = uuid.New()
+	}
+	return nil
+}
+
+func (u GeneralFields) ValidDBStruct() {}
+
+type UserGroup struct {
+	GeneralFields
+	Name string `gorm:"type:varchar(32);uniqueIndex;not null" json:"name"`
+	Note string `gorm:"type:varchar(256)" json:"note"`
+}
+
+type UserGroupLink struct {
+	GeneralFields
+	UID       uuid.UUID  `gorm:"column:uid;type:uuid;uniqueIndex:ugid_link;not null" json:"uid"`
+	GID       uuid.UUID  `gorm:"column:gid;type:uuid;uniqueIndex:ugid_link;not null" json:"gid"`
+	User      *User      `gorm:"foreignKey:UID" json:"-"`
+	UserGroup *UserGroup `gorm:"foreignKey:GID" json:"-"`
+}
+
+type PermissionList struct {
+	GeneralFields
+	Name string `gorm:"uniqueIndex;type:varchar(128);not null" json:"name"`
+	Note string `gorm:"type:varchar(256)" json:"note"`
+}
+
+type Permission struct {
+	GeneralFields
+	UID            uuid.UUID       `gorm:"column:uid;type:uuid;uniqueIndex:perm_link" json:"uid"`
+	GID            uuid.UUID       `gorm:"column:gid;type:uuid;uniqueIndex:perm_link" json:"gid"`
+	PID            uuid.UUID       `gorm:"column:pid;type:uuid;uniqueIndex:perm_link;not null" json:"pid"`
+	Perm           UserPerm        `gorm:"default:0;not null" json:"perm"`
+	User           *User           `gorm:"foreignKey:UID" json:"-"`
+	UserGroup      *UserGroup      `gorm:"foreignKey:GID" json:"-"`
+	PermissionList *PermissionList `gorm:"foreignKey:PID" json:"-"`
+}
+
+func (u *Permission) BeforeCreate(tx *gorm.DB) error {
+	if u.UID == uuid.Nil && u.GID == uuid.Nil {
+		return tracerr.New("uid and gid can not be both nil")
+	}
+	if u.UID != uuid.Nil && u.GID != uuid.Nil {
+		return tracerr.New("uid and gid can not be both filled")
+	}
+	return u.GeneralFields.BeforeCreate(tx)
+}
+
+func (u *Permission) BeforeUpdate(tx *gorm.DB) error {
+	if u.UID == uuid.Nil && u.GID == uuid.Nil {
+		return tracerr.New("uid and gid can not be both nil")
+	}
+	if u.UID != uuid.Nil && u.GID != uuid.Nil {
+		return tracerr.New("uid and gid can not be both filled")
+	}
+	return u.GeneralFields.BeforeCreate(tx)
+}
 
 type User struct {
-	ID        int32    `gorm:"primaryKey;not null"`
-	Username  string   `gorm:"uniqueIndex;type:varchar(32);not null"`
-	Password  string   `gorm:"type:char(32);not null" json:"-"`
-	Avatar    []byte   `gorm:"type:bytes;not null" json:"-"`
-	Role      UserRole `gorm:"default:1;not null"`
-	LastLogin time.Time
-	LastIP    string `gorm:"type:varchar(64)"`
-	Track     Track  `gorm:"embedded"`
+	GeneralFields
+	Username  string `gorm:"uniqueIndex;type:varchar(32);not null" json:"username"`
+	Password  string `gorm:"type:char(32);not null" json:"-"`
+	Avatar    []byte `gorm:"type:bytes;not null" json:"avatar"`
+	LastLogin int64  `json:"last_login"`
+	LastIP    string `gorm:"type:varchar(64)" json:"last_ip"`
 }
 
 type Setting struct {
-	ID    int32  `gorm:"primaryKey;not null"`
-	Name  string `gorm:"uniqueIndex;type:varchar(256);not null"`
-	Value string `gorm:"type:varchar(1024);not null"`
-	Track Track  `gorm:"embedded"`
+	GeneralFields
+	Name  string `gorm:"uniqueIndex;type:varchar(256);not null" json:"name"`
+	Value string `gorm:"type:string" json:"value"`
 }
 
-type NotifyLevel int
+type NotifyLevel int32
 
 const (
 	NotifyInfo NotifyLevel = iota
@@ -46,10 +103,9 @@ const (
 )
 
 type Notification struct {
-	ID      int32       `gorm:"primaryKey;not null"`
-	Level   NotifyLevel `gorm:"default:0;not null"`
-	Name    string      `gorm:"type:varchar(256)"`
-	Message string      `gorm:"type:varchar(1024)"`
-	Read    int32       `gorm:"default:0;not null"`
-	Track   Track       `gorm:"embedded"`
+	GeneralFields
+	Level   NotifyLevel `gorm:"default:0;not null" json:"level"`
+	Name    string      `gorm:"type:varchar(256)" json:"name"`
+	Message string      `gorm:"type:varchar(256)" json:"message"`
+	Detail  string      `gorm:"type:string" json:"detail"`
 }

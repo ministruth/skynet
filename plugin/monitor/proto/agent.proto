@@ -1,0 +1,37 @@
+syntax = "proto3";
+package msg;
+
+option go_package = "./msg";
+
+message LoginMessage {
+  string uid = 1;   // agent uid
+  string token = 2; // login token
+}
+
+message StatusRspMessage {
+  int64 Time = 1;       // request time
+  double CPU = 2;       // unit percent
+  uint64 Mem = 3;       // unit bytes
+  uint64 TotalMem = 4;  // unit bytes
+  uint64 Disk = 5;      // unit bytes
+  uint64 TotalDisk = 6; // unit bytes
+  double Load1 = 7;     // cpu load1
+  uint64 BandUp = 8;    // unit bytes
+  uint64 BandDown = 9;  // unit bytes
+}
+
+message InfoMessage {
+  string Version = 1;  // version
+  string OS = 2;       // os
+  string Hostname = 3; // host name
+  string Machine = 4;  // machine name
+  string System = 5;   // system name
+}
+
+message CMDResMessage {
+  string cid = 1;    // command cid
+  string data = 2;   // command result
+  int32 code = 3;    // return code
+  bool complete = 4; // command complete or killed
+  bool end = 5;      // is result end
+}

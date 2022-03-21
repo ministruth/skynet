@@ -12,10 +12,11 @@ import (
 	"path/filepath"
 	"plugin"
 	plugins "skynet/plugin"
+	"skynet/sn"
 	"strings"
 )
 
-func zipFolder(inst *plugins.PluginInstance, source, target string) error {
+func zipFolder(inst *sn.SNPluginInfo, source, target string) error {
 	zipfile, err := os.Create(target)
 	if err != nil {
 		return err
@@ -25,7 +26,6 @@ func zipFolder(inst *plugins.PluginInstance, source, target string) error {
 
 	archive := zip.NewWriter(zipfile)
 	defer archive.Close()
-	archive.Create(inst.Name + "/")
 	m, err := json.Marshal(inst)
 	if err != nil {
 		return err
@@ -37,8 +37,8 @@ func zipFolder(inst *plugins.PluginInstance, source, target string) error {
 			return err
 		}
 
-		rpath := path.Join(inst.Name, strings.TrimPrefix(p, source))
-		if rpath == inst.Name+"/" { // folder itself
+		rpath := path.Clean(strings.TrimPrefix(p, source))
+		if rpath == "." { // folder itself
 			return nil
 		}
 		if info.IsDir() {

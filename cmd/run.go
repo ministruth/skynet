@@ -1,15 +1,15 @@
 package cmd
 
 import (
-	"context"
+	"embed"
 	"io"
+	"io/fs"
 	"net/http"
 	"os"
 	"skynet/api"
-	"skynet/db"
 	"skynet/handler"
-	"skynet/page"
 	"skynet/sn"
+	"skynet/sn/impl"
 	"skynet/sn/utils"
 	"strings"
 	"syscall"
@@ -17,15 +17,17 @@ import (
 
 	logrus_stack "github.com/Gurpartap/logrus-stack"
 	"github.com/fvbock/endless"
-	"github.com/gin-contrib/multitemplate"
+	"github.com/gin-contrib/static"
 	"github.com/gin-gonic/gin"
-	"github.com/gorilla/csrf"
 	"github.com/gorilla/sessions"
-	adapter "github.com/gwatts/gin-adapter"
+	"github.com/nicksnyder/go-i18n/v2/i18n"
 	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"github.com/unrolled/secure"
+	"github.com/ztrue/tracerr"
+	"golang.org/x/text/language"
+	"gopkg.in/yaml.v3"
 )
 
 var runCmd = &cobra.Command{
@@ -34,44 +36,11 @@ var runCmd = &cobra.Command{
 	Run:   run,
 }
 
+//go:embed i18n/*.yml
+var i18nFiles embed.FS
+
 func init() {
 	rootCmd.AddCommand(runCmd)
-}
-
-func connectDB() {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*time.Duration(viper.GetInt("database.timeout")))
-	defer cancel()
-
-	switch viper.GetString("database.type") {
-	case "sqlite":
-		sn.Skynet.DB = db.NewDB(ctx, &db.DBConfig{
-			Type: db.DBType_Sqlite,
-			Path: viper.GetString("database.path"),
-		})
-	default:
-		log.Fatalf("Database type %s not supported", viper.GetString("database.type"))
-	}
-}
-
-func connectRedis() {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*time.Duration(viper.GetInt("redis.timeout")))
-	defer cancel()
-
-	sn.Skynet.Redis = db.NewRedis(ctx, &db.RedisConfig{
-		Address:  viper.GetString("redis.address"),
-		Password: viper.GetString("redis.password"),
-		DB:       viper.GetInt("redis.db"),
-	})
-}
-
-func connectSession() {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*time.Duration(viper.GetInt("session.timeout")))
-	defer cancel()
-
-	sn.Skynet.Session = db.NewSession(ctx, &db.SessionConfig{
-		RedisClient: utils.GetRedis(),
-		Prefix:      viper.GetString("session.prefix"),
-	})
 }
 
 func run(cmd *cobra.Command, args []string) {
@@ -79,7 +48,7 @@ func run(cmd *cobra.Command, args []string) {
 	var err error
 	var logFile *os.File
 	if viper.GetString("log_file") != "" {
-		log.SetFormatter(&log.JSONFormatter{})
+		log.SetFormatter(new(log.JSONFormatter))
 		logFile, err = os.OpenFile(viper.GetString("log_file"), os.O_CREATE|os.O_APPEND|os.O_RDWR, 0755)
 		if err != nil {
 			panic(err)
@@ -95,45 +64,66 @@ func run(cmd *cobra.Command, args []string) {
 	log.Infof("config file: %s", conf)
 
 	// database
-	connectRedis()
-	log.WithFields(log.Fields{
-		"addr": viper.GetString("redis.address"),
-	}).Info("Redis connected")
-	connectSession()
-	log.WithFields(log.Fields{
-		"prefix": viper.GetString("session.prefix"),
-	}).Info("Redis session connected")
-	connectDB()
-	log.WithFields(log.Fields{
-		"path": viper.GetString("database.path"),
-	}).Info("Database connected")
+	impl.ConnectRedis()
+	log.WithField("addr", viper.GetString("redis.address")).Info("Redis connected")
+
+	impl.ConnectSession()
+	log.WithField("prefix", viper.GetString("session.prefix")).Info("Redis session connected")
+
+	impl.ConnectDB()
+	log.WithField("path", viper.GetString("database.path")).Info("Database connected")
 	log.AddHook(handler.NotificationHook{})
 
-	// check default settings
-	for k, v := range defaultSettings {
-		if k[0] == '*' {
-			if viper.Get(k[1:]) == v {
-				log.Warnf("Setting %v has default value, please modify your config file for safety", k[1:])
-			}
-		}
+	// skynet handler
+	sn.Skynet.Notification = handler.NewNotification()
+	sn.Skynet.Permission = handler.NewPermission()
+	sn.Skynet.User = handler.NewUser()
+	sn.Skynet.Group = handler.NewGroup()
+	// setting
+	sn.Skynet.Setting, err = handler.NewSetting()
+	if err != nil {
+		utils.WithTrace(err).Fatal(err)
 	}
 
-	// check debug mode
-	if !viper.GetBool("debug") {
-		gin.SetMode(gin.ReleaseMode)
-	} else {
-		log.Warn("Debug mode is on, make it off when put into production")
+	// check default settings
+	for _, v := range sn.DefaultSetting {
+		if v.WarnDefault && viper.Get(v.Name) == v.Value {
+			log.Warnf("Setting %v has default value, please modify your config file for safety", v.Name)
+		}
+		if v.Checker != nil {
+			v.Checker(viper.Get(v.Name))
+		}
 	}
 
 	// check recaptcha
-	if !viper.GetBool("recaptcha.enable") {
-		log.Warn("reCAPTCHA is disabled, enable it when put into production")
-	} else {
+	if viper.GetBool("recaptcha.enable") {
 		err = utils.NewReCAPTCHA(viper.GetString("recaptcha.secret"))
 		if err != nil {
-			panic(err)
+			utils.WithTrace(err).Fatal(err)
 		}
 	}
+
+	// i18n
+	bundle := i18n.NewBundle(language.English)
+	bundle.RegisterUnmarshalFunc("yml", yaml.Unmarshal)
+	err = fs.WalkDir(i18nFiles, ".", func(path string, d fs.DirEntry, err error) error {
+		if err != nil {
+			return tracerr.Wrap(err)
+		}
+		if !d.IsDir() {
+			b, err := i18nFiles.ReadFile("i18n/" + d.Name())
+			if err != nil {
+				return tracerr.Wrap(err)
+			}
+			bundle.MustParseMessageFileBytes(b, d.Name())
+			log.Debugf("Language %v loaded", d.Name())
+		}
+		return nil
+	})
+	if err != nil {
+		utils.WithTrace(err).Fatal(err)
+	}
+	sn.Skynet.Translator = bundle
 
 	// init gin
 	r := gin.Default()
@@ -154,19 +144,17 @@ func run(cmd *cobra.Command, args []string) {
 		FrameDeny:             true,
 		ContentTypeNosniff:    true,
 		BrowserXssFilter:      true,
-		ContentSecurityPolicy: "default-src 'none'; script-src $NONCE; connect-src 'self'; frame-src www.recaptcha.net/recaptcha/ www.google.com/recaptcha/; img-src 'self' data:; style-src 'self'; base-uri 'self'; form-action 'self'; font-src 'self'",
+		ContentSecurityPolicy: "default-src 'none'; script-src 'unsafe-eval' 'unsafe-inline' 'self'; connect-src 'self'; frame-src www.recaptcha.net/recaptcha/ www.google.com/recaptcha/; img-src 'self' data:; style-src 'self' 'unsafe-inline'; base-uri 'self'; form-action 'self'; font-src 'self'",
 		ReferrerPolicy:        "same-origin",
 		IsDevelopment:         false,
 	})
 	secureFunc := func() gin.HandlerFunc {
 		return func(c *gin.Context) {
-			nonce, err := secureMiddleware.ProcessAndReturnNonce(c.Writer, c.Request)
+			err := secureMiddleware.Process(c.Writer, c.Request)
 			if err != nil {
 				c.Abort()
 				return
 			}
-
-			c.Set("nonce", nonce)
 
 			if status := c.Writer.Status(); status > 300 && status < 399 {
 				c.Abort()
@@ -174,6 +162,31 @@ func run(cmd *cobra.Command, args []string) {
 		}
 	}
 	r.Use(secureFunc())
+
+	// csrf
+	csrfFunc := func() gin.HandlerFunc {
+		return func(c *gin.Context) {
+			if c.Request.Method != "GET" {
+				token := c.GetHeader("X-CSRF-Token")
+				if token == "" {
+					c.AbortWithStatus(400)
+					return
+				}
+				ok, err := impl.CheckCSRFToken(token)
+				if err != nil {
+					utils.WithTrace(err).Error(err)
+					c.AbortWithStatus(500)
+					return
+				}
+				if !ok {
+					c.AbortWithStatus(400)
+					return
+				}
+			}
+			c.Next()
+		}
+	}
+	r.Use(csrfFunc())
 
 	r.ForwardedByClientIP = false // disable ip forward to prevent sproof
 	// BUG: gin
@@ -184,55 +197,86 @@ func run(cmd *cobra.Command, args []string) {
 	// 	r.RemoteIPHeaders = []string{viper.GetString("proxy.header")}
 	// }
 
-	// CSRF protection
-	csrfFunc := func() gin.HandlerFunc {
-		return adapter.Wrap(csrf.Protect([]byte(viper.GetString("csrf_secret")), csrf.Path("/"),
-			csrf.Secure(viper.GetBool("listen.ssl")), csrf.MaxAge(0), csrf.SameSite(csrf.SameSiteStrictMode)))
-	}
-	r.Use(csrfFunc())
-
 	// session
-	utils.GetSession().Options(sessions.Options{
+	sn.Skynet.GetSession().Options(sessions.Options{
 		Path:     "/",
 		MaxAge:   viper.GetInt("session.expire"),
 		Secure:   viper.GetBool("listen.ssl"),
 		HttpOnly: true,
 		SameSite: http.SameSiteStrictMode,
 	})
-
-	// setting
-	sn.Skynet.Setting, err = handler.NewSetting()
-	if err != nil {
-		log.Fatal("Setting init error: ", err)
+	if !viper.GetBool("debug") {
+		err = impl.DeleteSessions(nil)
+		if err != nil {
+			utils.WithTrace(err).Fatal(err)
+		}
 	}
+
+	// plugin auth
+	r.Use(func(c *gin.Context) {
+		path := c.Request.URL.Path
+		sp := strings.Split(path, "/")
+		if strings.HasPrefix(path, "/_plugin/") {
+			if len(sp) >= 3 {
+				ids, err := api.GetMenuPluginID(c)
+				if err != nil {
+					utils.WithTrace(err).Error(err)
+					c.AbortWithStatus(500)
+					return
+				}
+				for _, v := range ids {
+					if v.String() == sp[2] {
+						c.Next()
+						return
+					}
+				}
+			}
+		} else {
+			c.Next()
+			return
+		}
+		// prevent plugin guess
+		c.String(403, "Permission denied")
+		c.Abort()
+	})
 
 	// gin middleware is in order, so plugin middleware should use callback instead of direct use
 	r.Use(func(c *gin.Context) {
 		if errs := sn.Skynet.Plugin.Call(sn.BeforeMiddleware, c); errs != nil {
+			for _, v := range errs {
+				utils.WithTrace(v).Error(v)
+			}
+			c.AbortWithStatus(500)
 			return
 		}
 		c.Next()
 		sn.Skynet.Plugin.Call(sn.AfterMiddleware, c)
 	})
 
-	// static files
-	staticFile := r.Group("/")
-	staticFile.Static("/js/main", "./assets/js")
-	staticFile.Static("/css/main", "./assets/css")
-	staticFile.Static("/fonts/main", "./assets/fonts")
-	sn.Skynet.StaticFile = staticFile
+	// 404
+	r.NoRoute(func(c *gin.Context) {
+		path := c.Request.URL.Path
+		sp := strings.Split(path, "/")
+		if strings.HasPrefix(path, "/api") {
+			// prevent route guess
+			c.String(403, "Permission denied")
+		} else if !strings.Contains(sp[len(sp)-1], ".") {
+			// rewrite for dynamic route
+			c.Request.URL.Path = "/"
+			r.HandleContext(c)
+		} else {
+			// static file 404
+			c.AbortWithStatus(404)
+		}
+	})
 
-	// router & template
-	web := r.Group("/")
-	t := multitemplate.NewRenderer()
-	sn.Skynet.Page = page.NewPage(t, web)
-	r.HTMLRender = t
+	// static file
+	r.Use(static.Serve("/", static.LocalFile("./assets/", true)))
 
 	// api router
 	v1 := r.Group("/api")
 	sn.Skynet.API = api.NewAPI(v1)
 
-	// plugin
 	sn.Skynet.Plugin, err = handler.NewPlugin("plugin")
 	if err != nil {
 		log.Fatal("Plugin init error: ", err)
@@ -242,6 +286,8 @@ func run(cmd *cobra.Command, args []string) {
 	endless.DefaultHammerTime = 1 * time.Second
 	server := endless.NewServer(viper.GetString("listen.address"), r)
 	server.BeforeBegin = func(add string) {
+		sn.Skynet.Running = true
+		sn.Skynet.StartTime = time.Now()
 		log.Info("Running pid ", syscall.Getpid())
 	}
 	if !viper.GetBool("listen.ssl") {

@@ -2,45 +2,56 @@ package api
 
 import (
 	"skynet/sn"
-	"skynet/sn/utils"
 
 	"github.com/gin-gonic/gin"
-	log "github.com/sirupsen/logrus"
+	"github.com/google/uuid"
 	"github.com/ztrue/tracerr"
 )
 
-func APIGetNotification(c *gin.Context, u *sn.User) (int, error) {
-	var param paginationParam
+func APIGetNotification(c *gin.Context, id uuid.UUID) (int, error) {
+	type Param struct {
+		Level []sn.NotifyLevel `form:"level[]" binding:"dive,min=0,max=4"`
+		Text  string           `form:"text"`
+		createdParam
+		paginationParam
+	}
+	var param Param
 	if err := tracerr.Wrap(c.ShouldBindQuery(&param)); err != nil {
 		return 400, err
 	}
 
-	rec, err := sn.Skynet.Notification.GetAll(&sn.SNCondition{
-		Order:  []interface{}{"id " + param.Order},
-		Limit:  param.Size,
-		Offset: (param.Page - 1) * param.Size,
-	})
+	if len(param.Level) == 0 {
+		param.Level = []sn.NotifyLevel{
+			sn.NotifyInfo,
+			sn.NotifySuccess,
+			sn.NotifyWarning,
+			sn.NotifyError,
+			sn.NotifyFatal,
+		}
+	}
+
+	cond := buildCondition(&param.createdParam, nil, &param.paginationParam,
+		param.Text, "id LIKE ? OR name LIKE ? OR message LIKE ? OR detail LIKE ?")
+	cond.And("level IN ?", param.Level)
+
+	rec, err := sn.Skynet.Notification.GetAll(cond)
 	if err != nil {
 		return 500, err
 	}
-	count, err := sn.Skynet.Notification.Count(nil)
+	count, err := sn.Skynet.Notification.Count(cond)
 	if err != nil {
 		return 500, err
 	}
-	c.JSON(200, gin.H{"code": 0, "msg": "Get all notification success", "data": rec, "total": count})
+	responsePage(c, rec, count)
 	return 0, nil
 }
 
-func APIDeleteNotification(c *gin.Context, u *sn.User) (int, error) {
-	logf := log.WithFields(log.Fields{
-		"ip": utils.GetIP(c),
-		"id": u.ID,
-	})
-
-	if err := sn.Skynet.Notification.DeleteAll(); err != nil {
+func APIDeleteNotification(c *gin.Context, id uuid.UUID) (int, error) {
+	logf := wrap(c, id, nil)
+	if _, err := sn.Skynet.Notification.DeleteAll(); err != nil {
 		return 500, err
 	}
-	logf.Info("Delete notification")
-	c.JSON(200, gin.H{"code": 0, "msg": "Delete notification success"})
+	success(logf, "Delete all notification")
+	response(c, CodeOK)
 	return 0, nil
 }

@@ -1,5 +1,5 @@
 .vscode
-data.db
+*.db
 log.txt
 *.crt
 *.key
@@ -10,3 +10,6 @@ coverage.html
 coverage.out
 .VSCodeCounter
 packer/packer
+.DS_Store
+docs/
+assets/

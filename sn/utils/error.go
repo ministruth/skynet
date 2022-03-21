@@ -7,10 +7,12 @@ import (
 	"github.com/ztrue/tracerr"
 )
 
+// WithTrace wraps error to error with trace.
 func WithTrace(err error) *log.Entry {
 	return WithLogTrace(nil, err)
 }
 
+// WithLogTrace wraps error compatible to logrus
 func WithLogTrace(l *log.Entry, err error) *log.Entry {
 	text := tracerr.Sprint(err)
 	traceText := strings.Split(text, "\n")

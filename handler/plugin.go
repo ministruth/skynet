@@ -13,6 +13,7 @@ import (
 	"plugin"
 	plugins "skynet/plugin"
 	"skynet/sn"
+	"skynet/sn/tpl"
 	"skynet/sn/utils"
 	"strings"
 
@@ -21,21 +22,7 @@ import (
 	"github.com/ztrue/tracerr"
 )
 
-const pluginPrefix = "plugin_"
-
-// PluginLoad is struct for loaded plugin
-type PluginLoad struct {
-	*plugins.PluginInstance
-	Enable    bool                    // is plugin enabled
-	Message   string                  // plugin message
-	Interface plugins.PluginInterface `json:"-"` // plugin interface
-	Loader    *plugin.Plugin          `json:"-"` // golang plugin loader
-}
-
-func (p *PluginLoad) Disable(msg string) {
-	p.Enable = false
-	p.Message = msg
-}
+const settingPrefix = "plugin_"
 
 var (
 	ErrPluginNotFound    = tracerr.New("plugin not found")
@@ -46,10 +33,11 @@ var (
 )
 
 type sitePlugin struct {
-	plugin PluginMap // plugin map
+	plugin     *tpl.SafeMap[uuid.UUID, *sn.SNPluginEntry]
+	baseFolder string
 }
 
-func (p *sitePlugin) readPlugin(path string) error {
+func (p *sitePlugin) loadPlugin(path string) error {
 	pPlugin, err := plugin.Open(path)
 	if err != nil {
 		return tracerr.Wrap(err)
@@ -60,15 +48,15 @@ func (p *sitePlugin) readPlugin(path string) error {
 	}
 	pInterface := pSymbol.(func() plugins.PluginInterface)()
 	pInstance := pInterface.Instance()
-	pInstance.Path = filepath.Dir(path)
 	if v, ok := p.plugin.Get(pInstance.ID); ok {
 		return fmt.Errorf("%w: %v and %v have same ID %v", ErrPluginIDDuplicate, v.Name, pInstance.Name, v.ID)
 	}
-	p.plugin.Set(pInstance.ID, &PluginLoad{
-		PluginInstance: pInstance,
-		Enable:         false,
-		Interface:      pInterface,
-		Loader:         pPlugin,
+	p.plugin.Set(pInstance.ID, &sn.SNPluginEntry{
+		SNPluginInfo: pInstance,
+		Path:         filepath.Dir(path),
+		Enable:       false,
+		Interface:    pInterface,
+		Loader:       pPlugin,
 	})
 	log.WithFields(log.Fields{
 		"id":      pInstance.ID,
@@ -78,7 +66,7 @@ func (p *sitePlugin) readPlugin(path string) error {
 	return nil
 }
 
-func (p *sitePlugin) readPluginFolder(dir string) error {
+func (p *sitePlugin) loadPluginFolder(dir string) error {
 	dirFile, err := ioutil.ReadDir(dir)
 	if err != nil {
 		return tracerr.Wrap(err)
@@ -86,7 +74,7 @@ func (p *sitePlugin) readPluginFolder(dir string) error {
 	for _, df := range dirFile {
 		if strings.HasSuffix(df.Name(), ".so") {
 			soFile := dir + "/" + df.Name()
-			if err := tracerr.Wrap(p.readPlugin(soFile)); err != nil {
+			if err := tracerr.Wrap(p.loadPlugin(soFile)); err != nil {
 				return err
 			}
 		}
@@ -94,18 +82,18 @@ func (p *sitePlugin) readPluginFolder(dir string) error {
 	return nil
 }
 
-func (p *sitePlugin) cleanPlugin() {
-	setting := sn.Skynet.Setting.GetCache()
+func (p *sitePlugin) cleanSetting() {
+	setting := sn.Skynet.Setting.GetAll()
 	// setting enable cleanup
 	for k, v := range setting {
-		if strings.HasPrefix(k, pluginPrefix) && v == "1" {
+		if strings.HasPrefix(k, settingPrefix) && v == "1" {
 			setting[k] = "-1"
 		}
 	}
 
-	p.plugin.Range(func(k uuid.UUID, v *PluginLoad) bool {
-		name := pluginPrefix + v.ID.String()
-		if status, exist := setting[name]; exist {
+	p.plugin.Range(func(k uuid.UUID, v *sn.SNPluginEntry) bool {
+		name := settingPrefix + v.ID.String()
+		if status, ok := setting[name]; ok {
 			v.Enable = status == "-1"
 			if v.Enable {
 				setting[name] = "1"
@@ -119,24 +107,24 @@ func (p *sitePlugin) cleanPlugin() {
 	})
 
 	for k, v := range setting {
-		if strings.HasPrefix(k, pluginPrefix) && v == "-1" {
-			if err := sn.Skynet.Setting.Delete(k); err != nil {
+		if strings.HasPrefix(k, settingPrefix) && v == "-1" {
+			if _, err := sn.Skynet.Setting.Delete(k); err != nil {
 				utils.WithTrace(err).Error(err)
 			}
 		}
 	}
 }
 
-func (p *sitePlugin) checkPlugin(v *PluginLoad) bool {
+func (p *sitePlugin) checkPlugin(v *sn.SNPluginEntry) bool {
 	// check version
-	c, err := utils.CheckSkynetVersion(v.SkynetVersion)
+	c, err := utils.CheckVersion(sn.VERSION, v.SkynetVersion)
 	if err != nil {
-		utils.WithTrace(err).Errorf("%w: Version constraint %v invalid (%v)", ErrPluginInvalid, v.SkynetVersion, err.Error())
+		utils.WithTrace(err).Errorf("%v: Version constraint %v invalid (%v)", ErrPluginInvalid, v.SkynetVersion, err.Error())
 	}
 	if !c {
 		v.Disable(fmt.Sprintf("Skynet version mismatch, need %s", v.SkynetVersion))
 		log.Errorf("Plugin %v need skynet version %v, disable now.", v.Name, v.SkynetVersion)
-		if err := sn.Skynet.Setting.Set(pluginPrefix+v.ID.String(), "0"); err != nil {
+		if err := sn.Skynet.Setting.Set(settingPrefix+v.ID.String(), "0"); err != nil {
 			utils.WithTrace(err).Error(err)
 		}
 		return false
@@ -147,9 +135,9 @@ func (p *sitePlugin) checkPlugin(v *PluginLoad) bool {
 
 func (p *sitePlugin) Call(cb sn.SNPluginCBType, param interface{}) []error {
 	var ret []error = nil
-	p.plugin.Range(func(k uuid.UUID, v *PluginLoad) bool {
-		if v.Enable {
-			if f, ok := v.Callback.Get(cb); ok && f != nil {
+	p.plugin.Range(func(k uuid.UUID, v *sn.SNPluginEntry) bool {
+		if v.Enable && v.Callback != nil {
+			if f, ok := v.Callback[cb]; ok && f != nil {
 				if err := f(param); err != nil {
 					ret = append(ret, err)
 				}
@@ -162,6 +150,8 @@ func (p *sitePlugin) Call(cb sn.SNPluginCBType, param interface{}) []error {
 
 func NewPlugin(base string) (sn.SNPlugin, error) {
 	var ret sitePlugin
+	ret.baseFolder = base
+	ret.plugin = new(tpl.SafeMap[uuid.UUID, *sn.SNPluginEntry])
 
 	files, err := ioutil.ReadDir(base)
 	if err != nil {
@@ -169,23 +159,23 @@ func NewPlugin(base string) (sn.SNPlugin, error) {
 	}
 	for _, f := range files {
 		if f.IsDir() {
-			if err := ret.readPluginFolder(path.Join(base, f.Name())); err != nil {
+			if err := ret.loadPluginFolder(path.Join(base, f.Name())); err != nil {
 				utils.WithTrace(err).Error(err)
 			}
 		}
 	}
-	ret.cleanPlugin()
-	ret.plugin.Range(func(k uuid.UUID, v *PluginLoad) bool {
+	ret.cleanSetting()
+	ret.plugin.Range(func(k uuid.UUID, v *sn.SNPluginEntry) bool {
 		ret.checkPlugin(v)
 		return true
 	})
 
 	// plugin init
-	ret.plugin.Range(func(k uuid.UUID, v *PluginLoad) bool {
+	ret.plugin.Range(func(k uuid.UUID, v *sn.SNPluginEntry) bool {
 		if v.Enable {
-			if err := v.Interface.PluginInit(); err != nil {
+			if err := v.Interface.(plugins.PluginInterface).PluginEnable(); err != nil {
 				utils.WithTrace(err).Error(err)
-				v.Disable(fmt.Sprintf("PluginInit error: %s", err.Error()))
+				v.Disable(fmt.Sprintf("Plugin %v enable error: %s", v.Name, err.Error()))
 			}
 		}
 		return true
@@ -201,14 +191,18 @@ func (p *sitePlugin) Delete(id uuid.UUID) error {
 	if err := tracerr.Wrap(os.RemoveAll(item.Path)); err != nil {
 		return err
 	}
-	if err := sn.Skynet.Setting.Delete(pluginPrefix + item.ID.String()); err != nil {
+	if err := tracerr.Wrap(os.RemoveAll(path.Join("assets/_plugin", id.String()))); err != nil {
+		return err
+	}
+	if _, err := sn.Skynet.Setting.Delete(settingPrefix + item.ID.String()); err != nil {
 		utils.WithTrace(err).Error(err)
 	}
+	p.plugin.Delete(id)
 	return nil
 }
 
 func (p *sitePlugin) Update(id uuid.UUID, buf []byte) error {
-	pInstance, zipReader, err := p.LoadFromByte(buf)
+	pInstance, zipReader, err := p.loadFromByte(buf)
 	if err != nil {
 		return err
 	}
@@ -222,19 +216,23 @@ func (p *sitePlugin) Update(id uuid.UUID, buf []byte) error {
 	if err := tracerr.Wrap(os.RemoveAll(v.Path)); err != nil {
 		return err
 	}
-	if err = p.UnzipPlugin(path.Join("plugin", pInstance.Name), zipReader); err != nil {
+	if err := tracerr.Wrap(os.RemoveAll(path.Join("assets/_plugin", id.String()))); err != nil {
 		return err
 	}
+	if err = p.UnzipPlugin(v.Path, zipReader); err != nil {
+		return err
+	}
+	os.Rename(path.Join(v.Path, "assets"), path.Join("assets/_plugin", id.String()))
 	return nil
 }
 
-func (p *sitePlugin) LoadFromByte(buf []byte) (*plugins.PluginInstance, *zip.Reader, error) {
+func (p *sitePlugin) loadFromByte(buf []byte) (*sn.SNPluginInfo, *zip.Reader, error) {
 	reader := bytes.NewReader(buf)
 	r, err := zip.NewReader(reader, reader.Size())
 	if err != nil {
 		return nil, nil, tracerr.Wrap(err)
 	}
-	var ret plugins.PluginInstance
+	var ret sn.SNPluginInfo
 	if err := tracerr.Wrap(json.Unmarshal([]byte(r.Comment), &ret)); err != nil {
 		return nil, nil, err
 	}
@@ -248,7 +246,7 @@ func (p *sitePlugin) UnzipPlugin(baseDir string, r *zip.Reader) error {
 		}
 		for _, f := range r.File {
 			if f.FileInfo().IsDir() {
-				if err := tracerr.Wrap(os.MkdirAll(path.Join("plugin", f.Name), 0755)); err != nil {
+				if err := tracerr.Wrap(os.MkdirAll(path.Join(baseDir, f.Name), 0755)); err != nil {
 					return err
 				}
 			} else {
@@ -257,7 +255,7 @@ func (p *sitePlugin) UnzipPlugin(baseDir string, r *zip.Reader) error {
 					return tracerr.Wrap(err)
 				}
 				defer out.Close()
-				dst, err := os.OpenFile(path.Join("plugin", f.Name), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
+				dst, err := os.OpenFile(path.Join(baseDir, f.Name), os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0755)
 				if err != nil {
 					return tracerr.Wrap(err)
 				}
@@ -278,11 +276,11 @@ func (p *sitePlugin) UnzipPlugin(baseDir string, r *zip.Reader) error {
 }
 
 func (p *sitePlugin) New(buf []byte) error {
-	pInstance, zipReader, err := p.LoadFromByte(buf)
+	pInstance, zipReader, err := p.loadFromByte(buf)
 	if err != nil {
 		return err
 	}
-	baseDir := path.Join("plugin", pInstance.Name)
+	baseDir := path.Join(p.baseFolder, pInstance.Name)
 	if utils.FileExist(baseDir) {
 		return ErrPluginExists
 	}
@@ -290,11 +288,12 @@ func (p *sitePlugin) New(buf []byte) error {
 	if err = p.UnzipPlugin(baseDir, zipReader); err != nil {
 		return err
 	}
-	if err := p.readPluginFolder(baseDir); err != nil {
+	if err := p.loadPluginFolder(baseDir); err != nil {
 		os.RemoveAll(baseDir)
 		return err
 	}
-	if err := sn.Skynet.Setting.Set(pluginPrefix+pInstance.ID.String(), "0"); err != nil {
+	os.Rename(path.Join(baseDir, "assets"), path.Join("assets/_plugin", pInstance.ID.String()))
+	if err := sn.Skynet.Setting.Set(settingPrefix+pInstance.ID.String(), "0"); err != nil {
 		utils.WithTrace(err).Error(err)
 	}
 	if v, ok := p.plugin.Get(pInstance.ID); ok {
@@ -303,11 +302,11 @@ func (p *sitePlugin) New(buf []byte) error {
 	return nil
 }
 
-func (p *sitePlugin) GetAll() interface{} {
-	return &p.plugin
+func (p *sitePlugin) GetAll() []*sn.SNPluginEntry {
+	return p.plugin.Values()
 }
 
-func (p *sitePlugin) Get(id uuid.UUID) interface{} {
+func (p *sitePlugin) Get(id uuid.UUID) *sn.SNPluginEntry {
 	v, exist := p.plugin.Get(id)
 	if !exist {
 		return nil
@@ -320,13 +319,10 @@ func (p *sitePlugin) Disable(id uuid.UUID) error {
 		if !v.Enable {
 			return nil
 		}
-		if err := v.Interface.PluginFini(); err != nil {
+		if err := v.Interface.(plugins.PluginInterface).PluginDisable(); err != nil {
 			return err
 		}
-		if err := v.Interface.PluginDisable(); err != nil {
-			return err
-		}
-		if err := sn.Skynet.Setting.Set(pluginPrefix+v.ID.String(), "0"); err != nil {
+		if err := sn.Skynet.Setting.Set(settingPrefix+v.ID.String(), "0"); err != nil {
 			utils.WithTrace(err).Error(err)
 		}
 		v.Enable = false
@@ -343,13 +339,10 @@ func (p *sitePlugin) Enable(id uuid.UUID) error {
 		if !p.checkPlugin(v) {
 			return tracerr.New(v.Message)
 		}
-		if err := v.Interface.PluginEnable(); err != nil {
+		if err := v.Interface.(plugins.PluginInterface).PluginEnable(); err != nil {
 			return err
 		}
-		if err := v.Interface.PluginInit(); err != nil {
-			return err
-		}
-		if err := sn.Skynet.Setting.Set(pluginPrefix+v.ID.String(), "1"); err != nil {
+		if err := sn.Skynet.Setting.Set(settingPrefix+v.ID.String(), "1"); err != nil {
 			utils.WithTrace(err).Error(err)
 		}
 		v.Enable = true
@@ -359,10 +352,10 @@ func (p *sitePlugin) Enable(id uuid.UUID) error {
 }
 
 func (p *sitePlugin) Fini() {
-	p.plugin.Range(func(k uuid.UUID, v *PluginLoad) bool {
+	p.plugin.Range(func(k uuid.UUID, v *sn.SNPluginEntry) bool {
 		if v.Enable {
-			if err := v.Interface.PluginFini(); err != nil {
-				utils.WithTrace(err).Errorf("Plugin %v fini error: %v", v.Name, err)
+			if err := v.Interface.(plugins.PluginInterface).PluginDisable(); err != nil {
+				utils.WithTrace(err).Errorf("Plugin %v disable error: %v", v.Name, err)
 			}
 		}
 		return true

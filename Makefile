@@ -1,20 +1,26 @@
 SHELL = /bin/bash
+.SHELLFLAGS = -
 OUTPUTDIR = ./bin
+TARGETS = darwin/arm64
 
 .ONESHELL:
-.PHONY: generate run help build build_plugin docker coverage test packer clean
+.PHONY: generate run help build build_plugin docker coverage test packer clean docs static static_plugin package
 
 all: help
+
+## docs: Generate documents
+docs:
+	@apidoc -f ".*\\.go$$" -i api/ -o docs/ -c apidoc.json -v
 
 ## clean: Clean build files
 clean:
 	@rm -rf $(OUTPUTDIR)
+	@rm -rf assets docs
 	@rm -f coverage.html coverage.out
 
 ## packer: Build plugin packer
 packer:
-	@xgo -ldflags "-s -w" -targets linux/amd64 -dest $(OUTPUTDIR) -pkg packer -out packer .
-	@mv $(OUTPUTDIR)/packer-linux-amd64 $(OUTPUTDIR)/packer
+	@xgo -ldflags "-s -w" -targets $(TARGETS) -dest $(OUTPUTDIR) -pkg packer -out packer .
 
 ## test: Go test
 test: 
@@ -34,20 +40,20 @@ docker: build build_plugin
 ## build_plugin: Build plugin binary file
 build_plugin:
 	@echo Building plugins
-	@for d in ./plugin/*/;do	\
-		echo Building $$d;		\
-		mkdir -p $(OUTPUTDIR)/$$d;	\
-		name=$${d%/*};	\
-		name=$${name##*/};	\
-		xgo -buildmode=plugin -ldflags "-s -w" -targets linux/amd64 -dest $(OUTPUTDIR)/$$d -pkg $$d -out $$name .;	\
-		sleep 3;	\
-		mv $(OUTPUTDIR)/$$d$$name-linux-amd64 $(OUTPUTDIR)/$$d$$name.so;	\
-		pushd . > /dev/null;	\
-		cd $$d;					\
-		if [[ -f "Makefile" ]]; then \
-		make --no-print-directory build;	\
-		fi; \
-		popd > /dev/null;		\
+	@for d in `ls ./plugin | grep "^[^_]"`;do	\
+		if [ -d ./plugin/$$d ];then	\
+			rm -rf ./plugin/$$d/bin;	\
+			mkdir -p ./plugin/$$d/bin;	\
+			echo Building $$d;		\
+			xgo -buildmode=plugin -ldflags "-s -w" -targets $(TARGETS) -dest ./plugin/$$d/bin -pkg ./plugin/$$d -out $$d .;	\
+			pushd . > /dev/null;	\
+			cd ./plugin/$$d;		\
+			find ./bin -type f -maxdepth 1 -name "$$d*" -exec mv {} {}.so \;; \
+			if [[ -f "Makefile" ]]; then \
+			make --no-print-directory build;	\
+			fi; \
+			popd > /dev/null;		\
+		fi	\
 	done
 	@echo Success
 
@@ -57,46 +63,73 @@ build:
 	@echo Building skynet
 	@mkdir -p $(OUTPUTDIR)
 	@mkdir -p $(OUTPUTDIR)/plugin
-	@xgo -ldflags "-s -w" -targets linux/amd64 -dest $(OUTPUTDIR) .
-	@mv $(OUTPUTDIR)/skynet-linux-amd64 $(OUTPUTDIR)/skynet
+	@mkdir -p $(OUTPUTDIR)/assets/_plugin
+	@xgo -ldflags "-s -w" -targets $(TARGETS) -dest $(OUTPUTDIR) .
 	@cp LICENSE $(OUTPUTDIR)
 	@cp conf.yml $(OUTPUTDIR)
 	@cp default.webp $(OUTPUTDIR)
-	@rm -rf $(OUTPUTDIR)/assets && cp -r assets $(OUTPUTDIR)/assets
-	@rm -rf $(OUTPUTDIR)/templates && cp -r templates $(OUTPUTDIR)/templates
+	@cp -r frontend/dist $(OUTPUTDIR)/assets
 	@echo Success
 
 ## generate: Generate dynamic source code.
 generate:
-	@echo Generate utils;
-	@genny -in=./sn/utils/map_tpl.go -out=./sn/utils/map_int_gen.go gen "MPrefix=Int MTypeA=int MTypeB=interface{}"
-	@genny -in=./sn/utils/map_tpl.go -out=./sn/utils/map_string_gen.go gen "MPrefix=String MTypeA=string MTypeB=interface{}"
-	@genny -in=./sn/utils/map_tpl.go -out=./sn/utils/map_uuid_gen.go gen "MPrefix=UUID MTypeA=uuid.UUID MTypeB=interface{}"
-	@genny -in=./sn/utils/map_tpl.go -out=./handler/map_plugin_gen.go -pkg=handler gen "MPrefix=Plugin MTypeA=uuid.UUID MTypeB=*PluginLoad"
-	@genny -in=./sn/utils/map_tpl.go -out=./plugin/map_plugincb_gen.go -pkg=plugin gen "MPrefix=PluginCB MTypeA=sn.SNPluginCBType MTypeB=PluginCallback"
-
-	@for d in ./plugin/*/;do	\
-		pushd . > /dev/null;	\
-		cd $$d;					\
-		if [[ -f "Makefile" ]]; then \
-		echo Generate $$d;		\
-		make --no-print-directory generate;	\
-		fi; \
-		popd > /dev/null;		\
-	done
+	@echo Generate code
+	@go generate ./...
 	@echo Success
+
+## static_plugin: Build plugin static file.
+static_plugin:
+	@for d in `ls ./plugin | grep "^[^_]"`;do	\
+		if [ -d ./plugin/$$d ];then	\
+			pushd . > /dev/null;	\
+			cd ./plugin/$$d;		\
+			if [[ -f "Makefile" ]]; then \
+			echo Building static file $$d;		\
+			make --no-print-directory static;	\
+			fi; \
+			popd > /dev/null;		\
+		fi	\
+	done
+
+## static: Build static file.
+static:
+	@cd frontend && \
+	yarn && \
+	yarn build
+	@rm -rf assets
+	@cp -r frontend/dist assets
+ 
+## package: Package plugin.
+package: build_plugin static_plugin packer
+	@for d in `ls ./plugin | grep "^[^_]"`;do	\
+		if [ -d ./plugin/$$d ];then	\
+			pushd . > /dev/null;	\
+			cd ./plugin/$$d;		\
+			echo Packaging $$d;		\
+			if [[ -f "Makefile" ]]; then \
+			make --no-print-directory package;	\
+			fi; \
+			popd > /dev/null;		\
+			./bin/packer* ./plugin/$$d/bin $(OUTPUTDIR)/$$d;	\
+		fi	\
+	done
 
 ## run: Run skynet(for develop use)
 run:
-	@for d in ./plugin/*/;do	\
-		pushd . > /dev/null;	\
-		cd $$d;					\
-		echo Building $$d;		\
-		go build -buildmode=plugin .;	\
-		popd > /dev/null;		\
+	@for d in `ls ./plugin | grep "^[^_]"`;do	\
+		if [ -d ./plugin/$$d ];then	\
+			pushd . > /dev/null;	\
+			cd ./plugin/$$d;					\
+			echo Building $$d;		\
+			go build -buildmode=plugin .;	\
+			if [[ -f "Makefile" ]]; then \
+			make --no-print-directory run;	\
+			fi; \
+			popd > /dev/null;		\
+		fi	\
 	done
 	@echo Success
-	@go run . run
+	@go run . run -v
 
 ## help: Show this help.
 help: Makefile

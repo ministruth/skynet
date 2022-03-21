@@ -1,0 +1,11 @@
+{
+  "name": "skynet",
+  "version": "1.0.0",
+  "description": "Service integration and management system, optimized for home-lab use.",
+  "title": "Skynet API Document",
+  "url": "http://localhost:8080/api",
+  "order": ["Auth"],
+  "template": {
+    "forceLanguage": "en"
+  }
+}

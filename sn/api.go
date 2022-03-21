@@ -2,6 +2,7 @@ package sn
 
 import (
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 )
 
 // SNAPI is interface for skynet API.
@@ -13,11 +14,19 @@ type SNAPI interface {
 	GetAPI() []*SNAPIItem
 
 	// AddAPI adds item to API list.
-	AddAPI(i []*SNAPIItem)
+	AddAPI(item []*SNAPIItem)
+
+	// GetMenu returns current menu.
+	GetMenu() []*SNMenu
+
+	// AddMenu add menu item to parent.
+	//
+	// If parent not exist, return false.
+	AddMenu(item *SNMenu, parent uuid.UUID) bool
 }
 
 // SNAPIMethod is http method for API.
-type SNAPIMethod int
+type SNAPIMethod int32
 
 const (
 	// APIGet represents HTTP Get method
@@ -40,19 +49,30 @@ const (
 
 // SNAPIFunc is API function type.
 //
-// u is current user when user signin, otherwise nil.
+// id is current user id when user signin, otherwise uuid.Nil.
 //
-// return http code and error, code is only used when error not nil.
-//	// these are same
-//	return 0, nil
-//	return 200, nil
-//	return 500, nil
-type SNAPIFunc func(c *gin.Context, u *User) (int, error)
+// return http code and error, when error is nil and code not zero,
+// skynet will handle it based on the code
+type SNAPIFunc func(c *gin.Context, id uuid.UUID) (int, error)
+
+// SNCheckerFunc is permission checker function type.
+type SNCheckerFunc func(perm map[uuid.UUID]*SNPerm) bool
 
 // SNAPIItem is APIItem struct.
 type SNAPIItem struct {
-	Path   string      // API path
-	Method SNAPIMethod // API http method
-	Role   UserRole    // API allow role
-	Func   SNAPIFunc   // API function
+	Path    string      // API path
+	Method  SNAPIMethod // API http method
+	Perm    *SNPerm     // API permission
+	Func    SNAPIFunc   // API function
+	Checker SNCheckerFunc
+}
+
+type SNMenu struct {
+	ID       uuid.UUID
+	Name     string
+	Path     string
+	Icon     string
+	Children []*SNMenu
+	Perm     *SNPerm
+	Checker  SNCheckerFunc
 }

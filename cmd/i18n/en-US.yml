@@ -1,0 +1,28 @@
+menu:
+  system: "System"
+  dashboard: "Dashboard"
+  service: "Service"
+  notification: "Notification"
+  user: "User"
+  user.user: "User"
+  user.group: "Group"
+  plugin: "Plugin"
+  plugin.manage: "Manage"
+
+response:
+  success: "Success"
+  user:
+    invalid: "Invalid username or password"
+    exist: "Username already exists"
+  recaptcha:
+    invalid: "reCAPTCHA not valid"
+  restart: "Skynet restarting"
+  group:
+    notexist: "Group not exist"
+    exist: "Group name already exist"
+    rootupdate: "Root group is not allowed to update"
+    rootdelete: "Root group is not allowed to delete"
+  plugin:
+    notexist: "Plugin not exist"
+    formaterror: "Plugin package format error"
+    exist: "Plugin already exists"

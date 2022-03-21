@@ -5,142 +5,181 @@ import (
 	"skynet/handler"
 	"skynet/sn"
 	"skynet/sn/utils"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
-	"github.com/vincent-petithory/dataurl"
 	"github.com/ztrue/tracerr"
 )
 
-func APIGetPlugin(c *gin.Context, u *sn.User) (int, error) {
-	var param paginationParam
+func APIGetPluginEntry(c *gin.Context, id uuid.UUID) (int, error) {
+	ret, err := GetMenuPluginID(c)
+	if err != nil {
+		return 500, err
+	}
+	responseData(c, ret)
+	return 0, nil
+}
+
+func APIGetPlugin(c *gin.Context, id uuid.UUID) (int, error) {
+	type Param struct {
+		Enable []bool `form:"enable[]"`
+		Text   string `form:"text"`
+		paginationParam
+	}
+	var param Param
 	if err := tracerr.Wrap(c.ShouldBindQuery(&param)); err != nil {
 		return 400, err
 	}
 
-	rec := sn.Skynet.Plugin.GetAll().(*handler.PluginMap)
-	count := sn.Skynet.Plugin.Count()
-	if count > 0 && (param.Page-1)*param.Size < count {
-		c.JSON(200, gin.H{"code": 0, "msg": "Get all plugin success", "data": rec.Values()[(param.Page-1)*param.Size : utils.IntMin(param.Page*param.Size, count)],
-			"total": count})
+	if len(param.Enable) == 0 {
+		param.Enable = []bool{
+			false,
+			true,
+		}
+	}
+	contains := func(v bool) bool {
+		for _, e := range param.Enable {
+			if e == v {
+				return true
+			}
+		}
+		return false
+	}
+
+	p := sn.Skynet.Plugin.GetAll()
+	var ret []*sn.SNPluginEntry
+	for _, v := range p {
+		if contains(v.Enable) {
+			if param.Text == "" {
+				ret = append(ret, v)
+			} else {
+				if strings.Contains(v.ID.String(), param.Text) ||
+					strings.Contains(v.Name, param.Text) ||
+					strings.Contains(v.Message, param.Text) {
+					ret = append(ret, v)
+				}
+			}
+		}
+	}
+	min, max, ok := utils.CalcPage(param.Page, param.Size, len(ret))
+	if !ok {
+		responsePage(c, []*sn.SNPluginEntry{}, len(ret))
 	} else {
-		c.JSON(200, gin.H{"code": 0, "msg": "Get all plugin success", "data": []*handler.PluginLoad{}, "total": count})
+		responsePage(c, ret[min:max], len(ret))
 	}
 	return 0, nil
 }
 
-type addPluginParam struct {
-	File string `json:"file"`
-}
+func APIPutPlugin(c *gin.Context, id uuid.UUID) (int, error) {
+	type Param struct {
+		Enable bool `json:"enable"`
+	}
 
-func APIAddPlugin(c *gin.Context, u *sn.User) (int, error) {
-	var param addPluginParam
+	var param Param
 	if err := tracerr.Wrap(c.ShouldBind(&param)); err != nil {
 		return 400, err
 	}
-	logf := log.WithFields(log.Fields{
-		"ip": utils.GetIP(c),
-		"id": u.ID,
-	})
-
-	f, err := dataurl.DecodeString(param.File)
-	if err != nil {
-		return 500, tracerr.Wrap(err)
-	}
-	if err := sn.Skynet.Plugin.New(f.Data); err != nil {
-		if errors.Is(err, handler.ErrPluginInvalid) {
-			c.JSON(200, gin.H{"code": 1, "msg": "Plugin package format error"})
-			return 0, nil
-		}
-		if errors.Is(err, handler.ErrPluginExists) {
-			c.JSON(200, gin.H{"code": 2, "msg": "Plugin already exists"})
-			return 0, nil
-		}
-		return 500, err
-	}
-	logf.Info("Add plugin success")
-	c.JSON(200, gin.H{"code": 0, "msg": "Add plugin success"})
-	return 0, nil
-}
-
-func APIDeletePlugin(c *gin.Context, u *sn.User) (int, error) {
-	id, err := uuid.Parse(c.Param("id"))
-	if err != nil {
-		return 400, tracerr.Wrap(err)
-	}
-	logf := log.WithFields(log.Fields{
-		"ip":     utils.GetIP(c),
-		"id":     u.ID,
-		"plugin": id,
-	})
-
-	if err := sn.Skynet.Plugin.Delete(id); err != nil {
-		return 500, err
-	}
-	logf.Info("Delete plugin success")
-	c.JSON(200, gin.H{"code": 0, "msg": "Delete plugin success, reloading"})
-	go func() {
-		time.Sleep(time.Second * 2)
-		utils.Restart()
-	}()
-	return 0, nil
-}
-
-type updatePluginParam struct {
-	File   string `json:"file"`
-	Enable bool   `json:"enable"`
-}
-
-func APIUpdatePlugin(c *gin.Context, u *sn.User) (int, error) {
-	var param updatePluginParam
-	if err := tracerr.Wrap(c.ShouldBind(&param)); err != nil {
+	var uriParam idURI
+	if err := tracerr.Wrap(c.ShouldBindUri(&uriParam)); err != nil {
 		return 400, err
 	}
-	id, err := uuid.Parse(c.Param("id"))
+	pluginID, err := uuid.Parse(uriParam.ID)
 	if err != nil {
-		return 400, tracerr.Wrap(err)
+		return 400, err
 	}
-	logf := log.WithFields(log.Fields{
-		"ip":     utils.GetIP(c),
-		"id":     u.ID,
-		"plugin": id,
+	logf := wrap(c, id, log.Fields{
+		"pluginID": pluginID,
+		"enable":   param.Enable,
 	})
 
-	if param.File != "" {
-		f, err := dataurl.DecodeString(param.File)
-		if err != nil {
-			return 500, tracerr.Wrap(err)
-		}
-		if err := sn.Skynet.Plugin.Update(id, f.Data); err != nil {
-			return 500, err
-		}
-		logf.Info("Update plugin success")
-		c.JSON(200, gin.H{"code": 0, "msg": "Update plugin success, reloading"})
-		go func() {
-			time.Sleep(time.Second * 2)
-			utils.Restart()
-		}()
+	if sn.Skynet.Plugin.Get(pluginID) == nil {
+		logf.Warn(CodePluginNotExist.String(c))
+		response(c, CodePluginNotExist)
 		return 0, nil
 	}
 
 	if param.Enable {
-		if err := sn.Skynet.Plugin.Enable(id); err != nil {
+		if err := sn.Skynet.Plugin.Enable(pluginID); err != nil {
 			return 500, err
 		}
-		logf.Info("Enable plugin success")
-		c.JSON(200, gin.H{"code": 0, "msg": "Enable plugin success"})
+		success(logf, "Enable plugin")
+		response(c, CodeOK)
 	} else {
-		if err := sn.Skynet.Plugin.Disable(id); err != nil {
+		if err := sn.Skynet.Plugin.Disable(pluginID); err != nil {
 			return 500, err
 		}
-		logf.Info("Disable plugin success")
-		c.JSON(200, gin.H{"code": 0, "msg": "Disable plugin success, reloading"})
+		success(logf, "Disable plugin")
+		response(c, CodeOK)
+		sn.Skynet.Running = false
 		go func() {
 			time.Sleep(time.Second * 2)
 			utils.Restart()
 		}()
 	}
+	return 0, nil
+}
+
+func APIDeletePlugin(c *gin.Context, id uuid.UUID) (int, error) {
+	var uriParam idURI
+	if err := tracerr.Wrap(c.ShouldBindUri(&uriParam)); err != nil {
+		return 400, err
+	}
+	pluginID, err := uuid.Parse(uriParam.ID)
+	if err != nil {
+		return 400, err
+	}
+	logf := wrap(c, id, log.Fields{
+		"pluginID": pluginID,
+	})
+
+	p := sn.Skynet.Plugin.Get(pluginID)
+	if p == nil {
+		logf.Warn(CodePluginNotExist.String(c))
+		response(c, CodePluginNotExist)
+		return 0, nil
+	}
+	if err := sn.Skynet.Plugin.Delete(pluginID); err != nil {
+		return 500, err
+	}
+	success(logf, "Delete plugin")
+	response(c, CodeOK)
+	if p.Enable {
+		sn.Skynet.Running = false
+		go func() {
+			time.Sleep(time.Second * 2)
+			utils.Restart()
+		}()
+	}
+	return 0, nil
+}
+
+func APIAddPlugin(c *gin.Context, id uuid.UUID) (int, error) {
+	type Param struct {
+		File []byte `json:"file"`
+	}
+	var param Param
+	if err := tracerr.Wrap(c.ShouldBind(&param)); err != nil {
+		return 400, err
+	}
+	logf := wrap(c, id, nil)
+
+	if err := sn.Skynet.Plugin.New(param.File); err != nil {
+		if errors.Is(err, handler.ErrPluginInvalid) {
+			logf.Warn(CodePluginFormatError.String(c))
+			response(c, CodePluginFormatError)
+			return 0, nil
+		}
+		if errors.Is(err, handler.ErrPluginExists) {
+			logf.Warn(CodePluginExist.String(c))
+			response(c, CodePluginExist)
+			return 0, nil
+		}
+		return 500, err
+	}
+	success(logf, "Add plugin")
+	response(c, CodeOK)
 	return 0, nil
 }

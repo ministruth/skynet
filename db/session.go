@@ -3,10 +3,10 @@ package db
 import (
 	"context"
 	"skynet/sn"
+	"skynet/sn/utils"
 
 	"github.com/go-redis/redis/v8"
 	"github.com/rbcervilla/redisstore/v8"
-	log "github.com/sirupsen/logrus"
 )
 
 // SessionConfig is connection config for session.
@@ -20,19 +20,19 @@ type sessionClient struct {
 }
 
 // NewSession create new session object, exit when facing any error.
-func NewSession(ctx context.Context, conf *SessionConfig) sn.SNDB {
+func NewSession(ctx context.Context, conf *SessionConfig) sn.SNDB[*redisstore.RedisStore] {
 	var ret sessionClient
 	var err error
 
 	ret.sessionClient, err = redisstore.NewRedisStore(ctx, conf.RedisClient)
 	if err != nil {
-		log.Fatal("Redis store error: ", err)
+		utils.WithTrace(err).Fatal("Redis store error: ", err)
 	}
 	ret.sessionClient.KeyPrefix(conf.Prefix)
 	return &ret
 }
 
-func (c *sessionClient) Get() interface{} {
+func (c *sessionClient) Get() *redisstore.RedisStore {
 	if c.sessionClient == nil {
 		panic("Session not init")
 	}

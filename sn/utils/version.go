@@ -1,17 +1,9 @@
 package utils
 
 import (
-	"skynet/sn"
-
 	"github.com/hashicorp/go-version"
 	"github.com/ztrue/tracerr"
 )
-
-// CheckSkynetVersion checks skynet version with constraint string.
-//	CheckSkynetVersion(">= 1.0, < 1.1")
-func CheckSkynetVersion(constraint string) (bool, error) {
-	return CheckVersion(sn.VERSION, constraint)
-}
 
 // CheckVersion checks ver with constraint string.
 //	CheckVersion("1.0.1", ">= 1.0, < 1.1")

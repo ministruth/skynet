@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/md5"
 	"encoding/hex"
+	"encoding/json"
 	"io/ioutil"
 	"math/rand"
 	"net/http"
@@ -12,6 +13,8 @@ import (
 	"strings"
 	"syscall"
 	"time"
+
+	"golang.org/x/exp/constraints"
 
 	"github.com/gin-gonic/gin"
 	log "github.com/sirupsen/logrus"
@@ -57,24 +60,6 @@ func MD5(str string) string {
 	return hex.EncodeToString(h.Sum(nil))
 }
 
-// IntMin returns smaller one between a and b.
-func IntMin(a int, b int) int {
-	if a <= b {
-		return a
-	} else {
-		return b
-	}
-}
-
-// IntMin returns bigger one between a and b.
-func IntMax(a int, b int) int {
-	if a >= b {
-		return a
-	} else {
-		return b
-	}
-}
-
 // FileExist returns whether file in path exist.
 func FileExist(path string) bool {
 	var exist = true
@@ -97,7 +82,7 @@ func DownloadFile(ctx context.Context, url string, path string) error {
 		return tracerr.Wrap(err)
 	}
 	req = req.WithContext(ctx)
-	client := &http.Client{}
+	client := new(http.Client)
 	finish := make(chan error, 1)
 	go func() {
 		resp, err := client.Do(req)
@@ -121,4 +106,37 @@ func DownloadFile(ctx context.Context, url string, path string) error {
 	case err := <-finish:
 		return err
 	}
+}
+
+func MustMarshal(v any) string {
+	ret, err := json.Marshal(v)
+	if err != nil {
+		panic(err)
+	}
+	return string(ret)
+}
+
+func Min[T constraints.Ordered](a T, b T) T {
+	if a > b {
+		return b
+	}
+	return a
+}
+
+func Max[T constraints.Ordered](a T, b T) T {
+	if a > b {
+		return a
+	}
+	return b
+}
+
+func CalcPage(page int, size int, len int) (int, int, bool) {
+	min := Max(0, (page-1)*size)
+	max := Min(len, page*size)
+	min = Min(min, len)
+	max = Max(max, 0)
+	if min == len || max == 0 || min >= max {
+		return -1, -1, false
+	}
+	return min, max, true
 }

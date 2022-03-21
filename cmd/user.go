@@ -1,11 +1,13 @@
 package cmd
 
 import (
-	"errors"
 	"io/ioutil"
+	"skynet/handler"
 	"skynet/sn"
+	"skynet/sn/impl"
 	"skynet/sn/utils"
 
+	"github.com/google/uuid"
 	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 
@@ -19,101 +21,77 @@ var userCmd = &cobra.Command{
 }
 
 var (
-	roleuser   bool
+	rootPerm   bool
 	avatar     string
 	userAddCmd = &cobra.Command{
-		Use:   "add user [pass]",
+		Use:   "add $user",
 		Short: "Add skynet user",
-		Args:  cobra.RangeArgs(1, 2),
+		Args:  cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			connectDB()
-			log.WithFields(log.Fields{
-				"path": viper.GetString("database.path"),
-			}).Debug("Database connected")
+			impl.ConnectDB()
+			log.WithField("path", viper.GetString("database.path")).Debug("Database connected")
+			sn.Skynet.User = handler.NewUser()
+			sn.Skynet.Group = handler.NewGroup()
 
 			content, err := ioutil.ReadFile(avatar)
 			if err != nil {
 				utils.WithTrace(err).Fatal(err)
 			}
-			log.WithFields(log.Fields{
-				"file": avatar,
-			}).Debug("Read file success")
+			webp, err := utils.ConvertWebp(content)
+			if err != nil {
+				utils.WithTrace(err).Fatal(err)
+			}
+			log.WithField("file", avatar).Debug("Read file success")
 
 			var newpass string
-			if len(args) == 1 {
-				newpass = utils.RandString(8)
+			if rootPerm {
+				err = sn.Skynet.GetDB().Transaction(func(tx *gorm.DB) error {
+					var u *sn.User
+					u, newpass, err = sn.Skynet.User.WithTx(tx).New(args[0], "", webp)
+					if err != nil {
+						return err
+					}
+					_, err = sn.Skynet.Group.Link([]uuid.UUID{u.ID}, []uuid.UUID{sn.Skynet.GetID(sn.GroupRootID)})
+					return err
+				})
 			} else {
-				newpass = args[1]
-			}
-
-			if roleuser {
-				newpass, err = sn.Skynet.User.New(args[0], newpass, content, sn.RoleUser)
-			} else {
-				newpass, err = sn.Skynet.User.New(args[0], newpass, content, sn.RoleAdmin)
-				log.Warn("By default the user has admin permission, use -u/--user to force user permission")
+				_, newpass, err = sn.Skynet.User.New(args[0], "", webp)
+				log.Warn("By default the user has no permission, use --root to add to root group")
 			}
 
 			if err != nil {
 				utils.WithTrace(err).Fatal(err)
 			}
-			if len(args) == 1 {
-				log.Info("New pass: ", newpass)
-			}
+			log.Info("New pass: ", newpass)
 			log.Info("Add user success")
 		},
 	}
 )
 
 var (
-	resetall     bool
 	userResetCmd = &cobra.Command{
-		Use:   "reset [user]",
+		Use:   "reset $user",
 		Short: "Reset skynet user password",
-		Args:  cobra.MaximumNArgs(1),
+		Args:  cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			connectRedis()
-			log.WithFields(log.Fields{
-				"addr": viper.GetString("redis.address"),
-			}).Debug("Redis connected")
-			connectDB()
-			log.WithFields(log.Fields{
-				"path": viper.GetString("database.path"),
-			}).Debug("Database connected")
+			impl.ConnectRedis()
+			log.WithField("addr", viper.GetString("redis.address")).Debug("Redis connected")
+			impl.ConnectDB()
+			log.WithField("path", viper.GetString("database.path")).Debug("Database connected")
+			sn.Skynet.User = handler.NewUser()
 
-			if !resetall {
-				if len(args) != 1 {
-					log.Fatal("No user specified")
-				}
-
-				uid, err := sn.Skynet.User.GetByUsername(args[0])
-				if errors.Is(err, gorm.ErrRecordNotFound) {
-					log.Fatalf("User %v not found", args[0])
-				} else if err != nil {
-					utils.WithTrace(err).Fatal(err)
-				}
-				newpass, err := sn.Skynet.User.Reset(int(uid.ID))
-				if err != nil {
-					utils.WithTrace(err).Fatal(err)
-				}
-				log.Info("New pass: ", newpass)
-			} else {
-				if len(args) == 1 {
-					log.Fatal("Remove --all if you want to reset specific user")
-				}
-
-				newpass, err := sn.Skynet.User.ResetAll()
-				if err != nil {
-					utils.WithTrace(err).Fatal(err)
-				}
-				if len(newpass) == 0 {
-					log.Warn("No user in database")
-					return
-				}
-
-				for k, v := range newpass {
-					log.Infof("User %v now has new pass %v", k, v)
-				}
+			user, err := sn.Skynet.User.GetByName(args[0])
+			if err != nil {
+				utils.WithTrace(err).Fatal(err)
 			}
+			if user == nil {
+				log.Fatalf("User %v not found", args[0])
+			}
+			newpass, err := sn.Skynet.User.Reset(user.ID)
+			if err != nil {
+				utils.WithTrace(err).Fatal(err)
+			}
+			log.Info("New pass: ", newpass)
 			log.Info("Reset user success")
 		},
 	}
@@ -121,8 +99,7 @@ var (
 
 func init() {
 	userAddCmd.Flags().StringVarP(&avatar, "avatar", "a", "default.webp", "user avatar")
-	userAddCmd.Flags().BoolVarP(&roleuser, "user", "u", false, "set role to user permission")
-	userResetCmd.Flags().BoolVar(&resetall, "all", false, "reset all user password")
+	userAddCmd.Flags().BoolVar(&rootPerm, "root", false, "set user to root group")
 
 	userCmd.AddCommand(userAddCmd)
 	userCmd.AddCommand(userResetCmd)

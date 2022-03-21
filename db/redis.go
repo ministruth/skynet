@@ -3,9 +3,9 @@ package db
 import (
 	"context"
 	"skynet/sn"
+	"skynet/sn/utils"
 
 	"github.com/go-redis/redis/v8"
-	log "github.com/sirupsen/logrus"
 )
 
 // RedisConfig is connection config for redis.
@@ -20,7 +20,7 @@ type redisClient struct {
 }
 
 // NewRedis create new redis object, exit when facing any error.
-func NewRedis(ctx context.Context, conf *RedisConfig) sn.SNDB {
+func NewRedis(ctx context.Context, conf *RedisConfig) sn.SNDB[*redis.Client] {
 	var ret redisClient
 	ret.redisClient = redis.NewClient(&redis.Options{
 		Addr:     conf.Address,
@@ -29,12 +29,12 @@ func NewRedis(ctx context.Context, conf *RedisConfig) sn.SNDB {
 	})
 	err := ret.redisClient.Ping(ctx).Err()
 	if err != nil {
-		log.Fatal("Redis connect error: ", err)
+		utils.WithTrace(err).Fatal("Redis connect error: ", err)
 	}
 	return &ret
 }
 
-func (c *redisClient) Get() interface{} {
+func (c *redisClient) Get() *redis.Client {
 	if c.redisClient == nil {
 		panic("Redis not init")
 	}
