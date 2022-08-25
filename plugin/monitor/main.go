@@ -1,8 +1,9 @@
 package main
 
 import (
-	sp "skynet/plugin"
 	"time"
+
+	sp "github.com/MXWXZ/skynet/plugin"
 
 	"github.com/hashicorp/go-plugin"
 )

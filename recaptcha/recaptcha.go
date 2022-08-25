@@ -1,7 +1,7 @@
 package recaptcha
 
 import (
-	"skynet/utils/log"
+	"github.com/MXWXZ/skynet/utils/log"
 
 	"github.com/spf13/viper"
 )

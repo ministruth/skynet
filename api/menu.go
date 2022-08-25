@@ -1,9 +1,10 @@
 package api
 
 import (
-	"skynet/translator"
-	"skynet/utils/tpl"
 	"strings"
+
+	"github.com/MXWXZ/skynet/translator"
+	"github.com/MXWXZ/skynet/utils/tpl"
 
 	"github.com/google/uuid"
 )

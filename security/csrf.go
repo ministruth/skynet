@@ -3,10 +3,11 @@ package security
 import (
 	"context"
 	"errors"
-	"skynet/db"
-	"skynet/utils"
-	"skynet/utils/log"
 	"time"
+
+	"github.com/MXWXZ/skynet/db"
+	"github.com/MXWXZ/skynet/utils"
+	"github.com/MXWXZ/skynet/utils/log"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"

@@ -1,9 +1,10 @@
 package handler
 
 import (
-	"skynet/db"
-	"skynet/utils"
 	"time"
+
+	"github.com/MXWXZ/skynet/db"
+	"github.com/MXWXZ/skynet/utils"
 
 	"github.com/google/uuid"
 	"github.com/spf13/viper"

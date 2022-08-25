@@ -1,8 +1,8 @@
 package handler
 
 import (
-	"skynet/db"
-	"skynet/utils"
+	"github.com/MXWXZ/skynet/db"
+	"github.com/MXWXZ/skynet/utils"
 
 	"github.com/google/uuid"
 	"github.com/sirupsen/logrus"

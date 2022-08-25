@@ -3,8 +3,8 @@ package translator
 import (
 	"embed"
 	"io/fs"
-	"skynet/utils/log"
 
+	"github.com/MXWXZ/skynet/utils/log"
 	"github.com/nicksnyder/go-i18n/v2/i18n"
 	"github.com/ztrue/tracerr"
 	"golang.org/x/text/language"

@@ -1,7 +1,7 @@
 package handler
 
 import (
-	"skynet/db"
+	"github.com/MXWXZ/skynet/db"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"

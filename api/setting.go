@@ -1,7 +1,7 @@
 package api
 
 import (
-	"skynet/config"
+	"github.com/MXWXZ/skynet/config"
 )
 
 func APIGetPublicSetting(req *Request) (*Response, error) {

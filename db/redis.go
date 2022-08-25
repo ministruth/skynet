@@ -2,8 +2,9 @@ package db
 
 import (
 	"context"
-	"skynet/utils/log"
 	"time"
+
+	"github.com/MXWXZ/skynet/utils/log"
 
 	"github.com/go-redis/redis/v8"
 	"github.com/spf13/viper"

@@ -1,8 +1,8 @@
 package api
 
 import (
-	"skynet/db"
-	"skynet/handler"
+	"github.com/MXWXZ/skynet/db"
+	"github.com/MXWXZ/skynet/handler"
 )
 
 func APIGetNotification(req *Request) (*Response, error) {

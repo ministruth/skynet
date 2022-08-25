@@ -1,8 +1,8 @@
 package cmd
 
 import (
-	"skynet/config"
-	"skynet/utils/log"
+	"github.com/MXWXZ/skynet/config"
+	"github.com/MXWXZ/skynet/utils/log"
 
 	"github.com/spf13/cobra"
 )

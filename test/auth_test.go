@@ -2,9 +2,10 @@ package test
 
 import (
 	"os"
-	"skynet/api"
-	"skynet/sn"
 	"testing"
+
+	"github.com/MXWXZ/skynet/api"
+	"github.com/MXWXZ/skynet/sn"
 
 	"github.com/stretchr/testify/assert"
 )

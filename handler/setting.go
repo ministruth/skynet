@@ -1,8 +1,8 @@
 package handler
 
 import (
-	"skynet/db"
-	"skynet/utils/tpl"
+	"github.com/MXWXZ/skynet/db"
+	"github.com/MXWXZ/skynet/utils/tpl"
 
 	"gorm.io/gorm"
 )

@@ -3,7 +3,8 @@ package config
 import (
 	"bytes"
 	"io/ioutil"
-	"skynet/utils/log"
+
+	"github.com/MXWXZ/skynet/utils/log"
 
 	"github.com/gin-gonic/gin"
 	"github.com/sirupsen/logrus"

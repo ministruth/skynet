@@ -4,10 +4,11 @@ import (
 	"context"
 	"encoding/gob"
 	"fmt"
-	"skynet/utils/log"
-	"skynet/utils/tpl"
 	"strings"
 	"time"
+
+	"github.com/MXWXZ/skynet/utils/log"
+	"github.com/MXWXZ/skynet/utils/tpl"
 
 	"github.com/gin-gonic/gin"
 	"github.com/go-redis/redis/v8"

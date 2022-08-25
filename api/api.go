@@ -3,14 +3,15 @@ package api
 import (
 	"errors"
 	"net/http"
-	"skynet/db"
-	"skynet/handler"
-	"skynet/sn"
-	"skynet/translator"
-	"skynet/utils"
-	"skynet/utils/log"
 	"sync"
 	"time"
+
+	"github.com/MXWXZ/skynet/db"
+	"github.com/MXWXZ/skynet/handler"
+	"github.com/MXWXZ/skynet/sn"
+	"github.com/MXWXZ/skynet/translator"
+	"github.com/MXWXZ/skynet/utils"
+	"github.com/MXWXZ/skynet/utils/log"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"

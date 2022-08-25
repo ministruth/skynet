@@ -2,8 +2,9 @@ package plugin
 
 import (
 	"context"
-	"skynet/plugin/proto"
 	"time"
+
+	"github.com/MXWXZ/skynet/plugin/proto"
 
 	"github.com/hashicorp/go-plugin"
 	"google.golang.org/grpc"

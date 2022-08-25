@@ -1,13 +1,14 @@
 package api
 
 import (
-	"skynet/db"
-	"skynet/handler"
-	"skynet/recaptcha"
-	"skynet/security"
-	"skynet/sn"
-	"skynet/utils/log"
 	"time"
+
+	"github.com/MXWXZ/skynet/db"
+	"github.com/MXWXZ/skynet/handler"
+	"github.com/MXWXZ/skynet/recaptcha"
+	"github.com/MXWXZ/skynet/security"
+	"github.com/MXWXZ/skynet/sn"
+	"github.com/MXWXZ/skynet/utils/log"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"

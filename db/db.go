@@ -1,7 +1,7 @@
 package db
 
 import (
-	"skynet/utils/log"
+	"github.com/MXWXZ/skynet/utils/log"
 
 	"github.com/glebarez/sqlite"
 	"github.com/google/uuid"

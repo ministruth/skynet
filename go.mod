@@ -1,4 +1,4 @@
-module skynet
+module github.com/MXWXZ/skynet
 
 go 1.18
 
@@ -10,6 +10,7 @@ require (
 	github.com/go-redis/redis/v8 v8.11.5
 	github.com/google/uuid v1.3.0
 	github.com/gorilla/sessions v1.2.1
+	github.com/hashicorp/go-hclog v1.2.2
 	github.com/hashicorp/go-plugin v1.4.4
 	github.com/hashicorp/go-version v1.6.0
 	github.com/kballard/go-shellquote v0.0.0-20180428030007-95032a82bc51
@@ -19,6 +20,7 @@ require (
 	github.com/spf13/cobra v1.5.0
 	github.com/spf13/viper v1.12.0
 	github.com/stretchr/testify v1.8.0
+	github.com/traefik/yaegi v0.14.1
 	github.com/unrolled/secure v1.11.0
 	github.com/ztrue/tracerr v0.3.0
 	golang.org/x/exp v0.0.0-20220713135740-79cabaa25d75
@@ -47,7 +49,6 @@ require (
 	github.com/goccy/go-json v0.9.8 // indirect
 	github.com/golang/protobuf v1.5.2 // indirect
 	github.com/gorilla/securecookie v1.1.1 // indirect
-	github.com/hashicorp/go-hclog v1.2.2 // indirect
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/hashicorp/yamux v0.0.0-20180604194846-3520598351bb // indirect
 	github.com/inconshreveable/mousetrap v1.0.0 // indirect
@@ -73,7 +74,6 @@ require (
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
 	github.com/subosito/gotenv v1.4.0 // indirect
-	github.com/traefik/yaegi v0.14.1 // indirect
 	github.com/ugorji/go/codec v1.2.7 // indirect
 	golang.org/x/crypto v0.0.0-20220622213112-05595931fe9d // indirect
 	golang.org/x/net v0.0.0-20220725212005-46097bf591d3 // indirect

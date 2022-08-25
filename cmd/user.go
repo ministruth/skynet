@@ -2,9 +2,10 @@ package cmd
 
 import (
 	"io/ioutil"
-	"skynet/db"
-	"skynet/handler"
-	"skynet/utils/log"
+
+	"github.com/MXWXZ/skynet/db"
+	"github.com/MXWXZ/skynet/handler"
+	"github.com/MXWXZ/skynet/utils/log"
 
 	"github.com/google/uuid"
 	"gorm.io/gorm"

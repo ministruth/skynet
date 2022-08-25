@@ -1,10 +1,11 @@
 package api
 
 import (
-	"skynet/handler"
-	"skynet/utils"
-	"skynet/utils/log"
 	"strings"
+
+	"github.com/MXWXZ/skynet/handler"
+	"github.com/MXWXZ/skynet/utils"
+	"github.com/MXWXZ/skynet/utils/log"
 
 	"github.com/google/uuid"
 )
