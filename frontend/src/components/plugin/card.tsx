@@ -43,13 +43,13 @@ const request = async (
     size: params?.pageSize,
   });
   return {
-    data: msg.data,
+    data: msg.data.data,
     success: true,
-    total: msg.total,
+    total: msg.data.total,
   };
 };
 
-// export const pluginColumns: Columns = (intl) => [
+// const pluginColumns: Columns = (intl) => [
 //   {
 //     title: intl.get('pages.group.table.name'),
 //     dataIndex: 'name',
@@ -148,6 +148,7 @@ const PluginCard = () => {
             enable={row.enable}
             tableRef={ref}
             pluginID={row.id}
+            pluginName={row.name}
           />,
           <TableDelete
             key="delete"

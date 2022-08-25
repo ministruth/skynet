@@ -1,6 +1,9 @@
 import { defineConfig } from 'umi';
 
 export default defineConfig({
+  access: {
+    strictMode: true,
+  },
   base: '/',
   publicPath: '/',
   qiankun: {
@@ -8,12 +11,8 @@ export default defineConfig({
   },
   hash: true,
   antd: {},
-  exportStatic: {},
   dynamicImport: {
     loading: '@ant-design/pro-layout/es/PageLoading',
-  },
-  nodeModulesTransform: {
-    type: 'none',
   },
   locale: {
     default: 'en-US',

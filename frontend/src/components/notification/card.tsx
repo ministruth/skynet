@@ -17,7 +17,7 @@ import type { SortOrder } from 'antd/lib/table/interface';
 import Paragraph from 'antd/lib/typography/Paragraph';
 import { useRef } from 'react';
 import { FormattedMessage } from 'react-intl';
-import { useAccess } from 'umi';
+import { useAccess, useModel } from 'umi';
 import confirm from '../layout/modal';
 import styles from './style.less';
 
@@ -35,9 +35,9 @@ const request = async (
     size: params?.pageSize,
   });
   return {
-    data: msg.data,
+    data: msg.data.data,
     success: true,
-    total: msg.total,
+    total: msg.data.total,
   };
 };
 
@@ -46,8 +46,8 @@ const handleDeleteAll = async (
   ref: React.MutableRefObject<ActionType | undefined>,
 ) => {
   confirm({
-    title: 'pages.notification.table.deleteall.title',
-    content: 'app.confirm',
+    title: intl.get('pages.notification.table.deleteall.title'),
+    content: intl.get('app.confirm'),
     onOk() {
       return new Promise((resolve, reject) => {
         deleleAPI('/notification', {}).then((rsp) => {
@@ -66,6 +66,7 @@ const handleDeleteAll = async (
 
 const NotificationCard = () => {
   const intl = getIntl();
+  const { initialState } = useModel('@@initialState');
   const ref = useRef<ActionType>();
   const access = useAccess();
   const levelEnum: { [Key: number]: { label: string; color: string } } = {
@@ -138,7 +139,7 @@ const NotificationCard = () => {
     },
     {
       title: intl.get('app.table.createdat'),
-      dataIndex: ['track', 'created_at'],
+      dataIndex: 'created_at',
       align: 'center',
       width: 180,
       valueType: 'dateTime',
@@ -147,7 +148,7 @@ const NotificationCard = () => {
     },
     {
       title: intl.get('app.table.createdat'),
-      dataIndex: ['track', 'created_at'],
+      dataIndex: 'created_at',
       valueType: 'dateRange',
       hideInTable: true,
       search: {
@@ -177,6 +178,7 @@ const NotificationCard = () => {
             onClick={() => handleDeleteAll(intl, ref)}
             disabled={
               !checkPerm(
+                initialState?.signin,
                 access,
                 'manage.notification',
                 UserPerm.PermWriteExecute,

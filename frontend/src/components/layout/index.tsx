@@ -44,7 +44,12 @@ const MainLayout: React.FC<MainLayoutProps> = (props) => {
   if (props.access && props.perm !== undefined)
     children = (
       <Access
-        accessible={checkPerm(access, props.access, props.perm)}
+        accessible={checkPerm(
+          initialState?.signin,
+          access,
+          props.access,
+          props.perm,
+        )}
         fallback={DeniedPage()}
       >
         {props.children}

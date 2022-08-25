@@ -1,0 +1,87 @@
+{
+  "$schema": "https://json-schema.org/draft/2019-09/schema",
+  "type": "object",
+  "properties": {
+    "redis": {
+      "type": "object",
+      "properties": {
+        "address": { "type": "string" },
+        "password": { "type": "string" },
+        "db": { "type": "number", "minimum": 0 },
+        "timeout": { "type": "number", "minimum": 0 }
+      }
+    },
+    "database": {
+      "type": "object",
+      "properties": {
+        "type": { "type": "string" },
+        "path": { "type": "string" },
+        "salt_prefix": { "type": "string" },
+        "salt_suffix": { "type": "string" }
+      }
+    },
+    "session": {
+      "type": "object",
+      "properties": {
+        "cookie": { "type": "string" },
+        "prefix": { "type": "string" },
+        "expire": { "type": "number", "minimum": 0 },
+        "remember": { "type": "number", "minimum": 0 },
+        "timeout": { "type": "number", "minimum": 0 }
+      }
+    },
+    "csrf": {
+      "type": "object",
+      "properties": {
+        "prefix": { "type": "string" },
+        "expire": { "type": "number", "minimum": 0 },
+        "timeout": { "type": "number", "minimum": 0 }
+      }
+    },
+    "listen": {
+      "type": "object",
+      "properties": {
+        "address": { "type": "string" },
+        "allowhosts": { "type": "string" },
+        "ssl": { "type": "boolean" },
+        "ssl_cert": { "type": "string" },
+        "ssl_key": { "type": "string" }
+      }
+    },
+    "proxy": {
+      "type": "object",
+      "properties": {
+        "enable": { "type": "boolean" },
+        "header": { "type": "string" },
+        "trusted": { "type": "string" }
+      }
+    },
+    "recaptcha": {
+      "type": "object",
+      "properties": {
+        "enable": { "type": "boolean" },
+        "cnmirror": { "type": "boolean" },
+        "sitekey": { "type": "string" },
+        "secret": { "type": "string" },
+        "timeout": { "type": "number", "minimum": 0 }
+      }
+    },
+    "log": {
+      "type": "object",
+      "properties": {
+        "console": { "type": "boolean" },
+        "file": { "type": "string" },
+        "json": { "type": "boolean" },
+        "stack": { "type": "boolean" }
+      }
+    },
+    "plugin": {
+      "type": "object",
+      "properties": {
+        "timeout": { "type": "number", "minimum": 0 }
+      }
+    },
+    "debug": { "type": "boolean" },
+    "default_avatar": { "type": "string" }
+  }
+}

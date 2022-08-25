@@ -1,6 +1,6 @@
 import { checkPerm, UserPerm } from '@/utils';
 import { Tooltip } from 'antd';
-import { useAccess } from 'umi';
+import { useAccess, useModel } from 'umi';
 
 export interface TableBtnProps {
   icon: React.ElementType;
@@ -14,11 +14,12 @@ export interface TableBtnProps {
 
 const TableBtn: React.FC<TableBtnProps> = (props) => {
   const access = useAccess();
+  const { initialState } = useModel('@@initialState');
   const disabled =
     props.disabled ||
     (props.perm &&
       props.permName &&
-      !checkPerm(access, props.permName, props.perm));
+      !checkPerm(initialState?.signin, access, props.permName, props.perm));
   return (
     <Tooltip visible={disabled ? false : undefined} title={props.tip}>
       <props.icon

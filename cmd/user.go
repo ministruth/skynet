@@ -2,17 +2,14 @@ package cmd
 
 import (
 	"io/ioutil"
+	"skynet/db"
 	"skynet/handler"
-	"skynet/sn"
-	"skynet/sn/impl"
-	"skynet/sn/utils"
+	"skynet/utils/log"
 
 	"github.com/google/uuid"
-	log "github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 var userCmd = &cobra.Command{
@@ -28,42 +25,36 @@ var (
 		Short: "Add skynet user",
 		Args:  cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			impl.ConnectDB()
-			log.WithField("path", viper.GetString("database.path")).Debug("Database connected")
-			sn.Skynet.User = handler.NewUser()
-			sn.Skynet.Group = handler.NewGroup()
+			db.NewDB()
+			handler.Init()
 
-			content, err := ioutil.ReadFile(avatar)
+			avatarBuf, err := ioutil.ReadFile(avatar)
 			if err != nil {
-				utils.WithTrace(err).Fatal(err)
+				log.NewEntry(err).Fatal("Failed to read avatar")
 			}
-			webp, err := utils.ConvertWebp(content)
-			if err != nil {
-				utils.WithTrace(err).Fatal(err)
-			}
-			log.WithField("file", avatar).Debug("Read file success")
+			log.New().WithField("file", avatar).Debug("Read avatar success")
 
 			var newpass string
 			if rootPerm {
-				err = sn.Skynet.GetDB().Transaction(func(tx *gorm.DB) error {
-					var u *sn.User
-					u, newpass, err = sn.Skynet.User.WithTx(tx).New(args[0], "", webp)
+				err = db.DB.Transaction(func(tx *gorm.DB) error {
+					var u *db.User
+					u, newpass, err = handler.User.WithTx(tx).New(args[0], "", avatarBuf)
 					if err != nil {
 						return err
 					}
-					_, err = sn.Skynet.Group.Link([]uuid.UUID{u.ID}, []uuid.UUID{sn.Skynet.GetID(sn.GroupRootID)})
+					_, err = handler.Group.WithTx(tx).Link([]uuid.UUID{u.ID}, []uuid.UUID{db.GetDefaultID(db.GroupRootID)})
 					return err
 				})
 			} else {
-				_, newpass, err = sn.Skynet.User.New(args[0], "", webp)
-				log.Warn("By default the user has no permission, use --root to add to root group")
+				_, newpass, err = handler.User.New(args[0], "", avatarBuf)
+				log.New().Warn("By default the user has no permission, use --root to add to root group")
 			}
 
 			if err != nil {
-				utils.WithTrace(err).Fatal(err)
+				log.NewEntry(err).Fatal("Failed to create user")
 			}
-			log.Info("New pass: ", newpass)
-			log.Info("Add user success")
+			log.New().Info("New pass: ", newpass)
+			log.New().Info("Add user success")
 		},
 	}
 )
@@ -74,25 +65,23 @@ var (
 		Short: "Reset skynet user password",
 		Args:  cobra.ExactArgs(1),
 		Run: func(cmd *cobra.Command, args []string) {
-			impl.ConnectRedis()
-			log.WithField("addr", viper.GetString("redis.address")).Debug("Redis connected")
-			impl.ConnectDB()
-			log.WithField("path", viper.GetString("database.path")).Debug("Database connected")
-			sn.Skynet.User = handler.NewUser()
+			db.NewRedis()
+			db.NewDB()
+			handler.Init()
 
-			user, err := sn.Skynet.User.GetByName(args[0])
+			user, err := handler.User.GetByName(args[0])
 			if err != nil {
-				utils.WithTrace(err).Fatal(err)
+				log.NewEntry(err).Fatal("Failed to get user")
 			}
 			if user == nil {
-				log.Fatalf("User %v not found", args[0])
+				log.New().Fatalf("User %v not found", args[0])
 			}
-			newpass, err := sn.Skynet.User.Reset(user.ID)
+			newpass, err := handler.User.Reset(user.ID)
 			if err != nil {
-				utils.WithTrace(err).Fatal(err)
+				log.NewEntry(err).Fatal("Failed to reset password")
 			}
-			log.Info("New pass: ", newpass)
-			log.Info("Reset user success")
+			log.New().Info("New pass: ", newpass)
+			log.New().Info("Reset user success")
 		},
 	}
 )

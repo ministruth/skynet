@@ -1,7 +1,7 @@
 import { checkAPI, getIntl, ping, putAPI, StringIntl } from '@/utils';
 import { DisconnectOutlined, LinkOutlined } from '@ant-design/icons';
 import { ActionType } from '@ant-design/pro-table';
-import { history, useModel } from 'umi';
+import { useModel } from 'umi';
 import confirm from '../layout/modal';
 import TableBtn from '../layout/table/tipBtn';
 
@@ -9,11 +9,13 @@ export interface PluginAbleProps {
   tableRef: React.MutableRefObject<ActionType | undefined>;
   enable: boolean;
   pluginID: string;
+  pluginName: string;
 }
 
 const handleAble = (
   intl: StringIntl,
   id: string,
+  name: string,
   enable: boolean,
   refresh: () => Promise<void>,
 ) => {
@@ -23,8 +25,10 @@ const handleAble = (
       if (rsp) window.location.reload();
     });
   confirm({
-    title: 'pages.plugin.table.disable.title',
-    content: 'pages.plugin.table.disable.content',
+    title: intl.get('pages.plugin.table.disable.title', {
+      name: name,
+    }),
+    content: intl.get('pages.plugin.table.disable.content'),
     onOk() {
       return new Promise((resolve, reject) => {
         putAPI(`/plugin/${id}`, { enable: enable }).then(async (rsp) => {
@@ -34,7 +38,7 @@ const handleAble = (
                 clearInterval(t);
                 resolve(rsp);
                 refresh().then(() => {
-                  history.push('/');
+                  window.location.reload();
                 });
               }
             }, 1000);
@@ -54,7 +58,15 @@ const PluginAble: React.FC<PluginAbleProps> = (props) => {
       <TableBtn
         icon={DisconnectOutlined}
         tip={intl.get('pages.plugin.table.disabletip')}
-        onClick={() => handleAble(intl, props.pluginID, !props.enable, refresh)}
+        onClick={() =>
+          handleAble(
+            intl,
+            props.pluginID,
+            props.pluginName,
+            !props.enable,
+            refresh,
+          )
+        }
       />
     );
   else
@@ -62,7 +74,15 @@ const PluginAble: React.FC<PluginAbleProps> = (props) => {
       <TableBtn
         icon={LinkOutlined}
         tip={intl.get('pages.plugin.table.enabletip')}
-        onClick={() => handleAble(intl, props.pluginID, !props.enable, refresh)}
+        onClick={() =>
+          handleAble(
+            intl,
+            props.pluginID,
+            props.pluginName,
+            !props.enable,
+            refresh,
+          )
+        }
       />
     );
 };

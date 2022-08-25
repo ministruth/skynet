@@ -4,12 +4,11 @@ log.txt
 *.crt
 *.key
 skynet
-temp/
-bin/
+/temp/
+/bin/
 coverage.html
 coverage.out
 .VSCodeCounter
 packer/packer
 .DS_Store
-docs/
-assets/
+/assets/

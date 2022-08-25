@@ -1,87 +1,84 @@
 package handler
 
 import (
-	"context"
-	"io/ioutil"
 	"os"
 	"skynet/db"
-	"skynet/sn"
 	"testing"
-	"time"
 
 	"github.com/google/uuid"
+	"github.com/spf13/viper"
 	"github.com/stretchr/testify/assert"
 	"gorm.io/gorm/logger"
 )
 
 var (
-	dataPL = []*sn.PermissionList{
+	dataPL = []*db.PermissionList{
 		{
-			GeneralFields: sn.GeneralFields{
+			GeneralFields: db.GeneralFields{
 				ID: uuid.New(),
 			},
 			Name: "perm1",
 			Note: "p_abc",
 		},
 		{
-			GeneralFields: sn.GeneralFields{
+			GeneralFields: db.GeneralFields{
 				ID: uuid.New(),
 			},
 			Name: "perm2",
 			Note: "p_def",
 		},
 		{
-			GeneralFields: sn.GeneralFields{
+			GeneralFields: db.GeneralFields{
 				ID: uuid.New(),
 			},
 			Name: "perm3",
 			Note: "p_ghi",
 		},
 	}
-	dataU = []*sn.User{
+	dataU = []*db.User{
 		{
-			GeneralFields: sn.GeneralFields{
+			GeneralFields: db.GeneralFields{
 				ID: uuid.New(),
 			},
 			Username: "user1",
 		},
 		{
-			GeneralFields: sn.GeneralFields{
+			GeneralFields: db.GeneralFields{
 				ID: uuid.New(),
 			},
 			Username: "user2",
 		},
 		{
-			GeneralFields: sn.GeneralFields{
+			GeneralFields: db.GeneralFields{
 				ID: uuid.New(),
 			},
 			Username: "user3",
 		},
 	}
-	dataG = []*sn.UserGroup{
+	dataG = []*db.UserGroup{
 		{
-			GeneralFields: sn.GeneralFields{
+			GeneralFields: db.GeneralFields{
 				ID: uuid.New(),
 			},
 			Name: "group1",
 			Note: "g_abc",
 		},
 		{
-			GeneralFields: sn.GeneralFields{
+			GeneralFields: db.GeneralFields{
 				ID: uuid.New(),
 			},
 			Name: "group2",
 			Note: "g_def",
 		},
 		{
-			GeneralFields: sn.GeneralFields{
+			GeneralFields: db.GeneralFields{
 				ID: uuid.New(),
 			},
 			Name: "group3",
 			Note: "g_ghi",
 		},
 	}
-	dataUGL = []*sn.UserGroupLink{
+	dataUGL = []*db.UserGroupLink{
 		{
 			UID: dataU[0].ID,
 			GID: dataG[0].ID,
@@ -92,76 +89,68 @@ var (
 		},
 	}
 
-	dataP = []*sn.Permission{
+	dataP = []*db.Permission{
 		{
 			GID:            dataG[0].ID,
 			PID:            dataPL[0].ID,
-			Perm:           sn.PermAll,
+			Perm:           db.PermAll,
 			PermissionList: dataPL[0],
 		},
 		{
 			GID:            dataG[0].ID,
 			PID:            dataPL[1].ID,
-			Perm:           sn.PermRead,
+			Perm:           db.PermRead,
 			PermissionList: dataPL[1],
 		},
 		{
 			GID:            dataG[1].ID,
 			PID:            dataPL[1].ID,
-			Perm:           sn.PermWrite,
+			Perm:           db.PermWrite,
 			PermissionList: dataPL[1],
 		},
 		{
 			GID:            dataG[2].ID,
 			PID:            dataPL[2].ID,
-			Perm:           sn.PermExecute,
+			Perm:           db.PermExecute,
 			PermissionList: dataPL[2],
 		},
 		{
 			UID:            dataU[0].ID,
 			PID:            dataPL[0].ID,
-			Perm:           sn.PermNone,
+			Perm:           db.PermNone,
 			PermissionList: dataPL[0],
 		},
 		{
 			UID:            dataU[1].ID,
 			PID:            dataPL[0].ID,
-			Perm:           sn.PermRead,
+			Perm:           db.PermRead,
 			PermissionList: dataPL[0],
 		},
 		{
 			UID:            dataU[1].ID,
 			PID:            dataPL[2].ID,
-			Perm:           sn.PermWrite,
+			Perm:           db.PermWrite,
 			PermissionList: dataPL[2],
 		},
 		{
 			UID:            dataU[2].ID,
 			PID:            dataPL[1].ID,
-			Perm:           sn.PermAll,
+			Perm:           db.PermAll,
 			PermissionList: dataPL[1],
 		},
 	}
 )
 
-func setup() *os.File {
-	file, err := ioutil.TempFile("", "*.db")
-	if err != nil {
+func setup() {
+	viper.SetDefault("database.path", "file::memory:")
+	viper.SetDefault("database.type", "sqlite")
+	db.NewDB()
+	Permission = Permission.WithTx(nil)
+
+	if err := db.DB.Create(&dataPL).Error; err != nil {
 		panic(err)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*3)
-	defer cancel()
-	sn.Skynet.DB = db.NewDB(ctx, &db.DBConfig{
-		Type: db.DBType_Sqlite,
-		Path: file.Name(),
-	})
-	sn.Skynet.Permission = NewPermission()
-	if err := sn.Skynet.GetDB().Create(&dataPL).Error; err != nil {
-		teardown(file)
-		panic(err)
-	}
-	if err := sn.Skynet.GetDB().Omit("PermissionList").Create(&dataP).Error; err != nil {
-		teardown(file)
+	if err := db.DB.Omit("PermissionList").Create(&dataP).Error; err != nil {
 		panic(err)
 	}
 	for _, v := range dataP {
@@ -170,19 +159,12 @@ func setup() *os.File {
 		v.PermissionList.CreatedAt = 0
 		v.PermissionList.UpdatedAt = 0
 	}
-	sn.Skynet.GetDB().Logger = logger.Default.LogMode(logger.Info)
-	return file
-}
-
-func teardown(f *os.File) {
-	os.Remove(f.Name())
+	db.DB.Logger = logger.Default.LogMode(logger.Info)
 }
 
 func TestMain(m *testing.M) {
-	f := setup()
-	code := m.Run()
-	teardown(f)
-	os.Exit(code)
+	setup()
+	os.Exit(m.Run())
 }
 
 func Test_Permission_GetAll(t *testing.T) {
@@ -194,7 +176,7 @@ func Test_Permission_GetAll(t *testing.T) {
 	tests := []struct {
 		name     string
 		args     args
-		wantPerm []*sn.Permission
+		wantPerm []*db.Permission
 		wantErr  bool
 	}{
 		{
@@ -203,7 +185,7 @@ func Test_Permission_GetAll(t *testing.T) {
 				gid:  dataG[0].ID,
 				join: true,
 			},
-			wantPerm: []*sn.Permission{
+			wantPerm: []*db.Permission{
 				dataP[0],
 				dataP[1],
 			},
@@ -214,7 +196,7 @@ func Test_Permission_GetAll(t *testing.T) {
 				gid:  dataG[1].ID,
 				join: true,
 			},
-			wantPerm: []*sn.Permission{
+			wantPerm: []*db.Permission{
 				dataP[2],
 			},
 		},
@@ -224,7 +206,7 @@ func Test_Permission_GetAll(t *testing.T) {
 				gid:  dataG[2].ID,
 				join: true,
 			},
-			wantPerm: []*sn.Permission{
+			wantPerm: []*db.Permission{
 				dataP[3],
 			},
 		},
@@ -234,29 +216,29 @@ func Test_Permission_GetAll(t *testing.T) {
 				gid:  uuid.New(),
 				join: true,
 			},
-			wantPerm: []*sn.Permission{},
+			wantPerm: []*db.Permission{},
 		},
 		{
 			name: "GetAll_group0_nojoin",
 			args: args{
 				gid: dataG[0].ID,
 			},
-			wantPerm: []*sn.Permission{
+			wantPerm: []*db.Permission{
 				{
-					GeneralFields: sn.GeneralFields{
+					GeneralFields: db.GeneralFields{
 						ID: dataP[0].ID,
 					},
 					GID:  dataG[0].ID,
 					PID:  dataPL[0].ID,
-					Perm: sn.PermAll,
+					Perm: db.PermAll,
 				},
 				{
-					GeneralFields: sn.GeneralFields{
+					GeneralFields: db.GeneralFields{
 						ID: dataP[1].ID,
 					},
 					GID:  dataG[0].ID,
 					PID:  dataPL[1].ID,
-					Perm: sn.PermRead,
+					Perm: db.PermRead,
 				},
 			},
 		},
@@ -266,7 +248,7 @@ func Test_Permission_GetAll(t *testing.T) {
 				uid:  dataU[0].ID,
 				join: true,
 			},
-			wantPerm: []*sn.Permission{
+			wantPerm: []*db.Permission{
 				dataP[4],
 			},
 		},
@@ -276,7 +258,7 @@ func Test_Permission_GetAll(t *testing.T) {
 				uid:  dataU[1].ID,
 				join: true,
 			},
-			wantPerm: []*sn.Permission{
+			wantPerm: []*db.Permission{
 				dataP[5],
 				dataP[6],
 			},
@@ -287,7 +269,7 @@ func Test_Permission_GetAll(t *testing.T) {
 				uid:  dataU[2].ID,
 				join: true,
 			},
-			wantPerm: []*sn.Permission{
+			wantPerm: []*db.Permission{
 				dataP[7],
 			},
 		},
@@ -297,36 +279,36 @@ func Test_Permission_GetAll(t *testing.T) {
 				uid:  uuid.New(),
 				join: true,
 			},
-			wantPerm: []*sn.Permission{},
+			wantPerm: []*db.Permission{},
 		},
 		{
 			name: "GetAll_user1_nojoin",
 			args: args{
 				uid: dataU[1].ID,
 			},
-			wantPerm: []*sn.Permission{
+			wantPerm: []*db.Permission{
 				{
-					GeneralFields: sn.GeneralFields{
+					GeneralFields: db.GeneralFields{
 						ID: dataP[5].ID,
 					},
 					UID:  dataU[1].ID,
 					PID:  dataPL[0].ID,
-					Perm: sn.PermRead,
+					Perm: db.PermRead,
 				},
 				{
-					GeneralFields: sn.GeneralFields{
+					GeneralFields: db.GeneralFields{
 						ID: dataP[6].ID,
 					},
 					UID:  dataU[1].ID,
 					PID:  dataPL[2].ID,
-					Perm: sn.PermWrite,
+					Perm: db.PermWrite,
 				},
 			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			gotPerm, err := sn.Skynet.Permission.GetAll(tt.args.uid, tt.args.gid, tt.args.join)
+			gotPerm, err := Permission.GetAll(tt.args.uid, tt.args.gid, tt.args.join)
 			for _, v := range gotPerm {
 				v.CreatedAt = 0
 				v.UpdatedAt = 0

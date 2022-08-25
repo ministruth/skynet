@@ -7,7 +7,7 @@ export type Columns = (intl: StringIntl) => ProFormColumnsType[];
 export const CreatedAtColumn: (intl: StringIntl) => ProColumns[] = (intl) => [
   {
     title: intl.get('app.table.createdat'),
-    dataIndex: ['track', 'created_at'],
+    dataIndex: 'created_at',
     align: 'center',
     width: 180,
     valueType: 'dateTime',
@@ -16,7 +16,7 @@ export const CreatedAtColumn: (intl: StringIntl) => ProColumns[] = (intl) => [
   },
   {
     title: intl.get('app.table.createdat'),
-    dataIndex: ['track', 'created_at'],
+    dataIndex: 'created_at',
     valueType: 'dateRange',
     hideInTable: true,
     search: {
@@ -33,7 +33,7 @@ export const CreatedAtColumn: (intl: StringIntl) => ProColumns[] = (intl) => [
 export const UpdatedAtColumn: (intl: StringIntl) => ProColumns[] = (intl) => [
   {
     title: intl.get('app.table.updatedat'),
-    dataIndex: ['track', 'updated_at'],
+    dataIndex: 'updated_at',
     align: 'center',
     width: 180,
     valueType: 'dateTime',
@@ -42,7 +42,7 @@ export const UpdatedAtColumn: (intl: StringIntl) => ProColumns[] = (intl) => [
   },
   {
     title: intl.get('app.table.updatedat'),
-    dataIndex: ['track', 'updated_at'],
+    dataIndex: 'updated_at',
     valueType: 'dateRange',
     hideInTable: true,
     search: {

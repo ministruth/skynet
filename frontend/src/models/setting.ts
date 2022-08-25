@@ -6,7 +6,7 @@ export default () => {
 
   const getSetting = useCallback(async () => {
     const rsp = await getAPI('/setting/public');
-    setSetting(rsp.data);
+    if (rsp != undefined) setSetting(rsp.data);
   }, []);
 
   return {

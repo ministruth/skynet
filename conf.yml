@@ -1,3 +1,4 @@
+# yaml-language-server: $schema=conf.schema.json
 redis:
   address: "127.0.0.1:6379" # redis address
   password: "" # redis password
@@ -7,9 +8,8 @@ redis:
 database:
   type: "sqlite" # Support sqlite
   path: "data.db" # sqlite:db path
-  salt_prefix: "en[7" # password salt prefix, modify need reset all user password
-  salt_suffix: "z1&." # password salt suffix, modify need reset all user password
-  timeout: 30 # connect timeout seconds
+  salt_prefix: "en[7" # password salt prefix, modification needs reset all user password
+  salt_suffix: "z1&." # password salt suffix, modification needs reset all user password
 
 session:
   cookie: "GOSESSIONID" # session cookie name
@@ -33,13 +33,23 @@ listen:
 proxy:
   enable: false # if skynet is behind proxy, enable to get correct ip
   header: "X-Forwarded-For" # ip header set by proxy server
+  trusted: "" # trusted proxy address, client ip will be the first untrusted one in header, seperated by ,
 
 recaptcha:
   enable: false # if enable recaptcha
   cnmirror: true # china recaptcha mirror
   sitekey: "" # recaptcha sitekey
   secret: "" # recaptcha secret
+  timeout: 10 # connect timeout seconds
 
-debug: true
-log_file: "" # log file path, empty for disable
+log:
+  console: true # log to console
+  file: "" # log file path, empty to disable
+  json: false # use json format
+  stack: false # show log stack
+
+plugin:
+  timeout: 60 # plugin function time
+
+debug: true # true to show some debug output
 default_avatar: "default.webp" # default avatar

@@ -2,19 +2,17 @@ package api
 
 import (
 	"io/ioutil"
-	"skynet/sn"
-	"skynet/sn/utils"
+	"skynet/db"
+	"skynet/handler"
+	"skynet/utils/log"
 	"time"
 
-	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
-	"github.com/ztrue/tracerr"
 	"gorm.io/gorm"
 )
 
-func APIGetUser(c *gin.Context, id uuid.UUID) (int, error) {
+func APIGetUser(req *Request) (*Response, error) {
 	type Param struct {
 		Text           string `form:"text"`
 		LastLoginSort  string `form:"lastLoginSort" binding:"omitempty,oneof=asc desc"`
@@ -24,12 +22,11 @@ func APIGetUser(c *gin.Context, id uuid.UUID) (int, error) {
 		paginationParam
 	}
 	var param Param
-	if err := tracerr.Wrap(c.ShouldBindQuery(&param)); err != nil {
-		return 400, err
+	if err := req.ShouldBindQuery(&param); err != nil {
+		return rspParamInvalid, err
 	}
 
-	cond := buildCondition(&param.createdParam, nil, &param.paginationParam,
-		param.Text, "username LIKE ? OR last_ip LIKE ?")
+	cond := new(db.Condition)
 	now := time.Now().UnixMilli()
 	if param.LastLoginEnd == 0 {
 		param.LastLoginEnd = now
@@ -41,20 +38,22 @@ func APIGetUser(c *gin.Context, id uuid.UUID) (int, error) {
 	if param.LastLoginSort != "" {
 		cond.Order = []any{"last_login " + param.LastLoginSort}
 	}
+	cond.MergeAnd(param.paginationParam.ToCondition())
+	cond.MergeAnd(param.createdParam.ToCondition())
+	cond.AndLike("id LIKE ? OR username LIKE ? OR last_ip LIKE ?", param.Text)
 
-	rec, err := sn.Skynet.User.GetAll(cond)
+	rec, err := handler.User.GetAll(cond)
 	if err != nil {
-		return 500, err
+		return nil, err
 	}
-	count, err := sn.Skynet.User.Count(cond)
+	count, err := handler.User.Count(cond)
 	if err != nil {
-		return 500, err
+		return nil, err
 	}
-	responsePage(c, rec, count)
-	return 0, nil
+	return NewPageResponse(rec, count), nil
 }
 
-func APIGetGroup(c *gin.Context, id uuid.UUID) (int, error) {
+func APIGetGroup(req *Request) (*Response, error) {
 	type Param struct {
 		Text string `form:"text"`
 		createdParam
@@ -62,23 +61,25 @@ func APIGetGroup(c *gin.Context, id uuid.UUID) (int, error) {
 		paginationParam
 	}
 	var param Param
-	if err := tracerr.Wrap(c.ShouldBindQuery(&param)); err != nil {
-		return 400, err
+	if err := req.ShouldBindQuery(&param); err != nil {
+		return rspParamInvalid, err
 	}
 
-	cond := buildCondition(&param.createdParam, &param.updatedParam, &param.paginationParam,
-		param.Text, "name LIKE ? OR note LIKE ?")
+	cond := new(db.Condition)
+	cond.MergeAnd(param.paginationParam.ToCondition())
+	cond.MergeAnd(param.createdParam.ToCondition())
+	cond.MergeAnd(param.updatedParam.ToCondition())
+	cond.AndLike("id LIKE ? OR name LIKE ? OR note LIKE ?", param.Text)
 
-	rec, err := sn.Skynet.Group.GetAll(cond)
+	rec, err := handler.Group.GetAll(cond)
 	if err != nil {
-		return 500, err
+		return nil, err
 	}
-	count, err := sn.Skynet.Group.Count(cond)
+	count, err := handler.Group.Count(cond)
 	if err != nil {
-		return 500, err
+		return nil, err
 	}
-	responsePage(c, rec, count)
-	return 0, nil
+	return NewPageResponse(rec, count), nil
 }
 
 type groupParam struct {
@@ -86,61 +87,62 @@ type groupParam struct {
 	Note string `json:"note"`
 }
 
-func APIAddGroup(c *gin.Context, id uuid.UUID) (int, error) {
+func APIAddGroup(req *Request) (*Response, error) {
 	type Param struct {
 		groupParam
 		Base      string `json:"base" binding:"omitempty,uuid"`
 		CloneUser bool   `json:"clone_user"`
 	}
 	var param Param
-	if err := tracerr.Wrap(c.ShouldBind(&param)); err != nil {
-		return 400, err
+	if err := req.ShouldBind(&param); err != nil {
+		return rspParamInvalid, err
 	}
 	var baseID uuid.UUID
 	if param.Base != "" {
 		baseID = uuid.MustParse(param.Base)
 	}
-	logf := wrap(c, id, log.Fields{
+	logger := req.Logger.WithFields(log.F{
 		"name":      param.Name,
 		"note":      param.Note,
 		"base":      param.Base,
 		"cloneUser": param.CloneUser,
 	})
 
-	var group *sn.UserGroup
-	if err := sn.Skynet.GetDB().Transaction(func(tx *gorm.DB) error {
-		ok, err := sn.Skynet.Group.WithTx(tx).GetByName(param.Name)
+	var rsp *Response
+	var group *db.UserGroup
+	if err := db.DB.Transaction(func(tx *gorm.DB) error {
+		ok, err := handler.Group.WithTx(tx).GetByName(param.Name)
 		if err != nil {
 			return err
 		}
 		if ok != nil {
-			logf.Warn(CodeGroupNameExist.String(c))
-			response(c, CodeGroupNameExist)
+			logger.Warn(CodeGroupNameExist.String(req.Translator))
+			rsp = &Response{Code: CodeGroupNameExist}
 			return nil
 		}
-		group, err = sn.Skynet.Group.WithTx(tx).New(param.Name, param.Note)
+		group, err = handler.Group.WithTx(tx).New(param.Name, param.Note)
 		if err != nil {
 			return err
 		}
 		if baseID != uuid.Nil {
-			base, err := sn.Skynet.Permission.WithTx(tx).GetAll(uuid.Nil, baseID, false)
+			base, err := handler.Permission.WithTx(tx).GetAll(uuid.Nil, baseID, false)
 			if err != nil {
 				return err
 			}
-			var perm []*sn.SNPerm
+			var perm []*handler.Perm
 			for _, v := range base {
-				perm = append(perm, &sn.SNPerm{
+				perm = append(perm, &handler.Perm{
 					ID:   v.PID,
 					Perm: v.Perm,
 				})
 			}
-			_, err = sn.Skynet.Permission.WithTx(tx).AddToGroup(group.ID, perm)
+			_, err = handler.Permission.WithTx(tx).AddToGroup(group.ID, perm)
 			if err != nil {
 				return err
 			}
 		}
 		if param.CloneUser {
-			user, err := sn.Skynet.Group.WithTx(tx).GetGroupAllUser(baseID)
+			user, err := handler.Group.WithTx(tx).GetGroupAllUser(baseID)
 			if err != nil {
 				return err
 			}
@@ -148,7 +150,7 @@ func APIAddGroup(c *gin.Context, id uuid.UUID) (int, error) {
 			for _, v := range user {
 				uid = append(uid, v.ID)
 			}
-			_, err = sn.Skynet.Group.WithTx(tx).Link(uid, []uuid.UUID{group.ID})
+			_, err = handler.Group.WithTx(tx).Link(uid, []uuid.UUID{group.ID})
 			if err != nil {
 				return err
 			}
@@ -156,111 +158,104 @@ func APIAddGroup(c *gin.Context, id uuid.UUID) (int, error) {
 
 		return nil
 	}); err != nil {
-		return 500, err
+		return nil, err
 	}
-	if group != nil {
-		logf = logf.WithField("gid", group.ID)
-		success(logf, "Add user group")
-		responseData(c, group.ID)
+	if rsp != nil {
+		return rsp, nil
 	}
-	return 0, nil
+	logger = logger.WithField("gid", group.ID)
+	success(logger, "Add user group")
+	return &Response{Data: group.ID}, nil
 }
 
-func APIPutGroup(c *gin.Context, id uuid.UUID) (int, error) {
+func APIPutGroup(req *Request) (*Response, error) {
 	var uriParam idURI
-	if err := tracerr.Wrap(c.ShouldBindUri(&uriParam)); err != nil {
-		return 400, err
+	if err := req.ShouldBindUri(&uriParam); err != nil {
+		return rspParamInvalid, err
 	}
 	gid, err := uuid.Parse(uriParam.ID)
 	if err != nil {
-		return 400, err
+		return rspParamInvalid, err
 	}
 	var param groupParam
-	if err := tracerr.Wrap(c.ShouldBind(&param)); err != nil {
-		return 400, err
+	if err := req.ShouldBind(&param); err != nil {
+		return rspParamInvalid, err
 	}
-	logf := wrap(c, id, log.Fields{
+	logger := req.Logger.WithFields(log.F{
 		"gid":  gid,
 		"name": param.Name,
 		"note": param.Note,
 	})
 
-	if gid == sn.Skynet.GetID(sn.GroupRootID) && param.Name != "root" {
-		logf.Warn(CodeRootNotAllowedUpdate)
-		response(c, CodeRootNotAllowedUpdate)
-		return 0, nil
+	if gid == db.GetDefaultID(db.GroupRootID) && param.Name != "root" {
+		logger.Warn(CodeRootNotAllowedUpdate.String(req.Translator))
+		return &Response{Code: CodeRootNotAllowedUpdate}, nil
 	}
-	group, err := sn.Skynet.Group.Get(gid)
+	group, err := handler.Group.Get(gid)
 	if err != nil {
-		return 500, err
+		return nil, err
 	}
 	if group == nil {
-		logf.Warn(CodeGroupNotExist.String(c))
-		response(c, CodeGroupNotExist)
-		return 0, nil
+		logger.Warn(CodeGroupNotExist.String(req.Translator))
+		return &Response{Code: CodeGroupNotExist}, nil
 	}
 	if param.Name == group.Name && param.Note == group.Note {
-		response(c, CodeOK)
-		return 0, nil
+		return rspOK, nil
 	}
 	if param.Name != group.Name {
-		newGroup, err := sn.Skynet.Group.GetByName(param.Name)
+		newGroup, err := handler.Group.GetByName(param.Name)
 		if err != nil {
-			return 500, err
+			return nil, err
 		}
 		if newGroup != nil {
-			logf.Warn(CodeGroupNameExist)
-			response(c, CodeGroupNameExist)
-			return 0, nil
+			logger.Warn(CodeGroupNameExist.String(req.Translator))
+			return &Response{Code: CodeGroupNameExist}, nil
 		}
 	} else {
 		param.Name = ""
 	}
-	if err := sn.Skynet.Group.Update(gid, param.Name, &param.Note); err != nil {
-		return 500, err
+	if err := handler.Group.Update(gid, param.Name, &param.Note); err != nil {
+		return nil, err
 	}
 
-	success(logf, "Update user group")
-	response(c, CodeOK)
-	return 0, nil
+	success(logger, "Update user group")
+	return rspOK, nil
 }
 
-func APIDeleteGroup(c *gin.Context, id uuid.UUID) (int, error) {
+func APIDeleteGroup(req *Request) (*Response, error) {
 	var uriParam idURI
-	if err := tracerr.Wrap(c.ShouldBindUri(&uriParam)); err != nil {
-		return 400, err
+	if err := req.ShouldBindUri(&uriParam); err != nil {
+		return rspParamInvalid, err
 	}
 	gid, err := uuid.Parse(uriParam.ID)
 	if err != nil {
-		return 400, err
+		return rspParamInvalid, err
 	}
-	logf := wrap(c, id, log.Fields{
+	logger := req.Logger.WithFields(log.F{
 		"gid": gid,
 	})
 
-	if gid == sn.Skynet.GetID(sn.GroupRootID) {
-		logf.Warn(CodeRootNotAllowedDelete.String(c))
-		response(c, CodeRootNotAllowedDelete)
-		return 0, nil
+	if gid == db.GetDefaultID(db.GroupRootID) {
+		logger.Warn(CodeRootNotAllowedDelete.String(req.Translator))
+		return &Response{Code: CodeRootNotAllowedDelete}, nil
 	}
 
-	if err := sn.Skynet.GetDB().Transaction(func(tx *gorm.DB) error {
-		_, err = sn.Skynet.Group.WithTx(tx).Delete(gid)
+	if err := db.DB.Transaction(func(tx *gorm.DB) error {
+		_, err = handler.Group.WithTx(tx).Delete(gid)
 		if err != nil {
 			return err
 		}
-		_, err = sn.Skynet.Permission.WithTx(tx).DeleteAll(uuid.Nil, gid)
+		_, err = handler.Permission.WithTx(tx).DeleteAll(uuid.Nil, gid)
 		if err != nil {
 			return err
 		}
 		return nil
 	}); err != nil {
-		return 500, err
+		return nil, err
 	}
 
-	success(logf, "Delete user group")
-	response(c, CodeOK)
-	return 0, nil
+	success(logger, "Delete user group")
+	return rspOK, nil
 }
 
 type userParam struct {
@@ -270,111 +265,106 @@ type userParam struct {
 	Group    []string `json:"group" binding:"dive,uuid"`
 }
 
-func APIAddUser(c *gin.Context, id uuid.UUID) (int, error) {
+func APIAddUser(req *Request) (*Response, error) {
 	var param userParam
 	var err error
-	if err = tracerr.Wrap(c.ShouldBind(&param)); err != nil {
-		return 400, err
+	if err = req.ShouldBind(&param); err != nil {
+		return rspParamInvalid, err
 	}
 	if len(param.Avatar) == 0 {
 		content, err := ioutil.ReadFile(viper.GetString("default_avatar"))
 		if err != nil {
-			return 500, err
+			return nil, err
 		}
 		param.Avatar = content
-	}
-	webp, err := utils.ConvertWebp(param.Avatar)
-	if err != nil {
-		return 400, err
 	}
 	var group []uuid.UUID
 	for _, v := range param.Group {
 		tmp, err := uuid.Parse(v)
 		if err != nil {
-			return 400, err
+			return rspParamInvalid, err
 		}
 		group = append(group, tmp)
 	}
-	logf := wrap(c, id, log.Fields{
+	logger := req.Logger.WithFields(log.F{
 		"username": param.Username,
 	})
 
-	ok, err := sn.Skynet.User.GetByName(param.Username)
+	ok, err := handler.User.GetByName(param.Username)
 	if err != nil {
-		return 500, err
+		return nil, err
 	}
 	if ok != nil {
-		logf.Warn(CodeUsernameExist.String(c))
-		response(c, CodeUsernameExist)
-		return 0, nil
+		logger.Warn(CodeUsernameExist.String(req.Translator))
+		return &Response{Code: CodeUsernameExist}, nil
 	}
 
-	var user *sn.User
-	if err := sn.Skynet.GetDB().Transaction(func(tx *gorm.DB) error {
+	var user *db.User
+	var rsp *Response
+	if err := db.DB.Transaction(func(tx *gorm.DB) error {
 		for _, v := range group {
-			ok, err := sn.Skynet.Group.WithTx(tx).Get(v)
+			ok, err := handler.Group.WithTx(tx).Get(v)
 			if err != nil {
 				return err
 			}
 			if ok == nil {
-				logf.Warn(CodeGroupNotExist.String(c))
-				response(c, CodeGroupNotExist)
+				logger.Warn(CodeGroupNotExist.String(req.Translator))
+				rsp = &Response{Code: CodeGroupNotExist}
 				return nil
 			}
 		}
-		user, _, err = sn.Skynet.User.WithTx(tx).New(param.Username, param.Password, webp)
+		user, _, err = handler.User.WithTx(tx).New(param.Username, param.Password, param.Avatar)
 		if err != nil {
 			return err
 		}
-		_, err = sn.Skynet.Group.WithTx(tx).Link([]uuid.UUID{user.ID}, group)
+		_, err = handler.Group.WithTx(tx).Link([]uuid.UUID{user.ID}, group)
 		if err != nil {
 			return err
 		}
 		return nil
 	}); err != nil {
-		return 500, err
+		return nil, err
+	}
+	if rsp != nil {
+		return rsp, nil
 	}
 
-	if user != nil {
-		logf = logf.WithField("uid", user.ID)
-		success(logf, "Add user")
-		responseData(c, user.ID)
-	}
-	return 0, nil
+	logger = logger.WithField("uid", user.ID)
+	success(logger, "Add user")
+	return &Response{Data: user.ID}, nil
 }
 
-func APIDeleteUser(c *gin.Context, id uuid.UUID) (int, error) {
+func APIDeleteUser(req *Request) (*Response, error) {
 	var uriParam idURI
-	if err := tracerr.Wrap(c.ShouldBindUri(&uriParam)); err != nil {
-		return 400, err
+	if err := req.ShouldBindUri(&uriParam); err != nil {
+		return rspParamInvalid, err
 	}
 	uid, err := uuid.Parse(uriParam.ID)
 	if err != nil {
-		return 400, err
+		return rspParamInvalid, err
 	}
-	logf := wrap(c, id, log.Fields{
+	logger := req.Logger.WithFields(log.F{
 		"uid": uid,
 	})
 
-	if err := sn.Skynet.GetDB().Transaction(func(tx *gorm.DB) error {
-		_, err = sn.Skynet.User.WithTx(tx).Delete(uid)
+	if err := db.DB.Transaction(func(tx *gorm.DB) error {
+		_, err = handler.User.WithTx(tx).Delete(uid)
 		if err != nil {
 			return err
 		}
-		_, err = sn.Skynet.Group.WithTx(tx).Unlink(uid, uuid.Nil)
+		_, err = handler.Group.WithTx(tx).Unlink(uid, uuid.Nil)
 		if err != nil {
 			return err
 		}
-		_, err = sn.Skynet.Permission.WithTx(tx).DeleteAll(uid, uuid.Nil)
+		_, err = handler.Permission.WithTx(tx).DeleteAll(uid, uuid.Nil)
 		if err != nil {
 			return err
 		}
 		return nil
 	}); err != nil {
-		return 500, err
+		return nil, err
 	}
 
-	success(logf, "Delete user")
-	response(c, CodeOK)
-	return 0, nil
+	success(logger, "Delete user")
+	return rspOK, nil
 }

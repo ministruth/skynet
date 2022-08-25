@@ -1,32 +1,19 @@
 package cmd
 
 import (
-	"bytes"
-	"io/ioutil"
-	"skynet/sn/utils"
+	"skynet/config"
+	"skynet/utils/log"
 
-	_ "skynet/handler"
-
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
-	"github.com/spf13/viper"
 )
 
 var rootCmd = &cobra.Command{
 	Use:   "skynet",
 	Short: "Service Integration and Management Application",
 	PersistentPreRun: func(cmd *cobra.Command, args []string) {
-		viper.SetConfigType("yml")
-		content, err := ioutil.ReadFile(conf)
+		err := config.Load(conf, verbose)
 		if err != nil {
-			utils.WithTrace(err).Fatal(err)
-		}
-		if err = viper.ReadConfig(bytes.NewBuffer(content)); err != nil {
-			utils.WithTrace(err).Fatal(err)
-		}
-
-		if verbose {
-			log.SetLevel(log.DebugLevel)
+			log.NewEntry(err).Fatal("Failed to load config")
 		}
 	},
 }
@@ -40,6 +27,9 @@ func init() {
 }
 
 // Execute executes the root command.
-func Execute() error {
+func Execute(args []string) error {
+	if args != nil {
+		rootCmd.SetArgs(args)
+	}
 	return rootCmd.Execute()
 }

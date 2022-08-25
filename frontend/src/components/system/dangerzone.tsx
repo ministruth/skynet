@@ -16,8 +16,8 @@ import styles from './style.less';
 const handleReload = (intl: StringIntl, refresh: () => Promise<void>) => {
   let t: NodeJS.Timer;
   confirm({
-    title: 'pages.system.dangerzone.reload.title',
-    content: 'pages.system.dangerzone.reload.content',
+    title: intl.get('pages.system.dangerzone.reload.title'),
+    content: intl.get('pages.system.dangerzone.reload.content'),
     onOk() {
       return new Promise((resolve, reject) => {
         postAPI('/reload', {}).then(async (rsp) => {
@@ -41,7 +41,7 @@ const handleReload = (intl: StringIntl, refresh: () => Promise<void>) => {
 
 const DangerZoneCard = () => {
   const intl = getIntl();
-  const { refresh } = useModel('@@initialState');
+  const { initialState, refresh } = useModel('@@initialState');
   const access = useAccess();
 
   return (
@@ -57,7 +57,14 @@ const DangerZoneCard = () => {
           <Button
             danger
             onClick={() => handleReload(intl, refresh)}
-            disabled={!checkPerm(access, 'manage.system', UserPerm.PermExecute)}
+            disabled={
+              !checkPerm(
+                initialState?.signin,
+                access,
+                'manage.system',
+                UserPerm.PermExecute,
+              )
+            }
           >
             {intl.get('pages.system.dangerzone.reload.button')}
           </Button>

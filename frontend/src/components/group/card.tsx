@@ -13,11 +13,11 @@ import { ProfileOutlined } from '@ant-design/icons';
 import ProCard from '@ant-design/pro-card';
 import { ParamsType } from '@ant-design/pro-provider';
 import { ActionType, ProColumns } from '@ant-design/pro-table';
+import { Store } from 'antd/lib/form/interface';
 import type { SortOrder } from 'antd/lib/table/interface';
-import { Store } from 'rc-field-form/lib/interface';
 import { useRef } from 'react';
 import { FormattedMessage } from 'react-intl';
-import { useAccess } from 'umi';
+import { useAccess, useModel } from 'umi';
 import {
   Columns,
   CreatedAtColumn,
@@ -51,13 +51,13 @@ const request = async (
     size: params?.pageSize,
   });
   return {
-    data: msg.data,
+    data: msg.data.data,
     success: true,
-    total: msg.total,
+    total: msg.data.total,
   };
 };
 
-export const groupColumns: Columns = (intl) => [
+export const GroupColumns: Columns = (intl) => [
   {
     title: intl.get('pages.group.table.name'),
     dataIndex: 'name',
@@ -83,10 +83,11 @@ const addColumns: Columns = (intl) => [
       <FormattedMessage id="pages.group.table.add.content" />
     ),
   },
-  ...groupColumns(intl),
+  ...GroupColumns(intl),
 ];
 
 const GroupCard = () => {
+  const { initialState } = useModel('@@initialState');
   const intl = getIntl();
   const ref = useRef<ActionType>();
   const access = useAccess();
@@ -128,6 +129,7 @@ const GroupCard = () => {
       render: (_, row) => {
         const root = row.name === 'root';
         const right = checkPerm(
+          initialState?.signin,
           access,
           'manage.group',
           UserPerm.PermWriteExecute,

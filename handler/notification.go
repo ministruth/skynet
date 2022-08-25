@@ -1,32 +1,28 @@
 package handler
 
 import (
-	"skynet/sn"
-	"skynet/sn/impl"
-	"skynet/sn/utils"
+	"skynet/db"
+	"skynet/utils"
 
-	log "github.com/sirupsen/logrus"
+	"github.com/google/uuid"
+	"github.com/sirupsen/logrus"
 	"gorm.io/gorm"
 )
 
-type siteNotification struct {
-	*impl.ORM[sn.Notification]
+type NotificationImpl struct {
+	orm *db.ORM[db.Notification]
 }
 
-func NewNotification() sn.SNNotification {
-	return &siteNotification{
-		ORM: impl.NewORM[sn.Notification](nil),
+var Notification = &NotificationImpl{}
+
+func (p *NotificationImpl) WithTx(tx *gorm.DB) *NotificationImpl {
+	return &NotificationImpl{
+		orm: db.NewORM[db.Notification](tx),
 	}
 }
 
-func (p *siteNotification) WithTx(tx *gorm.DB) sn.SNNotification {
-	return &siteNotification{
-		ORM: impl.NewORM[sn.Notification](tx),
-	}
-}
-
-func (s *siteNotification) New(level sn.NotifyLevel, name string, message string, detail string) error {
-	return s.Impl.Create(&sn.Notification{
+func (s *NotificationImpl) New(level db.NotifyLevel, name string, message string, detail string) error {
+	return s.orm.Create(&db.Notification{
 		Level:   level,
 		Name:    name,
 		Message: message,
@@ -34,27 +30,52 @@ func (s *siteNotification) New(level sn.NotifyLevel, name string, message string
 	})
 }
 
+// GetAll get all notification by condition.
+func (u *NotificationImpl) GetAll(cond *db.Condition) ([]*db.Notification, error) {
+	return u.orm.Cond(cond).Find()
+}
+
+// Get get notification by id.
+func (u *NotificationImpl) Get(id uuid.UUID) (*db.Notification, error) {
+	return u.orm.Take(id)
+}
+
+// Count count notification by condition.
+func (u *NotificationImpl) Count(cond *db.Condition) (int64, error) {
+	return u.orm.Count(cond)
+}
+
+// Delete delete notification by id.
+func (u *NotificationImpl) Delete(id uuid.UUID) (bool, error) {
+	return u.orm.DeleteID(id)
+}
+
+// Delete delete all notification.
+func (u *NotificationImpl) DeleteAll() (int64, error) {
+	return u.orm.DeleteAll()
+}
+
 type NotificationHook struct{}
 
-func (h NotificationHook) Levels() []log.Level {
-	return []log.Level{
-		log.WarnLevel,
-		log.ErrorLevel,
-		log.FatalLevel,
+func (h NotificationHook) Levels() []logrus.Level {
+	return []logrus.Level{
+		logrus.WarnLevel,
+		logrus.ErrorLevel,
+		logrus.FatalLevel,
 	}
 }
 
-func (h NotificationHook) Fire(e *log.Entry) error {
-	var level sn.NotifyLevel
+func (h NotificationHook) Fire(e *logrus.Entry) error {
+	var level db.NotifyLevel
 	switch e.Level {
-	case log.WarnLevel:
-		level = sn.NotifyWarning
-	case log.ErrorLevel:
-		level = sn.NotifyError
-	case log.FatalLevel:
-		level = sn.NotifyFatal
+	case logrus.WarnLevel:
+		level = db.NotifyWarning
+	case logrus.ErrorLevel:
+		level = db.NotifyError
+	case logrus.FatalLevel:
+		level = db.NotifyFatal
 	}
 	// log may in transaction, prevent deadlock
-	go sn.Skynet.Notification.New(level, "Skynet log", e.Message, utils.MustMarshal(e.Data))
+	go Notification.New(level, "Skynet log", e.Message, utils.MustMarshal(e.Data))
 	return nil
 }

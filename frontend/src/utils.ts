@@ -15,15 +15,18 @@ export enum UserPerm {
 }
 
 export function checkPerm(
+  signin: boolean | undefined,
   access: { [Key: string]: UserPerm },
   name: string,
   perm: UserPerm,
 ) {
-  if (access[name] !== undefined) {
-    return (access[name] & perm) === perm;
+  if (name === 'guest') return true;
+  if (signin) {
+    if (name === 'user') return true;
+    if (access[name] !== undefined) return (access[name] & perm) === perm;
+    if ((access['all'] & perm) === perm) return true;
   }
-  if ((access['all'] & perm) === perm) return true;
-  return name === 'user' || name === 'guest';
+  return false;
 }
 
 export class StringIntl {
@@ -55,7 +58,7 @@ export function ping() {
       if (rsp) return rsp.code === 0;
       return false;
     })
-    .catch((rsp) => {
+    .catch((_) => {
       return false;
     });
 }

@@ -3,57 +3,283 @@ package api
 import (
 	"errors"
 	"net/http"
+	"skynet/db"
+	"skynet/handler"
 	"skynet/sn"
-	"skynet/sn/impl"
-	"skynet/sn/utils"
-	"strings"
+	"skynet/translator"
+	"skynet/utils"
+	"skynet/utils/log"
 	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/nicksnyder/go-i18n/v2/i18n"
-	log "github.com/sirupsen/logrus"
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
 	"github.com/ztrue/tracerr"
 )
 
-/**
- * @apiDefine 400
- * @apiError (Error 4xx) 400 The request parameter is invalid.
- */
+var (
+	rspOK           = &Response{Code: CodeOK}
+	rspParamInvalid = &Response{HTTPCode: 400}
+)
 
-/**
- * @apiDefine 500
- * @apiError (Error 5xx) 500 Internal error occured.
- */
+var (
+	API    = []*APIItem{}
+	Menu   = []*MenuItem{}
+	Router *gin.RouterGroup
+	Locker sync.Mutex
+)
+
+// APIMethod is http method for API.
+type APIMethod int32
+
+const (
+	// APIGet represents HTTP Get method
+	APIGet APIMethod = iota
+	// APIPost represents HTTP Post method
+	APIPost
+	// APIPut represents HTTP Put method
+	APIPut
+	// APIPatch represents HTTP Patch method
+	APIPatch
+	// APIDelete represents HTTP Delete method
+	APIDelete
+	// APIOptions represents HTTP Options method
+	APIOptions
+	// APIHead represents HTTP Head method
+	APIHead
+	// APIAny represents any HTTP method
+	APIAny
+)
+
+// APIFunc is API function type.
+//
+// id is current user id when user signin, otherwise uuid.Nil.
+//
+// return http response and error.
+type APIFunc func(r *Request) (*Response, error)
+
+// APIItem is API item struct.
+type APIItem struct {
+	Path    string          // API path
+	Method  APIMethod       // API http method
+	Perm    *handler.Perm   // API permission
+	Func    APIFunc         // API function
+	Checker PermCheckerFunc // custom perm checker, invoke when default perm check failed
+}
+
+// SNCheckerFunc is permission checker function type.
+type PermCheckerFunc func(perm map[uuid.UUID]*handler.Perm) bool
+
+type MenuItem struct {
+	ID        uuid.UUID
+	Name      string
+	Path      string
+	Icon      string
+	OmitEmpty bool
+	Children  []*MenuItem
+	Perm      *handler.Perm
+	Checker   PermCheckerFunc
+}
+
+func (m *MenuItem) Check(p map[uuid.UUID]*handler.Perm) bool {
+	if m.Checker == nil && (m.Perm == nil || m.Perm.ID == uuid.Nil) { // menu group
+		return true
+	} else {
+		ok := false
+		if m.Perm != nil {
+			ok = CheckPerm(p, m.Perm)
+		}
+		if m.Checker != nil {
+			ok = m.Checker(p)
+		}
+		return ok
+	}
+}
+
+type RspCode int32
+
+const (
+	CodeOK RspCode = iota
+	CodeInvalidUserOrPass
+	CodeUsernameExist
+	CodeInvalidRecaptcha
+	CodeRestarting
+	CodeGroupNotExist
+	CodeGroupNameExist
+	CodeRootNotAllowedUpdate
+	CodeRootNotAllowedDelete
+	CodePluginNotExist
+	CodePluginFormatError
+	CodePluginExist
+
+	CodeMax
+)
+
+func (c RspCode) String(t *i18n.Localizer) string {
+	return translator.TranslateString(t, RspMsg[c])
+}
+
+var RspMsg = [CodeMax]string{
+	"response.success",
+	"response.user.invalid",
+	"response.user.exist",
+	"response.recaptcha.invalid",
+	"response.restart",
+	"response.group.notexist",
+	"response.group.exist",
+	"response.group.rootupdate",
+	"response.group.rootdelete",
+	"response.plugin.notexist",
+	"response.plugin.formaterror",
+	"response.plugin.exist",
+}
 
 type Response struct {
-	Code int32  `json:"code" example:"0"`
-	Msg  string `json:"msg" example:"Success"`
-	Data any    `json:"data" example:"[]"`
+	HTTPCode int     `json:"-"`
+	Code     RspCode `json:"code"`
+	Msg      string  `json:"msg"`
+	Data     any     `json:"data,omitempty"`
 }
 
-type siteAPI struct {
-	router *gin.RouterGroup
-	api    []*sn.SNAPIItem
-	menu   []*sn.SNMenu
-	lock   sync.Mutex
+func NewPageResponse(data any, total int64) *Response {
+	return &Response{
+		Code: CodeOK,
+		Data: gin.H{
+			"data":  data,
+			"total": total,
+		},
+	}
 }
 
-func (s *siteAPI) GetRouter() *gin.RouterGroup {
-	return s.router
+type Request struct {
+	ID         uuid.UUID
+	Context    *gin.Context
+	Logger     *logrus.Entry
+	Translator *i18n.Localizer
+	Perm       map[uuid.UUID]*handler.Perm
 }
 
-func (s *siteAPI) GetAPI() []*sn.SNAPIItem {
-	return s.api
+func (req *Request) ShouldBind(to any) error {
+	return tracerr.Wrap(req.Context.ShouldBind(to))
 }
 
-func (s *siteAPI) GetMenu() []*sn.SNMenu {
-	return s.menu
+func (req *Request) ShouldBindQuery(to any) error {
+	return tracerr.Wrap(req.Context.ShouldBindQuery(to))
 }
 
-func (s *siteAPI) CheckSignIn(c *gin.Context) (*impl.SessionData, error) {
+func (req *Request) ShouldBindUri(to any) error {
+	return tracerr.Wrap(req.Context.ShouldBindUri(to))
+}
+
+func Init(r *gin.RouterGroup) {
+	Router = r
+	AddAPI(initAPI())
+	Locker.Lock()
+	defer Locker.Unlock()
+	Menu = initMenu()
+}
+
+func CheckPerm(perm map[uuid.UUID]*handler.Perm, target *handler.Perm) bool {
+	if target.ID == db.GetDefaultID(db.PermGuestID) {
+		return true
+	}
+	if perm != nil {
+		if target.ID == db.GetDefaultID(db.PermUserID) {
+			return true
+		}
+		if p, ok := perm[target.ID]; ok { // user permission check first
+			return (p.Perm & target.Perm) == target.Perm
+		}
+		if p, ok := perm[db.GetDefaultID(db.PermAllID)]; ok {
+			return (p.Perm & target.Perm) == target.Perm
+		}
+	}
+	return false // fail safe
+}
+
+func ParseRequest(c *gin.Context) (*Request, error) {
+	lang := c.DefaultQuery("lang", "en-US")
+	logger := log.New().WithField("ip", c.ClientIP())
+	if len(c.Request.URL.Query()) != 0 {
+		logger = logger.WithField("query", c.Request.URL.Query())
+	}
+	logger = logger.WithField("path", c.Request.URL.Path)
+	req := &Request{
+		Logger:     logger,
+		Context:    c,
+		Translator: translator.NewLocalizer(lang),
+	}
+
+	session, err := checkSignIn(c)
+	if err != nil {
+		return req, err
+	}
+	if session != nil {
+		req.ID = session.ID
+		if req.ID != uuid.Nil {
+			req.Logger = req.Logger.WithField("user", req.ID)
+		}
+		req.Perm, err = handler.Permission.GetUserMerged(req.ID)
+		if err != nil {
+			return req, err
+		}
+	}
+	return req, nil
+}
+
+func handlerFunc(i *APIItem) func(c *gin.Context) {
+	handler := func(c *gin.Context) (*Request, *Response, error) {
+		req, err := ParseRequest(c)
+		if err != nil {
+			return req, nil, err
+		}
+		if !sn.Running {
+			return req, &Response{Code: CodeRestarting}, nil
+		}
+		ok := CheckPerm(req.Perm, i.Perm)
+		if !ok && i.Checker != nil && i.Checker(req.Perm) {
+			ok = true
+		}
+		if ok {
+			rsp, err := i.Func(req)
+			return req, rsp, err
+		} else {
+			return req, &Response{HTTPCode: 403}, nil
+		}
+	}
+	return func(c *gin.Context) {
+		req, rsp, err := handler(c)
+		if rsp == nil {
+			rsp = &Response{HTTPCode: 500}
+		}
+		if rsp.Msg == "" {
+			if int(rsp.Code) < len(RspMsg) {
+				rsp.Msg = rsp.Code.String(req.Translator)
+			}
+		}
+		if err != nil {
+			if rsp.HTTPCode == 0 {
+				rsp.HTTPCode = 500
+			}
+			log.MergeEntry(req.Logger, log.NewEntry(err)).Error("Request handler error")
+			c.AbortWithStatus(rsp.HTTPCode)
+			return
+		}
+		if rsp.HTTPCode == 403 {
+			c.String(403, "Permission denied")
+			return
+		} else if rsp.HTTPCode != 0 && rsp.HTTPCode != 200 {
+			c.AbortWithStatus(rsp.HTTPCode)
+			return
+		}
+		c.JSON(rsp.HTTPCode, rsp)
+	}
+}
+
+func checkSignIn(c *gin.Context) (*db.SessionData, error) {
 	data, err := c.Cookie(viper.GetString("session.cookie"))
 	if errors.Is(err, http.ErrNoCookie) {
 		return nil, nil
@@ -61,93 +287,51 @@ func (s *siteAPI) CheckSignIn(c *gin.Context) (*impl.SessionData, error) {
 	if err != nil || data == "" {
 		return nil, tracerr.Wrap(err)
 	}
-	session, err := impl.GetCTXSession(c)
+	session, err := db.GetCTXSession(c)
 	if err != nil {
 		return nil, err
 	}
-	ret, err := impl.LoadSession(session)
+	ret, err := db.LoadSession(session)
 	if err != nil {
 		session.Options.MaxAge = -1 // delete invalid
-		return nil, impl.SaveCTXSession(c)
+		return nil, db.SaveCTXSession(c)
 	}
-	c.Set("session", ret)
 	return ret, nil
 }
 
-func (s *siteAPI) Handler(i *sn.SNAPIItem) func(c *gin.Context) {
-	handler := func(c *gin.Context) (id uuid.UUID, code int, err error) {
-		session, err := s.CheckSignIn(c)
-		if err != nil {
-			return uuid.Nil, 500, err
-		}
-		var perm map[uuid.UUID]*sn.SNPerm
-		if session != nil {
-			id = session.ID
-			perm, err = impl.GetPerm(id)
-			if err != nil {
-				return id, 500, err
-			}
-		}
-		if (i.Checker == nil && !impl.CheckPerm(perm, i.Perm)) ||
-			(i.Checker != nil && !i.Checker(perm)) {
-			return id, 403, nil
-		}
-
-		lang := c.DefaultQuery("lang", "en-US")
-		c.Set("translator", i18n.NewLocalizer(sn.Skynet.Translator, lang))
-		code, err = i.Func(c, id)
-		return
-	}
-	return func(c *gin.Context) {
-		id, code, err := handler(c)
-		if err != nil {
-			utils.WithLogTrace(wrap(c, id, nil), err).Error(err)
-			c.AbortWithStatus(code)
-			return
-		}
-		if code == 403 {
-			c.String(403, "Permission denied")
-			return
-		} else if code != 0 && code != 200 {
-			c.AbortWithStatus(code)
-			return
-		}
-	}
-}
-
-func (s *siteAPI) AddAPI(item []*sn.SNAPIItem) {
-	s.lock.Lock()
-	defer s.lock.Unlock()
+func AddAPI(item []*APIItem) {
+	Locker.Lock()
+	defer Locker.Unlock()
 	for _, v := range item {
-		if v.Checker == nil && (v.Perm == nil || v.Perm.ID == uuid.Nil) {
-			log.Fatalf("API %v do not have permission", v.Path)
+		if v.Perm == nil || v.Perm.ID == uuid.Nil {
+			log.New().Warn("API %v do not have permission", v.Path)
 		}
-		fun := s.Handler(v)
+		fun := handlerFunc(v)
 		switch v.Method {
-		case sn.APIGet:
-			s.router.GET(v.Path, fun)
-		case sn.APIPost:
-			s.router.POST(v.Path, fun)
-		case sn.APIPut:
-			s.router.PUT(v.Path, fun)
-		case sn.APIPatch:
-			s.router.PATCH(v.Path, fun)
-		case sn.APIDelete:
-			s.router.DELETE(v.Path, fun)
-		case sn.APIOptions:
-			s.router.OPTIONS(v.Path, fun)
-		case sn.APIHead:
-			s.router.HEAD(v.Path, fun)
-		case sn.APIAny:
-			s.router.Any(v.Path, fun)
+		case APIGet:
+			Router.GET(v.Path, fun)
+		case APIPost:
+			Router.POST(v.Path, fun)
+		case APIPut:
+			Router.PUT(v.Path, fun)
+		case APIPatch:
+			Router.PATCH(v.Path, fun)
+		case APIDelete:
+			Router.DELETE(v.Path, fun)
+		case APIOptions:
+			Router.OPTIONS(v.Path, fun)
+		case APIHead:
+			Router.HEAD(v.Path, fun)
+		case APIAny:
+			Router.Any(v.Path, fun)
 		}
 	}
-	s.api = append(s.api, item...)
+	API = append(API, item...)
 }
 
-func (s *siteAPI) getMenuByID(id uuid.UUID) *sn.SNMenu {
-	var dfs func([]*sn.SNMenu) *sn.SNMenu
-	dfs = func(this []*sn.SNMenu) *sn.SNMenu {
+func getMenuByID(id uuid.UUID) *MenuItem {
+	var dfs func([]*MenuItem) *MenuItem
+	dfs = func(this []*MenuItem) *MenuItem {
 		for _, v := range this {
 			if v.ID == id {
 				return v
@@ -158,18 +342,18 @@ func (s *siteAPI) getMenuByID(id uuid.UUID) *sn.SNMenu {
 		}
 		return nil
 	}
-	return dfs(s.menu)
+	return dfs(Menu)
 }
 
-func (s *siteAPI) AddMenu(item *sn.SNMenu, parent uuid.UUID) bool {
-	s.lock.Lock()
-	defer s.lock.Unlock()
+func AddMenu(item *MenuItem, parent uuid.UUID) bool {
+	Locker.Lock()
+	defer Locker.Unlock()
 	if parent == uuid.Nil {
-		s.menu = append(s.menu, item)
+		Menu = append(Menu, item)
 		return true
 	}
 
-	p := s.getMenuByID(parent)
+	p := getMenuByID(parent)
 	if p == nil {
 		return false
 	}
@@ -177,20 +361,21 @@ func (s *siteAPI) AddMenu(item *sn.SNMenu, parent uuid.UUID) bool {
 	return true
 }
 
-// NewAPI returns new API object.
-func NewAPI(r *gin.RouterGroup) sn.SNAPI {
-	var ret siteAPI
-	ret.router = r
-	ret.AddAPI(initAPI())
-	ret.lock.Lock()
-	defer ret.lock.Unlock()
-	ret.menu = initMenu()
-	return &ret
+func success(l *logrus.Entry, s string) {
+	l.Info(s)
+	handler.Notification.New(db.NotifySuccess, "Skynet log", s, utils.MustMarshal(l.Data))
 }
 
 type paginationParam struct {
 	Page int `form:"page,default=1" binding:"min=1"`
 	Size int `form:"size,default=10" binding:"min=1"`
+}
+
+func (p *paginationParam) ToCondition() *db.Condition {
+	return &db.Condition{
+		Limit:  p.Size,
+		Offset: (p.Page - 1) * p.Size,
+	}
 }
 
 type createdParam struct {
@@ -199,68 +384,42 @@ type createdParam struct {
 	CreatedEnd   int64  `form:"createdEnd" binding:"min=0"`
 }
 
+func (p *createdParam) ToCondition() *db.Condition {
+	ret := new(db.Condition)
+	now := time.Now().UnixMilli()
+	if p.CreatedEnd == 0 {
+		p.CreatedEnd = now
+	}
+	if !(p.CreatedStart == 0 && p.CreatedEnd == now) {
+		ret.And("created_at BETWEEN ? AND ?", p.CreatedStart, p.CreatedEnd)
+	}
+	if p.CreatedSort != "" {
+		ret.Order = []any{"created_at " + p.CreatedSort}
+	}
+	return ret
+}
+
 type updatedParam struct {
 	UpdatedSort  string `form:"updatedSort" binding:"omitempty,oneof=asc desc"`
 	UpdatedStart int64  `form:"updatedStart" binding:"min=0"`
 	UpdatedEnd   int64  `form:"updatedEnd" binding:"min=0"`
 }
 
-type idURI struct {
-	ID string `uri:"id" binding:"required,uuid"`
-}
-
-func buildCondition(created *createdParam, updated *updatedParam,
-	pageParam *paginationParam, text string, condText string) *sn.SNCondition {
+func (p *updatedParam) ToCondition() *db.Condition {
+	ret := new(db.Condition)
 	now := time.Now().UnixMilli()
-	if created != nil && created.CreatedEnd == 0 {
-		created.CreatedEnd = now
+	if p.UpdatedEnd == 0 {
+		p.UpdatedEnd = now
 	}
-	if updated != nil && updated.UpdatedEnd == 0 {
-		updated.UpdatedEnd = now
+	if !(p.UpdatedStart == 0 && p.UpdatedEnd == now) {
+		ret.And("updated_at BETWEEN ? AND ?", p.UpdatedStart, p.UpdatedEnd)
 	}
-
-	cond := &sn.SNCondition{
-		Limit:  pageParam.Size,
-		Offset: (pageParam.Page - 1) * pageParam.Size,
+	if p.UpdatedSort != "" {
+		ret.Order = []any{"updated_at " + p.UpdatedSort}
 	}
-
-	if created != nil && !(created.CreatedStart == 0 && created.CreatedEnd == now) {
-		cond.And("created_at BETWEEN ? AND ?", created.CreatedStart, created.CreatedEnd)
-	}
-	if updated != nil && !(updated.UpdatedStart == 0 && updated.UpdatedEnd == now) {
-		cond.And("updated_at BETWEEN ? AND ?", updated.UpdatedStart, updated.UpdatedEnd)
-	}
-	if text != "" {
-		cond.And(condText)
-		count := strings.Count(condText, "?")
-		for i := 0; i < count; i++ {
-			cond.Args = append(cond.Args, "%"+text+"%")
-		}
-	}
-
-	if updated != nil && updated.UpdatedSort != "" {
-		cond.Order = []any{"updated_at " + updated.UpdatedSort}
-	}
-	if created != nil && created.CreatedSort != "" {
-		cond.Order = []any{"created_at " + created.CreatedSort}
-	}
-	return cond
-}
-
-func wrap(c *gin.Context, u uuid.UUID, f log.Fields) *log.Entry {
-	ret := log.WithFields(f)
-	tmp := utils.MustMarshal(c.Request.URL.Query())
-	if tmp != "{}" {
-		ret = ret.WithField("param", tmp)
-	}
-	if u != uuid.Nil {
-		ret = ret.WithField("user", u)
-	}
-	ret = ret.WithField("ip", utils.GetIP(c))
 	return ret
 }
 
-func success(l *log.Entry, s string) {
-	l.Info(s)
-	sn.Skynet.Notification.New(sn.NotifySuccess, "Skynet log", s, utils.MustMarshal(l.Data))
+type idURI struct {
+	ID string `uri:"id" binding:"required,uuid"`
 }

@@ -74,7 +74,6 @@ export default {
   'pages.plugin.table.delete.title': 'Delete plugin {name}, confirm?',
   'pages.plugin.table.disabletip': 'disable',
   'pages.plugin.table.enabletip': 'enable',
-  'pages.plugin.table.disable.title':
-    'Disable plugin will logout all user, confirm?',
-  'pages.plugin.table.disable.content': 'This will trigger Skynet reload.',
+  'pages.plugin.table.disable.title': 'Disable plugin {name}, confirm?',
+  'pages.plugin.table.disable.content': 'You may be logged out.',
 };

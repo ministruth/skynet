@@ -1,19 +1,15 @@
 package api
 
 import (
-	"skynet/sn"
-
-	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
+	"skynet/config"
 )
 
-func APIGetPublicSetting(c *gin.Context, id uuid.UUID) (int, error) {
+func APIGetPublicSetting(req *Request) (*Response, error) {
 	ret := make(map[string]interface{})
-	for _, v := range sn.DefaultSetting {
+	for _, v := range config.DefaultSetting {
 		if v.Public {
 			ret[v.Name] = v.Value
 		}
 	}
-	responseData(c, ret)
-	return 0, nil
+	return &Response{Data: ret}, nil
 }

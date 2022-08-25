@@ -1,204 +1,97 @@
 package cmd
 
 import (
-	"embed"
 	"io"
-	"io/fs"
+	"io/ioutil"
 	"net/http"
 	"os"
 	"skynet/api"
+	"skynet/config"
+	"skynet/db"
 	"skynet/handler"
+	"skynet/recaptcha"
+	"skynet/security"
 	"skynet/sn"
-	"skynet/sn/impl"
-	"skynet/sn/utils"
+	"skynet/translator"
+	"skynet/utils/log"
 	"strings"
 	"syscall"
 	"time"
 
-	logrus_stack "github.com/Gurpartap/logrus-stack"
-	"github.com/fvbock/endless"
 	"github.com/gin-contrib/static"
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/sessions"
-	"github.com/nicksnyder/go-i18n/v2/i18n"
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	"github.com/unrolled/secure"
 	"github.com/ztrue/tracerr"
-	"golang.org/x/text/language"
-	"gopkg.in/yaml.v3"
 )
 
-var runCmd = &cobra.Command{
-	Use:   "run",
-	Short: "Run skynet server",
-	Run:   run,
-}
-
-//go:embed i18n/*.yml
-var i18nFiles embed.FS
+var (
+	test   bool
+	runCmd = &cobra.Command{
+		Use:   "run",
+		Short: "Run skynet server",
+		Run:   run,
+	}
+)
 
 func init() {
+	runCmd.Flags().BoolVarP(&test, "test", "t", false, "only test config file and db connection")
 	rootCmd.AddCommand(runCmd)
 }
 
 func run(cmd *cobra.Command, args []string) {
-	// logrus hook
-	var err error
-	var logFile *os.File
-	if viper.GetString("log_file") != "" {
-		log.SetFormatter(new(log.JSONFormatter))
-		logFile, err = os.OpenFile(viper.GetString("log_file"), os.O_CREATE|os.O_APPEND|os.O_RDWR, 0755)
-		if err != nil {
-			panic(err)
-		}
-		mw := io.MultiWriter(os.Stdout, logFile)
-		log.SetOutput(mw)
-		log.AddHook(logrus_stack.StandardHook())
+	// logger
+	var logWriter []io.Writer
+	if viper.GetBool("log.console") {
+		logWriter = append(logWriter, os.Stdout)
 	}
-	defer logFile.Close()
-	defer log.Info("========== Skynet server end ==========")
+	if viper.GetBool("log.json") {
+		log.SetJSONFormat()
+	}
+	if viper.GetString("log.file") != "" {
+		logFile, err := os.OpenFile(viper.GetString("log_file"), os.O_CREATE|os.O_APPEND|os.O_RDWR, 0755)
+		if err != nil {
+			log.NewEntry(err).Fatal("Failed to open log file")
+		}
+		defer logFile.Close()
+		logWriter = append(logWriter, logFile)
+	}
+	if viper.GetBool("log.stack") {
+		log.ShowStack()
+	}
+	if len(logWriter) > 0 {
+		log.SetOutput(logWriter...)
+	} else {
+		log.SetOutput(ioutil.Discard)
+	}
 
-	log.Info("========== Skynet server start ==========")
-	log.Infof("config file: %s", conf)
+	log.New().Info("========== Skynet server start ==========")
+	defer log.New().Info("========== Skynet server end ==========")
+
+	// check setting first
+	log.New().Infof("config file: %s", conf)
+	config.CheckSetting()
 
 	// database
-	impl.ConnectRedis()
-	log.WithField("addr", viper.GetString("redis.address")).Info("Redis connected")
+	db.NewRedis()
+	db.NewSession()
+	db.NewDB()
 
-	impl.ConnectSession()
-	log.WithField("prefix", viper.GetString("session.prefix")).Info("Redis session connected")
+	// handler
+	handler.Init()
+	log.New().AddHook(handler.NotificationHook{})
 
-	impl.ConnectDB()
-	log.WithField("path", viper.GetString("database.path")).Info("Database connected")
-	log.AddHook(handler.NotificationHook{})
-
-	// skynet handler
-	sn.Skynet.Notification = handler.NewNotification()
-	sn.Skynet.Permission = handler.NewPermission()
-	sn.Skynet.User = handler.NewUser()
-	sn.Skynet.Group = handler.NewGroup()
-	// setting
-	sn.Skynet.Setting, err = handler.NewSetting()
-	if err != nil {
-		utils.WithTrace(err).Fatal(err)
-	}
-
-	// check default settings
-	for _, v := range sn.DefaultSetting {
-		if v.WarnDefault && viper.Get(v.Name) == v.Value {
-			log.Warnf("Setting %v has default value, please modify your config file for safety", v.Name)
-		}
-		if v.Checker != nil {
-			v.Checker(viper.Get(v.Name))
-		}
-	}
-
-	// check recaptcha
+	// recaptcha
 	if viper.GetBool("recaptcha.enable") {
-		err = utils.NewReCAPTCHA(viper.GetString("recaptcha.secret"))
-		if err != nil {
-			utils.WithTrace(err).Fatal(err)
-		}
+		recaptcha.Init()
 	}
 
 	// i18n
-	bundle := i18n.NewBundle(language.English)
-	bundle.RegisterUnmarshalFunc("yml", yaml.Unmarshal)
-	err = fs.WalkDir(i18nFiles, ".", func(path string, d fs.DirEntry, err error) error {
-		if err != nil {
-			return tracerr.Wrap(err)
-		}
-		if !d.IsDir() {
-			b, err := i18nFiles.ReadFile("i18n/" + d.Name())
-			if err != nil {
-				return tracerr.Wrap(err)
-			}
-			bundle.MustParseMessageFileBytes(b, d.Name())
-			log.Debugf("Language %v loaded", d.Name())
-		}
-		return nil
-	})
-	if err != nil {
-		utils.WithTrace(err).Fatal(err)
-	}
-	sn.Skynet.Translator = bundle
-
-	// init gin
-	r := gin.Default()
-	sn.Skynet.Engine = r
-
-	// security
-	hosts := strings.Split(viper.GetString("listen.allowhosts"), ",")
-	if len(hosts) == 1 && hosts[0] == "" {
-		hosts = []string{}
-	}
-	secureMiddleware := secure.New(secure.Options{
-		AllowedHosts:          hosts,
-		AllowedHostsAreRegex:  true,
-		HostsProxyHeaders:     []string{"X-Forwarded-Hosts"},
-		SSLRedirect:           viper.GetBool("listen.ssl"),
-		SSLProxyHeaders:       map[string]string{"X-Forwarded-Proto": "https"},
-		STSSeconds:            31536000,
-		FrameDeny:             true,
-		ContentTypeNosniff:    true,
-		BrowserXssFilter:      true,
-		ContentSecurityPolicy: "default-src 'none'; script-src 'unsafe-eval' 'unsafe-inline' 'self'; connect-src 'self'; frame-src www.recaptcha.net/recaptcha/ www.google.com/recaptcha/; img-src 'self' data:; style-src 'self' 'unsafe-inline'; base-uri 'self'; form-action 'self'; font-src 'self'",
-		ReferrerPolicy:        "same-origin",
-		IsDevelopment:         false,
-	})
-	secureFunc := func() gin.HandlerFunc {
-		return func(c *gin.Context) {
-			err := secureMiddleware.Process(c.Writer, c.Request)
-			if err != nil {
-				c.Abort()
-				return
-			}
-
-			if status := c.Writer.Status(); status > 300 && status < 399 {
-				c.Abort()
-			}
-		}
-	}
-	r.Use(secureFunc())
-
-	// csrf
-	csrfFunc := func() gin.HandlerFunc {
-		return func(c *gin.Context) {
-			if c.Request.Method != "GET" {
-				token := c.GetHeader("X-CSRF-Token")
-				if token == "" {
-					c.AbortWithStatus(400)
-					return
-				}
-				ok, err := impl.CheckCSRFToken(token)
-				if err != nil {
-					utils.WithTrace(err).Error(err)
-					c.AbortWithStatus(500)
-					return
-				}
-				if !ok {
-					c.AbortWithStatus(400)
-					return
-				}
-			}
-			c.Next()
-		}
-	}
-	r.Use(csrfFunc())
-
-	r.ForwardedByClientIP = false // disable ip forward to prevent sproof
-	// BUG: gin
-	// if !viper.GetBool("proxy.enable") {
-	// 	r.ForwardedByClientIP = false // disable ip forward to prevent sproof
-	// } else {
-	// 	r.ForwardedByClientIP = true
-	// 	r.RemoteIPHeaders = []string{viper.GetString("proxy.header")}
-	// }
+	translator.New()
 
 	// session
-	sn.Skynet.GetSession().Options(sessions.Options{
+	db.Session.Options(sessions.Options{
 		Path:     "/",
 		MaxAge:   viper.GetInt("session.expire"),
 		Secure:   viper.GetBool("listen.ssl"),
@@ -206,10 +99,37 @@ func run(cmd *cobra.Command, args []string) {
 		SameSite: http.SameSiteStrictMode,
 	})
 	if !viper.GetBool("debug") {
-		err = impl.DeleteSessions(nil)
-		if err != nil {
-			utils.WithTrace(err).Fatal(err)
+		if err := db.DeleteSessions(nil); err != nil {
+			log.NewEntry(err).Fatal("Failed to clean session")
 		}
+	}
+
+	if test {
+		sn.Running = true // for test purpose
+		log.New().Info("Test success")
+		return
+	}
+
+	// init gin
+	var r *gin.Engine
+	if len(logWriter) > 0 {
+		r = gin.Default()
+	} else {
+		r = gin.New()
+		r.Use(gin.Recovery())
+	}
+
+	// security
+	r.Use(security.SecureMiddleware())
+	r.Use(security.CSRFMiddleware())
+
+	if !viper.GetBool("proxy.enable") {
+		r.ForwardedByClientIP = false
+		r.SetTrustedProxies(nil)
+	} else {
+		r.ForwardedByClientIP = true
+		r.RemoteIPHeaders = []string{viper.GetString("proxy.header")}
+		r.SetTrustedProxies(strings.Split(viper.GetString("proxy.trusted"), ","))
 	}
 
 	// plugin auth
@@ -218,9 +138,15 @@ func run(cmd *cobra.Command, args []string) {
 		sp := strings.Split(path, "/")
 		if strings.HasPrefix(path, "/_plugin/") {
 			if len(sp) >= 3 {
-				ids, err := api.GetMenuPluginID(c)
+				req, err := api.ParseRequest(c)
 				if err != nil {
-					utils.WithTrace(err).Error(err)
+					log.NewEntry(err).Error("Request handler error")
+					c.AbortWithStatus(500)
+					return
+				}
+				ids, err := api.GetMenuPluginID(req)
+				if err != nil {
+					log.NewEntry(err).Error("Request handler error")
 					c.AbortWithStatus(500)
 					return
 				}
@@ -240,18 +166,18 @@ func run(cmd *cobra.Command, args []string) {
 		c.Abort()
 	})
 
-	// gin middleware is in order, so plugin middleware should use callback instead of direct use
-	r.Use(func(c *gin.Context) {
-		if errs := sn.Skynet.Plugin.Call(sn.BeforeMiddleware, c); errs != nil {
-			for _, v := range errs {
-				utils.WithTrace(v).Error(v)
-			}
-			c.AbortWithStatus(500)
-			return
-		}
-		c.Next()
-		sn.Skynet.Plugin.Call(sn.AfterMiddleware, c)
-	})
+	// // gin middleware is in order, so plugin middleware should use callback instead of direct use
+	// r.Use(func(c *gin.Context) {
+	// 	if errs := sn.Skynet.Plugin.Call(sn.BeforeMiddleware, c); errs != nil {
+	// 		for _, v := range errs {
+	// 			utils.WithTrace(v).Error(v)
+	// 		}
+	// 		c.AbortWithStatus(500)
+	// 		return
+	// 	}
+	// 	c.Next()
+	// 	sn.Skynet.Plugin.Call(sn.AfterMiddleware, c)
+	// })
 
 	// 404
 	r.NoRoute(func(c *gin.Context) {
@@ -260,7 +186,7 @@ func run(cmd *cobra.Command, args []string) {
 		if strings.HasPrefix(path, "/api") {
 			// prevent route guess
 			c.String(403, "Permission denied")
-		} else if !strings.Contains(sp[len(sp)-1], ".") {
+		} else if path != "/" && !strings.Contains(sp[len(sp)-1], ".") {
 			// rewrite for dynamic route
 			c.Request.URL.Path = "/"
 			r.HandleContext(c)
@@ -271,28 +197,34 @@ func run(cmd *cobra.Command, args []string) {
 	})
 
 	// static file
-	r.Use(static.Serve("/", static.LocalFile("./assets/", true)))
+	r.Use(static.Serve("/", static.LocalFile("./assets/", false)))
 
 	// api router
-	v1 := r.Group("/api")
-	sn.Skynet.API = api.NewAPI(v1)
+	apiRouter := r.Group("/api")
+	api.Init(apiRouter)
 
-	sn.Skynet.Plugin, err = handler.NewPlugin("plugin")
-	if err != nil {
-		log.Fatal("Plugin init error: ", err)
+	if err := handler.Plugin.LoadPlugin("plugin"); err != nil {
+		log.New().Fatal("Plugin init error: ", err)
 	}
-	defer sn.Skynet.Plugin.Fini()
+	defer handler.Plugin.Fini()
 
-	endless.DefaultHammerTime = 1 * time.Second
-	server := endless.NewServer(viper.GetString("listen.address"), r)
-	server.BeforeBegin = func(add string) {
-		sn.Skynet.Running = true
-		sn.Skynet.StartTime = time.Now()
-		log.Info("Running pid ", syscall.Getpid())
-	}
+	sn.Running = true
+	sn.StartTime = time.Now()
+	log.New().Info("Running pid ", syscall.Getpid())
+	errChan := make(chan error)
 	if !viper.GetBool("listen.ssl") {
-		server.ListenAndServe()
+		go func() { errChan <- tracerr.Wrap(r.Run(viper.GetString("listen.address"))) }()
 	} else {
-		server.ListenAndServeTLS(viper.GetString("listen.ssl_cert"), viper.GetString("listen.ssl_key"))
+		go func() {
+			errChan <- tracerr.Wrap(r.RunTLS(viper.GetString("listen.address"),
+				viper.GetString("listen.ssl_cert"), viper.GetString("listen.ssl_key")))
+		}()
+	}
+	select {
+	case <-sn.ExitChan:
+	case err := <-errChan:
+		if err != nil {
+			log.NewEntry(err).Error("Failed to start server")
+		}
 	}
 }

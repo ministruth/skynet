@@ -11,8 +11,8 @@ interface confirmProps {
 const confirm = (props: confirmProps & ModalFuncProps) => {
   const { title, content, intl, ...rest } = props;
   Modal.confirm({
-    title: intl.get(title),
-    content: intl.get(content),
+    title: title,
+    content: content,
     icon: <ExclamationCircleTwoTone twoToneColor="#faad14" />,
     okType: 'danger',
     okText: props.intl.get('app.ok'),

@@ -5,9 +5,9 @@ import { FormattedMessage } from 'react-intl';
 import { Columns } from '../layout/table/column';
 import TableOp from '../layout/table/opBtn';
 import TableBtn from '../layout/table/tipBtn';
-import { GroupBtnProps, groupColumns } from './card';
+import { GroupBtnProps, GroupColumns } from './card';
 
-export const cloneColumns: Columns = (intl) => [
+const cloneColumns: Columns = (intl) => [
   {
     renderFormItem: () => (
       <FormattedMessage id="pages.group.table.clone.content" />
@@ -24,7 +24,7 @@ export const cloneColumns: Columns = (intl) => [
     dataIndex: 'baseName',
     readonly: true,
   },
-  ...groupColumns(intl),
+  ...GroupColumns(intl),
   {
     title: intl.get('pages.group.table.clone.user'),
     dataIndex: 'clone_user',

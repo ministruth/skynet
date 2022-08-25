@@ -2,37 +2,16 @@ import { checkAPI, getIntl, putAPI, UserPerm } from '@/utils';
 import { EditOutlined } from '@ant-design/icons';
 import { ParamsType } from '@ant-design/pro-provider';
 import _ from 'lodash';
-import { Columns } from '../layout/table/column';
 import TableOp from '../layout/table/opBtn';
 import TableBtn from '../layout/table/tipBtn';
-import { GroupBtnProps, groupColumns } from './card';
-
-export const cloneColumns: Columns = (intl) => [
-  {
-    dataIndex: 'base',
-    formItemProps: {
-      hidden: true,
-    },
-  },
-  {
-    title: intl.get('pages.group.table.clone.base'),
-    dataIndex: 'baseName',
-    readonly: true,
-  },
-  ...groupColumns(intl),
-  {
-    title: intl.get('pages.group.table.clone.user'),
-    dataIndex: 'cloneUser',
-    valueType: 'switch',
-  },
-];
+import { GroupBtnProps, GroupColumns } from './card';
 
 const handleUpdate = (id: string, params: ParamsType) =>
   checkAPI(putAPI(`/group/${id}`, params));
 
 const GroupUpdate: React.FC<GroupBtnProps> = (props) => {
   const intl = getIntl();
-  const updateColumns = _.cloneDeep(groupColumns(intl));
+  const updateColumns = _.cloneDeep(GroupColumns(intl));
   updateColumns[0].readonly = props.initialValues?.name === 'root';
   return (
     <TableOp

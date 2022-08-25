@@ -1,35 +1,20 @@
 package api
 
 import (
+	"skynet/db"
+	"skynet/handler"
+	"skynet/recaptcha"
+	"skynet/security"
 	"skynet/sn"
-	"skynet/sn/impl"
-	"skynet/sn/utils"
+	"skynet/utils/log"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	log "github.com/sirupsen/logrus"
 	"github.com/spf13/viper"
-	"github.com/ztrue/tracerr"
 )
 
-/**
- * @api {post} /signin Signin
- * @apiName Signin
- * @apiVersion 1.0.0
- * @apiGroup Auth
- * @apiDescription Signin with username and password.
- * @apiBody {string{..32}} username login username
- * @apiBody {string} password login password
- * @apiBody {bool} [remember=false] remember login
- * @apiBody {string} [g-recaptcha-response] recaptcha response
- * @apiSuccess {int32} code 0 for success, 1 for invalid user, 2 for invalid recaptcha
- * @apiSuccess {string} msg return message
- * @apiPermission guest
- * @apiUse 400
- * @apiUse 500
- */
-func APISignIn(c *gin.Context, id uuid.UUID) (int, error) {
+func APISignIn(req *Request) (*Response, error) {
 	type Param struct {
 		Username  string `json:"username" binding:"required,max=32"`
 		Password  string `json:"password" binding:"required"`
@@ -37,39 +22,38 @@ func APISignIn(c *gin.Context, id uuid.UUID) (int, error) {
 		Recaptcha string `json:"g-recaptcha-response"`
 	}
 	var param Param
-	if err := tracerr.Wrap(c.ShouldBind(&param)); err != nil {
-		return 400, err
+	if err := req.ShouldBind(&param); err != nil {
+		return rspParamInvalid, err
 	}
-	logf := wrap(c, id, log.Fields{
+	logger := req.Logger.WithFields(log.F{
 		"username": param.Username,
 		"remember": param.Remember,
 	})
 
 	if viper.GetBool("recaptcha.enable") {
-		if err := utils.VerifyCAPTCHA(param.Recaptcha, utils.GetIP(c)); err != nil {
-			utils.WithLogTrace(logf, err).Warn(err)
-			response(c, CodeInvalidRecaptcha)
-			return 0, nil
+		if err := recaptcha.ReCAPTCHA.VerifyCAPTCHA(param.Recaptcha, req.Context.ClientIP()); err != nil {
+			log.MergeEntry(logger, log.NewEntry(err)).Debug("Failed to check recaptcha")
+			return &Response{Code: CodeInvalidRecaptcha}, nil
 		}
 	}
 
-	user, res, err := sn.Skynet.User.CheckPass(param.Username, param.Password)
+	user, res, err := handler.User.CheckPass(param.Username, param.Password)
 	if err != nil {
-		return 500, err
+		return nil, err
 	}
 
 	switch res {
 	case 0: // signin
 		now := time.Now()
-		if err := sn.Skynet.User.Update(user.ID, "", "", nil, &now, utils.GetIP(c)); err != nil {
-			return 500, err
+		if err := handler.User.Update(user.ID, "", "", nil, &now, req.Context.ClientIP()); err != nil {
+			return nil, err
 		}
 
-		session, err := impl.GetCTXSession(c)
+		session, err := db.GetCTXSession(req.Context)
 		if err != nil {
-			return 500, err
+			return nil, err
 		}
-		data := &impl.SessionData{
+		data := &db.SessionData{
 			ID: user.ID,
 		}
 		data.SaveSession(session)
@@ -78,83 +62,68 @@ func APISignIn(c *gin.Context, id uuid.UUID) (int, error) {
 		} else {
 			session.Options.MaxAge = viper.GetInt("session.expire")
 		}
-		if err := impl.SaveCTXSession(c); err != nil {
-			return 500, err
+		if err := db.SaveCTXSession(req.Context); err != nil {
+			return nil, err
 		}
 
-		success(logf.WithField("uid", user.ID), "User signin")
-		response(c, CodeOK)
+		success(logger.WithField("uid", user.ID), "User signin")
+		return rspOK, nil
 	default: // invalid
-		logf.Warn("Invalid username or password")
-		response(c, CodeInvalidUserOrPass)
+		logger.Warn("Invalid username or password")
+		return &Response{Code: CodeInvalidUserOrPass}, nil
 	}
-	return 0, nil
 }
 
-func APIGetAccess(c *gin.Context, id uuid.UUID) (int, error) {
-	perm := make(map[string]sn.UserPerm)
-	if id != uuid.Nil {
-		p, err := impl.GetPerm(id)
-		if err != nil {
-			return 500, err
-		}
-		for _, v := range p {
+func APIGetAccess(req *Request) (*Response, error) {
+	perm := make(map[string]db.UserPerm)
+	if req.ID != uuid.Nil {
+		for _, v := range req.Perm {
 			perm[v.Name] = v.Perm
 		}
-		responseData(c, gin.H{
+		return &Response{Data: gin.H{
 			"signin":     true,
 			"permission": perm,
-		})
+		}}, nil
 	} else {
-		responseData(c, gin.H{
+		return &Response{Data: gin.H{
 			"signin":     false,
 			"permission": perm,
-		})
+		}}, nil
 	}
-	return 0, nil
 }
 
-func APISignOut(c *gin.Context, id uuid.UUID) (int, error) {
-	logf := wrap(c, id, nil)
-	session, err := impl.GetCTXSession(c)
+func APISignOut(req *Request) (*Response, error) {
+	session, err := db.GetCTXSession(req.Context)
 	if err != nil {
-		return 500, err
+		return nil, err
 	}
 	session.Options.MaxAge = -1
-	if err = impl.SaveCTXSession(c); err != nil {
-		return 500, err
+	if err = db.SaveCTXSession(req.Context); err != nil {
+		return nil, err
 	}
-	success(logf, "User signout")
-	response(c, CodeOK)
-	return 0, nil
+	success(req.Logger, "User signout")
+	return rspOK, nil
 }
 
-func APIReload(c *gin.Context, id uuid.UUID) (int, error) {
-	sn.Skynet.Running = false
-	logf := wrap(c, id, nil)
-	logf.Warn("Restart skynet")
-	response(c, CodeOK)
+func APIReload(req *Request) (*Response, error) {
+	sn.Running = false
+	req.Logger.Warn("Restart skynet")
 	go func() {
 		time.Sleep(time.Second * 2)
-		utils.Restart()
+		log.New().Warn("Restart triggered")
+		sn.ExitChan <- true
 	}()
-	return 0, nil
+	return rspOK, nil
 }
 
-func APIGetCSRFToken(c *gin.Context, id uuid.UUID) (int, error) {
-	token, err := impl.NewCSRFToken()
+func APIGetCSRFToken(req *Request) (*Response, error) {
+	token, err := security.NewCSRFToken()
 	if err != nil {
-		return 500, err
+		return nil, err
 	}
-	responseData(c, token)
-	return 0, nil
+	return &Response{Data: token}, nil
 }
 
-func APIPing(c *gin.Context, id uuid.UUID) (int, error) {
-	if sn.Skynet.Running {
-		response(c, CodeOK)
-	} else {
-		response(c, CodeRestarting)
-	}
-	return 0, nil
+func APIPing(req *Request) (*Response, error) {
+	return rspOK, nil
 }

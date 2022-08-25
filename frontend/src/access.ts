@@ -5,5 +5,6 @@ export default function (initialState: {
   permission: { [Key: string]: UserPerm };
   menu: [{ [Key: string]: any }];
 }) {
-  return initialState.permission;
+  if (initialState == undefined) return {};
+  else return initialState.permission;
 }

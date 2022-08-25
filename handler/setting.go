@@ -1,38 +1,30 @@
 package handler
 
 import (
-	"skynet/sn"
-	"skynet/sn/impl"
-	"skynet/sn/tpl"
+	"skynet/db"
+	"skynet/utils/tpl"
 
 	"gorm.io/gorm"
 )
 
-type siteSetting struct {
-	*impl.ORM[sn.Setting]
+type SettingImpl struct {
+	orm   *db.ORM[db.Setting]
 	cache *tpl.SafeMap[string, string]
 }
 
-func NewSetting() (sn.SNSetting, error) {
-	ret := siteSetting{
-		ORM:   impl.NewORM[sn.Setting](nil),
-		cache: new(tpl.SafeMap[string, string]),
-	}
-	if err := ret.BuildCache(); err != nil {
-		return nil, err
-	}
-	return &ret, nil
+var Setting = &SettingImpl{
+	cache: new(tpl.SafeMap[string, string]),
 }
 
-func (p *siteSetting) WithTx(tx *gorm.DB) sn.SNSetting {
-	return &siteSetting{
-		ORM:   impl.NewORM[sn.Setting](tx),
+func (p *SettingImpl) WithTx(tx *gorm.DB) *SettingImpl {
+	return &SettingImpl{
+		orm:   db.NewORM[db.Setting](tx),
 		cache: p.cache,
 	}
 }
 
-func (s *siteSetting) BuildCache() error {
-	rec, err := s.Impl.Find()
+func (s *SettingImpl) BuildCache() error {
+	rec, err := s.orm.Find()
 	if err != nil {
 		return err
 	}
@@ -42,18 +34,23 @@ func (s *siteSetting) BuildCache() error {
 	return nil
 }
 
-func (s *siteSetting) GetAll() map[string]string {
+// GetAll return all settings.
+//
+// Copies are returned, modification will not be saved.
+func (s *SettingImpl) GetAll() map[string]string {
 	return s.cache.Map()
 }
 
-func (s *siteSetting) Get(name string) (string, bool) {
+// Get get name setting.
+func (s *SettingImpl) Get(name string) (string, bool) {
 	return s.cache.Get(name)
 }
 
-func (s *siteSetting) Set(name string, value string) error {
+// Set set setting name with value.
+func (s *SettingImpl) Set(name string, value string) error {
 	v, ok := s.cache.Get(name)
 	if !ok {
-		if err := s.Impl.Create(&sn.Setting{
+		if err := s.orm.Create(&db.Setting{
 			Name:  name,
 			Value: value,
 		}); err != nil {
@@ -63,7 +60,7 @@ func (s *siteSetting) Set(name string, value string) error {
 		return nil
 	} else {
 		if v != value {
-			if err := s.Impl.Where("name = ?", name).Update("value", value); err != nil {
+			if err := s.orm.Where("name = ?", name).Update("value", value); err != nil {
 				return err
 			}
 			s.cache.Set(name, value)
@@ -72,9 +69,10 @@ func (s *siteSetting) Set(name string, value string) error {
 	return nil
 }
 
-func (s *siteSetting) Delete(name string) (bool, error) {
+// Delete delete name setting.
+func (s *SettingImpl) Delete(name string) (bool, error) {
 	if s.cache.Has(name) {
-		row, err := s.Impl.Where("name = ?", name).Delete()
+		row, err := s.orm.Where("name = ?", name).Delete()
 		if err != nil {
 			return false, err
 		}
@@ -82,4 +80,14 @@ func (s *siteSetting) Delete(name string) (bool, error) {
 		return row == 1, nil
 	}
 	return false, nil
+}
+
+// DeleteAll delete all settings.
+func (s *SettingImpl) DeleteAll() (int64, error) {
+	row, err := s.orm.DeleteAll()
+	if err != nil {
+		return 0, err
+	}
+	s.cache.Clear()
+	return row, nil
 }

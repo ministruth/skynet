@@ -1,7 +1,9 @@
 package main
 
-import "skynet/cmd"
+import (
+	"skynet/cmd"
+)
 
 func main() {
-	cmd.Execute()
+	cmd.Execute(nil)
 }

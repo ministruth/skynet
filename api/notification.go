@@ -1,57 +1,54 @@
 package api
 
 import (
-	"skynet/sn"
-
-	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
-	"github.com/ztrue/tracerr"
+	"skynet/db"
+	"skynet/handler"
 )
 
-func APIGetNotification(c *gin.Context, id uuid.UUID) (int, error) {
+func APIGetNotification(req *Request) (*Response, error) {
 	type Param struct {
-		Level []sn.NotifyLevel `form:"level[]" binding:"dive,min=0,max=4"`
+		Level []db.NotifyLevel `form:"level[]" binding:"dive,min=0,max=4"`
 		Text  string           `form:"text"`
 		createdParam
 		paginationParam
 	}
 	var param Param
-	if err := tracerr.Wrap(c.ShouldBindQuery(&param)); err != nil {
-		return 400, err
+	if err := req.ShouldBindQuery(&param); err != nil {
+		return rspParamInvalid, err
 	}
 
 	if len(param.Level) == 0 {
-		param.Level = []sn.NotifyLevel{
-			sn.NotifyInfo,
-			sn.NotifySuccess,
-			sn.NotifyWarning,
-			sn.NotifyError,
-			sn.NotifyFatal,
+		param.Level = []db.NotifyLevel{
+			db.NotifyInfo,
+			db.NotifySuccess,
+			db.NotifyWarning,
+			db.NotifyError,
+			db.NotifyFatal,
 		}
 	}
 
-	cond := buildCondition(&param.createdParam, nil, &param.paginationParam,
-		param.Text, "id LIKE ? OR name LIKE ? OR message LIKE ? OR detail LIKE ?")
+	cond := new(db.Condition)
+	cond.MergeAnd(param.paginationParam.ToCondition())
+	cond.MergeAnd(param.createdParam.ToCondition())
+	cond.AndLike("id LIKE ? OR name LIKE ? OR message LIKE ? OR detail LIKE ?", param.Text)
 	cond.And("level IN ?", param.Level)
 
-	rec, err := sn.Skynet.Notification.GetAll(cond)
+	rec, err := handler.Notification.GetAll(cond)
 	if err != nil {
-		return 500, err
+		return nil, err
 	}
-	count, err := sn.Skynet.Notification.Count(cond)
+	count, err := handler.Notification.Count(cond)
 	if err != nil {
-		return 500, err
+		return nil, err
 	}
-	responsePage(c, rec, count)
-	return 0, nil
+
+	return NewPageResponse(rec, count), nil
 }
 
-func APIDeleteNotification(c *gin.Context, id uuid.UUID) (int, error) {
-	logf := wrap(c, id, nil)
-	if _, err := sn.Skynet.Notification.DeleteAll(); err != nil {
-		return 500, err
+func APIDeleteNotification(req *Request) (*Response, error) {
+	if _, err := handler.Notification.DeleteAll(); err != nil {
+		return nil, err
 	}
-	success(logf, "Delete all notification")
-	response(c, CodeOK)
-	return 0, nil
+	success(req.Logger, "Delete all notification")
+	return rspOK, nil
 }

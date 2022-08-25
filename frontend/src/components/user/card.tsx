@@ -61,13 +61,13 @@ const request = async (
     size: params?.pageSize,
   });
   return {
-    data: msg.data,
+    data: msg.data.data,
     success: true,
-    total: msg.total,
+    total: msg.data.total,
   };
 };
 
-export const userColumns: Columns = (intl) => [
+const userColumns: Columns = (intl) => [
   {
     title: intl.get('pages.user.table.username'),
     dataIndex: 'username',
@@ -163,7 +163,7 @@ const addColumns: Columns = (intl) => [
         },
         false,
       );
-      return msg.data.map((e: any) => ({ value: e.id, label: e.name }));
+      return msg.data.data.map((e: any) => ({ value: e.id, label: e.name }));
     },
   },
 ];
