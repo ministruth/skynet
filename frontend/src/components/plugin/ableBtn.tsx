@@ -1,70 +1,74 @@
-import { checkAPI, getIntl, ping, putAPI, StringIntl } from '@/utils';
+import { checkAPI, getIntl, putAPI, StringIntl, UserPerm } from '@/utils';
 import { DisconnectOutlined, LinkOutlined } from '@ant-design/icons';
 import { ActionType } from '@ant-design/pro-table';
-import { useModel } from 'umi';
 import confirm from '../layout/modal';
-import TableBtn from '../layout/table/tipBtn';
+import TableBtn from '../layout/table/tableBtn';
 
 export interface PluginAbleProps {
   tableRef: React.MutableRefObject<ActionType | undefined>;
   enable: boolean;
-  pluginID: string;
-  pluginName: string;
+  pid: string;
+  pname: string;
 }
 
 const handleAble = (
   intl: StringIntl,
+  ref: React.MutableRefObject<ActionType | undefined>,
   id: string,
   name: string,
   enable: boolean,
-  refresh: () => Promise<void>,
 ) => {
-  let t: NodeJS.Timer;
-  if (enable)
-    return checkAPI(putAPI(`/plugin/${id}`, { enable: enable })).then((rsp) => {
-      if (rsp) window.location.reload();
+  if (enable) {
+    confirm({
+      title: intl.get('pages.plugin.table.enable.title', {
+        name: name,
+      }),
+      content: intl.get('pages.plugin.table.enable.content'),
+      onOk() {
+        return checkAPI(putAPI(`/plugin/${id}`, { enable: enable })).then(
+          (rsp) => {
+            if (rsp)
+              setTimeout(() => {
+                window.location.reload(); // refresh menu
+              }, 1000);
+            else ref.current?.reloadAndRest?.();
+          },
+        );
+      },
+      intl: intl,
     });
-  confirm({
-    title: intl.get('pages.plugin.table.disable.title', {
-      name: name,
-    }),
-    content: intl.get('pages.plugin.table.disable.content'),
-    onOk() {
-      return new Promise((resolve, reject) => {
-        putAPI(`/plugin/${id}`, { enable: enable }).then(async (rsp) => {
-          if (rsp && rsp.code === 0)
-            t = setInterval(async () => {
-              if (await ping()) {
-                clearInterval(t);
-                resolve(rsp);
-                refresh().then(() => {
-                  window.location.reload();
-                });
-              }
-            }, 1000);
-          else reject(rsp);
-        });
-      });
-    },
-    intl: intl,
-  });
+  } else {
+    confirm({
+      title: intl.get('pages.plugin.table.disable.title', {
+        name: name,
+      }),
+      content: intl.get('pages.plugin.table.disable.content'),
+      onOk() {
+        return checkAPI(putAPI(`/plugin/${id}`, { enable: enable })).then(() =>
+          ref.current?.reloadAndRest?.(),
+        );
+      },
+      intl: intl,
+    });
+  }
 };
 
 const PluginAble: React.FC<PluginAbleProps> = (props) => {
   const intl = getIntl();
-  const { refresh } = useModel('@@initialState');
   if (props.enable)
     return (
       <TableBtn
         icon={DisconnectOutlined}
         tip={intl.get('pages.plugin.table.disabletip')}
+        perm={UserPerm.PermWriteExecute}
+        permName="manage.plugin"
         onClick={() =>
           handleAble(
             intl,
-            props.pluginID,
-            props.pluginName,
+            props.tableRef,
+            props.pid,
+            props.pname,
             !props.enable,
-            refresh,
           )
         }
       />
@@ -74,13 +78,15 @@ const PluginAble: React.FC<PluginAbleProps> = (props) => {
       <TableBtn
         icon={LinkOutlined}
         tip={intl.get('pages.plugin.table.enabletip')}
+        perm={UserPerm.PermWriteExecute}
+        permName="manage.plugin"
         onClick={() =>
           handleAble(
             intl,
-            props.pluginID,
-            props.pluginName,
+            props.tableRef,
+            props.pid,
+            props.pname,
             !props.enable,
-            refresh,
           )
         }
       />

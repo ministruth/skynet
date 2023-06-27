@@ -2,6 +2,7 @@ package log
 
 import (
 	"io"
+	"os"
 	"strings"
 
 	logrus_stack "github.com/Gurpartap/logrus-stack"
@@ -16,18 +17,22 @@ func New() *logrus.Logger {
 	return logrus.StandardLogger()
 }
 
-// NewEntry wraps error compatible to logrus.
-func NewEntry(err error) *logrus.Entry {
+// WrapEntry wraps error compatible to logrus entry.
+func WrapEntry(entry *logrus.Entry, err error) *logrus.Entry {
+	if err == nil {
+		return entry
+	}
 	text := tracerr.Sprint(err)
 	traceText := strings.Split(text, "\n")
 	if len(traceText) > 1 {
-		return logrus.WithField("debug", traceText[1:]).WithField("error", err.Error())
+		return entry.WithField("debug", traceText[1:]).WithField("error", err.Error())
 	}
-	return logrus.WithField("debug", nil).WithField("error", err.Error())
+	return entry.WithField("debug", nil).WithField("error", err.Error())
 }
 
-func MergeEntry(a *logrus.Entry, b *logrus.Entry) *logrus.Entry {
-	return a.WithFields(b.Data)
+// NewEntry wraps error compatible to logrus.
+func NewEntry(err error) *logrus.Entry {
+	return WrapEntry(logrus.NewEntry(New()), err)
 }
 
 // SetJSONFormat sets log format to JSON.
@@ -37,7 +42,9 @@ func SetJSONFormat() {
 
 // SetTextFormat sets log format to Text.
 func SetTextFormat() {
-	logrus.SetFormatter(new(logrus.TextFormatter))
+	logrus.SetFormatter(&logrus.TextFormatter{
+		FullTimestamp: true,
+	})
 }
 
 // ShowStack appends call stack to log.
@@ -48,7 +55,7 @@ func ShowStack() {
 
 // SetOutput sets log output.
 // If multiple writer provided, write to all of them.
-// If no writer provided, do nothing.
+// If no writer provided, use default (warning/error/fatal/panic to stderr, others to stdout).
 func SetOutput(out ...io.Writer) {
 	var cnt = len(out)
 	if cnt > 1 {
@@ -56,6 +63,22 @@ func SetOutput(out ...io.Writer) {
 		logrus.SetOutput(mw)
 	} else if cnt == 1 {
 		logrus.SetOutput(out[0])
+	} else {
+		logrus.AddHook(&Hook{
+			Writer: os.Stderr,
+			LogLevels: []logrus.Level{
+				logrus.PanicLevel,
+				logrus.FatalLevel,
+				logrus.ErrorLevel,
+				logrus.WarnLevel,
+			},
+		})
+		logrus.AddHook(&Hook{
+			Writer: os.Stdout,
+			LogLevels: []logrus.Level{
+				logrus.InfoLevel,
+				logrus.DebugLevel,
+			},
+		})
 	}
-	// do nothing if no input.
 }

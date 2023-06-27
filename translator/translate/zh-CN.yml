@@ -1,0 +1,29 @@
+menu:
+  system: "系统"
+  dashboard: "仪表盘"
+  service: "服务"
+  notification: "消息"
+  user: "用户"
+  user.user: "用户"
+  user.group: "用户组"
+  plugin: "插件"
+  plugin.manage: "插件管理"
+
+response:
+  success: "成功"
+  user:
+    invalid: "用户名或密码错误"
+    notexist: "用户不存在"
+    exist: "用户名已被占用"
+  recaptcha:
+    invalid: "reCAPTCHA无效"
+  group:
+    notexist: "用户组不存在"
+    exist: "用户组名已存在"
+    rootupdate: "root组不允许修改"
+    rootdelete: "root组不允许删除"
+  permission:
+    notexist: "权限不存在"
+  plugin:
+    notexist: "插件不存在"
+    loaded: "插件已加载"

@@ -1,16 +1,19 @@
+import { getLocale, request, useIntl } from '@umijs/max';
 import { message } from 'antd';
-import { SortOrder } from 'antd/lib/table/interface';
+import { SortOrder } from 'antd/es/table/interface';
 import { PrimitiveType } from 'intl-messageformat';
+import Cookies from 'js-cookie';
 import moment from 'moment';
-import { IntlShape, useIntl } from 'react-intl';
-import { request } from 'umi';
+import { IntlShape } from 'react-intl';
 
 export enum UserPerm {
+  PermBan = -1,
+  PermInherit = -1,
   PermNone = 0,
   PermExecute = 1,
   PermWrite = 1 << 1,
   PermRead = 1 << 2,
-  PermAll = 1 << (3 - 1),
+  PermAll = (1 << 3) - 1,
   PermWriteExecute = PermWrite | PermExecute,
 }
 
@@ -48,68 +51,73 @@ export function getIntl() {
   return new StringIntl(useIntl());
 }
 
-export function ping() {
-  return request('/ping', {
-    method: 'get',
-    skipErrorHandler: true,
-    errorHandler: (e) => {},
-  })
-    .then((rsp) => {
-      if (rsp) return rsp.code === 0;
-      return false;
-    })
-    .catch((_) => {
-      return false;
-    });
-}
-
-export function getAPI(url: string, params?: object, showmsg: boolean = false) {
+export function api(
+  method: string,
+  url: string,
+  params?: object,
+  data?: any,
+  headers?: any,
+  showmsg: boolean = false,
+) {
+  let obj = {
+    lang: getLocale(),
+  };
+  if (params === undefined) params = obj;
+  else Object.assign(params, obj);
   return request(url, {
-    method: 'get',
+    method: method,
     params: params,
+    data: data,
+    headers: headers,
   }).then((rsp) => {
     if (rsp) {
-      if (showmsg) message.success(rsp.msg);
+      if (showmsg) {
+        if (rsp.code == 0) message.success(rsp.msg);
+        else message.error(rsp.msg);
+      }
       return rsp;
     }
   });
 }
 
 export function withToken(
-  method: 'post' | 'delete' | 'put',
+  method: string,
   url: string,
-  data: any,
-  showmsg: boolean = true,
+  params?: object,
+  data?: any,
+  showmsg: boolean = false,
 ) {
   return request('/token', {
     method: 'get',
   }).then((rsp) => {
     if (rsp)
-      return request(url, {
-        method: method,
-        data: data,
-        headers: {
-          'X-CSRF-Token': rsp.data,
+      return api(
+        method,
+        url,
+        params,
+        data,
+        {
+          'X-CSRF-Token': Cookies.get('CSRF_TOKEN'),
         },
-      }).then((rsp) => {
-        if (rsp) {
-          if (showmsg) message.success(rsp.msg);
-          return rsp;
-        }
-      });
+        showmsg,
+      );
   });
 }
 
+export function getAPI(url: string, params?: object, showmsg: boolean = false) {
+  return api('get', url, params, undefined, undefined, showmsg);
+}
+
 export function postAPI(url: string, data: any, showmsg: boolean = true) {
-  return withToken('post', url, data, showmsg);
+  return withToken('post', url, undefined, data, showmsg);
 }
 
 export function putAPI(url: string, data: any, showmsg: boolean = true) {
-  return withToken('put', url, data, showmsg);
+  return withToken('put', url, undefined, data, showmsg);
 }
 
 export function deleleAPI(url: string, data: any, showmsg: boolean = true) {
-  return withToken('delete', url, data, showmsg);
+  return withToken('delete', url, undefined, data, showmsg);
 }
 
 export async function checkAPI(ret: Promise<any>) {
@@ -128,13 +136,16 @@ export function paramTime(v?: string) {
   return moment(v || 0).valueOf() || undefined;
 }
 
-export const fileToBase64 = (file: File) =>
-  new Promise((resolve, reject) => {
-    const reader = new FileReader();
-    reader.readAsDataURL(file);
-    reader.onload = () => {
-      let res = reader.result as string;
-      resolve(res.split(',')[1]);
-    };
-    reader.onerror = (error) => reject(error);
+export const fileToBase64 = (file: File | undefined) =>
+  new Promise((resolve: (value: string) => void, reject) => {
+    if (file === undefined) {
+      resolve('');
+    } else {
+      const reader = new FileReader();
+      reader.readAsDataURL(file);
+      reader.onload = () => {
+        resolve(reader.result as string);
+      };
+      reader.onerror = (error) => reject(error);
+    }
   });

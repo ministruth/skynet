@@ -1,14 +1,6 @@
 .vscode
 *.db
-log.txt
 *.crt
 *.key
-skynet
-/temp/
-/bin/
-coverage.html
-coverage.out
 .VSCodeCounter
-packer/packer
 .DS_Store
-/assets/

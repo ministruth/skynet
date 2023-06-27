@@ -9,18 +9,17 @@ import (
 	"net"
 	"net/http"
 	"net/http/cookiejar"
+	"net/url"
 	"os"
-	"reflect"
 	"testing"
 	"time"
 
-	"github.com/MXWXZ/skynet/api"
 	"github.com/MXWXZ/skynet/cmd"
-	"github.com/MXWXZ/skynet/db"
-	"github.com/MXWXZ/skynet/handler"
 	"github.com/MXWXZ/skynet/security"
 	"github.com/MXWXZ/skynet/sn"
+	"github.com/MXWXZ/skynet/translator"
 	"github.com/MXWXZ/skynet/utils"
+	"github.com/nicksnyder/go-i18n/v2/i18n"
 
 	"github.com/google/uuid"
 	"github.com/spf13/viper"
@@ -32,8 +31,10 @@ type msa = map[string]any
 type mss = map[string]string
 
 var (
+	rootID     uuid.UUID
 	rootUser   string
 	rootPass   string
+	normalID   uuid.UUID
 	normalUser string
 	normalPass string
 )
@@ -48,6 +49,7 @@ func checkAddress(address string) bool {
 }
 
 func newInstance() (err error) {
+	ts := time.Now()
 	for {
 		port := 10000 + rand.Intn(50000)
 		addr := fmt.Sprintf("127.0.0.1:%v", port)
@@ -58,57 +60,32 @@ func newInstance() (err error) {
 		}
 	}
 	for {
-		if sn.Running {
+		if sn.Skynet.StartTime.After(ts) {
+			time.Sleep(1 * time.Second)
 			break
 		}
 	}
 
 	rootUser = "test_" + utils.RandString(6)
+	rootPass = utils.RandString(8)
 	normalUser = "test_" + utils.RandString(6)
-	err = db.DB.Transaction(func(tx *gorm.DB) error {
-		var u *db.User
-		u, rootPass, err = handler.User.WithTx(tx).New(rootUser, "", []byte{0})
+	normalPass = utils.RandString(8)
+	err = sn.Skynet.DB.Transaction(func(tx *gorm.DB) error {
+		var u *sn.User
+		u, err = sn.Skynet.User.WithTx(tx).New(rootUser, rootPass, "")
 		if err != nil {
 			return err
 		}
-		_, err = handler.Group.WithTx(tx).Link([]uuid.UUID{u.ID}, []uuid.UUID{db.GetDefaultID(db.GroupRootID)})
+		rootID = u.ID
+		_, err = sn.Skynet.Group.WithTx(tx).Link([]uuid.UUID{u.ID}, []uuid.UUID{sn.Skynet.ID.Get(sn.GroupRootID)})
 		return err
 	})
-	_, normalPass, err = handler.User.New(normalUser, "", []byte{0})
+	u, err := sn.Skynet.User.New(normalUser, normalPass, "")
 	if err != nil {
 		return err
 	}
+	normalID = u.ID
 	return
-}
-
-type customType interface {
-	test(t *testing.T, obj any)
-}
-
-type typeAnyString struct {
-	min int
-	max int
-}
-
-func (self *typeAnyString) test(t *testing.T, s any) {
-	switch v := s.(type) {
-	case string:
-		if self.min == 0 && self.max == 0 {
-			return
-		}
-		assert.GreaterOrEqual(t, len(v), self.min)
-		assert.LessOrEqual(t, len(v), self.max)
-	default:
-		assert.FailNow(t, "data type is not string")
-	}
-}
-
-func anyString() *typeAnyString {
-	return &typeAnyString{}
-}
-
-func anyStringLen(l int) *typeAnyString {
-	return &typeAnyString{min: l, max: l}
 }
 
 type testCase struct {
@@ -118,29 +95,29 @@ type testCase struct {
 	body   map[string]string
 	client *http.Client
 
-	httpCode int
-	code     api.RspCode
-	data     any
+	translator *i18n.Localizer
+	httpCode   int
+	code       sn.ResponseCode
+	msg        string
+	data       any
 }
 
-func getToken(t *testing.T) string {
-	rsp, err := http.Get("http://" + viper.GetString("listen.address") + "/api/token")
-	assert.Nil(t, err)
-	defer rsp.Body.Close()
-	body, err := io.ReadAll(rsp.Body)
-	var rspData map[string]any
-	err = json.Unmarshal(body, &rspData)
-	assert.Nil(t, err)
-	if assert.Contains(t, rspData, "data") {
-		switch v := rspData["data"].(type) {
-		case string:
-			t.Log("Get token", v)
+func getToken(t *testing.T) *http.Cookie {
+	csrf := &testCase{
+		url:    "/token",
+		method: "GET",
+	}
+	csrf.test(t)
+	u, err := url.Parse("http://" + viper.GetString("listen.address"))
+	if err != nil {
+		panic(err)
+	}
+	for _, v := range csrf.client.Jar.Cookies(u) {
+		if v.Name == security.CSRF_COOKIE {
 			return v
-		default:
-			assert.FailNow(t, "data type is not string, but "+reflect.TypeOf(v).String())
 		}
 	}
-	panic("Failed to get token")
+	panic("No csrf token")
 }
 
 func loginNormal(t *testing.T) *http.Client {
@@ -179,6 +156,12 @@ func (c *testCase) test(t *testing.T) error {
 	if c.client == nil {
 		c.client = &http.Client{}
 	}
+	if c.translator == nil {
+		c.translator = translator.NewLocalizer("en-US")
+	}
+	if c.msg == "" {
+		c.msg = c.code.GetMsg()
+	}
 
 	var reqBody io.Reader
 	if c.body != nil {
@@ -199,7 +182,9 @@ func (c *testCase) test(t *testing.T) error {
 		req.Header.Set("Content-Type", "application/json")
 	}
 	if c.method != "GET" {
-		req.Header.Add(security.CSRFHeader, getToken(t))
+		token := getToken(t)
+		req.AddCookie(token)
+		req.Header.Add(security.CSRF_HEADER, token.Value)
 	}
 	rsp, err := c.client.Do(req)
 	if err != nil {
@@ -215,6 +200,9 @@ func (c *testCase) test(t *testing.T) error {
 	c.client.Jar.SetCookies(rsp.Request.URL, rsp.Cookies())
 	defer rsp.Body.Close()
 	body, err := io.ReadAll(rsp.Body)
+	if err != nil {
+		panic(err)
+	}
 
 	t.Log("Body:", string(body))
 
@@ -227,22 +215,20 @@ func (c *testCase) test(t *testing.T) error {
 		if assert.Contains(rspData, "code") {
 			assert.EqualValues(c.code, rspData["code"])
 		}
+		if assert.Contains(rspData, "msg") {
+			assert.EqualValues(translator.TranslateString(c.translator, c.msg), rspData["msg"])
+		}
 		if c.data != nil {
 			if assert.Contains(rspData, "data") {
-				switch v := c.data.(type) {
-				case customType:
-					v.test(t, rspData["data"])
-				default:
-					a, err := json.Marshal(v)
-					if err != nil {
-						return err
-					}
-					b, err := json.Marshal(rspData["data"])
-					if err != nil {
-						return err
-					}
-					assert.JSONEq(string(a), string(b))
+				a, err := json.Marshal(c.data)
+				if err != nil {
+					return err
 				}
+				b, err := json.Marshal(rspData["data"])
+				if err != nil {
+					return err
+				}
+				assert.JSONEq(string(a), string(b))
 			}
 		} else {
 			assert.NotContains(rspData, "data")

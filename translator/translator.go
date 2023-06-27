@@ -33,7 +33,9 @@ func New() {
 				return tracerr.Wrap(err)
 			}
 			Translator.MustParseMessageFileBytes(b, d.Name())
-			log.New().Debugf("Language %v loaded", d.Name())
+			log.New().WithFields(log.F{
+				"file": d.Name(),
+			}).Debugf("Language %v loaded", d.Name())
 		}
 		return nil
 	})

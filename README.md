@@ -30,6 +30,15 @@ You can find plugins in our [official support plugin](plugin) or other user shar
 
 **!!Please note that all plugins have the same privilege as skynet, use trusted plugins ONLY!!**
 
+## Databases
+
+Supported databases: SQLite, MySQL, PostgreSQL(Planned).
+
+- SQLite DSN: `data.db?_pragma=busy_timeout(10000)&_pragma=foreign_keys(1)`
+  - The parameter `busy_timeout` is a must since concurrency write may happen.
+  - The parameter `foreign_keys` is a must since sqlite3 does not enable foreign keys by default.
+- MySQL DSN: `user:pass@tcp(127.0.0.1:3306)/dbname?charset=utf8mb4&parseTime=True&loc=Local`
+
 ## Develop
 
 See [develop note](develop.md)

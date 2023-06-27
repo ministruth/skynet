@@ -1,18 +1,22 @@
 import { defineConfig } from 'umi';
 
 export default defineConfig({
+  // mfsu: false,
   access: {
     strictMode: true,
   },
+  initialState: {
+    loading: '@/components/PageLoading',
+  },
+  model: {},
   base: '/',
   publicPath: '/',
   qiankun: {
     master: {},
   },
   hash: true,
-  antd: {},
-  dynamicImport: {
-    loading: '@ant-design/pro-layout/es/PageLoading',
+  antd: {
+    import: false,
   },
   locale: {
     default: 'en-US',
@@ -23,9 +27,7 @@ export default defineConfig({
   request: {
     dataField: 'data',
   },
-  fastRefresh: {},
-  // mfsu: {},
-  webpack5: {},
+  fastRefresh: true,
   proxy: {
     '/api/': {
       target: 'http://localhost:8080/',

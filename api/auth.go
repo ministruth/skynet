@@ -4,18 +4,15 @@ import (
 	"time"
 
 	"github.com/MXWXZ/skynet/db"
-	"github.com/MXWXZ/skynet/handler"
-	"github.com/MXWXZ/skynet/recaptcha"
 	"github.com/MXWXZ/skynet/security"
 	"github.com/MXWXZ/skynet/sn"
 	"github.com/MXWXZ/skynet/utils/log"
-
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/spf13/viper"
 )
 
-func APISignIn(req *Request) (*Response, error) {
+func APISignIn(req *sn.Request) (*sn.Response, error) {
 	type Param struct {
 		Username  string `json:"username" binding:"required,max=32"`
 		Password  string `json:"password" binding:"required"`
@@ -24,7 +21,7 @@ func APISignIn(req *Request) (*Response, error) {
 	}
 	var param Param
 	if err := req.ShouldBind(&param); err != nil {
-		return rspParamInvalid, err
+		return sn.ResponseParamInvalid, err
 	}
 	logger := req.Logger.WithFields(log.F{
 		"username": param.Username,
@@ -32,13 +29,13 @@ func APISignIn(req *Request) (*Response, error) {
 	})
 
 	if viper.GetBool("recaptcha.enable") {
-		if err := recaptcha.ReCAPTCHA.VerifyCAPTCHA(param.Recaptcha, req.Context.ClientIP()); err != nil {
-			log.MergeEntry(logger, log.NewEntry(err)).Debug("Failed to check recaptcha")
-			return &Response{Code: CodeInvalidRecaptcha}, nil
+		if err := sn.Skynet.ReCAPTCHA.Verify(param.Recaptcha, req.Context.ClientIP()); err != nil {
+			log.WrapEntry(logger, err).Debug("Failed to check recaptcha")
+			return &sn.Response{Code: sn.CodeRecaptchaInvalid}, nil
 		}
 	}
 
-	user, res, err := handler.User.CheckPass(param.Username, param.Password)
+	user, res, err := sn.Skynet.User.CheckPass(param.Username, param.Password)
 	if err != nil {
 		return nil, err
 	}
@@ -46,7 +43,11 @@ func APISignIn(req *Request) (*Response, error) {
 	switch res {
 	case 0: // signin
 		now := time.Now()
-		if err := handler.User.Update(user.ID, "", "", nil, &now, req.Context.ClientIP()); err != nil {
+		if err := sn.Skynet.User.Update([]string{"last_login", "last_ip"}, &sn.User{
+			GeneralFields: sn.GeneralFields{ID: user.ID},
+			LastLogin:     now.UnixMilli(),
+			LastIP:        req.Context.ClientIP(),
+		}); err != nil {
 			return nil, err
 		}
 
@@ -54,8 +55,9 @@ func APISignIn(req *Request) (*Response, error) {
 		if err != nil {
 			return nil, err
 		}
-		data := &db.SessionData{
-			ID: user.ID,
+		data := &sn.SessionData{
+			ID:   user.ID,
+			Time: now.Unix(),
 		}
 		data.SaveSession(session)
 		if param.Remember {
@@ -68,32 +70,18 @@ func APISignIn(req *Request) (*Response, error) {
 		}
 
 		success(logger.WithField("uid", user.ID), "User signin")
-		return rspOK, nil
+		return sn.ResponseOK, nil
 	default: // invalid
 		logger.Warn("Invalid username or password")
-		return &Response{Code: CodeInvalidUserOrPass}, nil
+		return &sn.Response{Code: sn.CodeUserInvalid}, nil
 	}
 }
 
-func APIGetAccess(req *Request) (*Response, error) {
-	perm := make(map[string]db.UserPerm)
-	if req.ID != uuid.Nil {
-		for _, v := range req.Perm {
-			perm[v.Name] = v.Perm
-		}
-		return &Response{Data: gin.H{
-			"signin":     true,
-			"permission": perm,
-		}}, nil
-	} else {
-		return &Response{Data: gin.H{
-			"signin":     false,
-			"permission": perm,
-		}}, nil
-	}
+func APIPing(req *sn.Request) (*sn.Response, error) {
+	return sn.ResponseOK, nil
 }
 
-func APISignOut(req *Request) (*Response, error) {
+func APISignOut(req *sn.Request) (*sn.Response, error) {
 	session, err := db.GetCTXSession(req.Context)
 	if err != nil {
 		return nil, err
@@ -102,29 +90,46 @@ func APISignOut(req *Request) (*Response, error) {
 	if err = db.SaveCTXSession(req.Context); err != nil {
 		return nil, err
 	}
-	success(req.Logger, "User signout")
-	return rspOK, nil
+	return sn.ResponseOK, nil
 }
 
-func APIReload(req *Request) (*Response, error) {
-	sn.Running = false
-	req.Logger.Warn("Restart skynet")
-	go func() {
-		time.Sleep(time.Second * 2)
-		log.New().Warn("Restart triggered")
-		sn.ExitChan <- true
-	}()
-	return rspOK, nil
+func APIGetAccess(req *sn.Request) (*sn.Response, error) {
+	perm := make(map[string]sn.UserPerm)
+	if req.ID != uuid.Nil {
+		for _, v := range req.Perm {
+			perm[v.Name] = v.Perm
+		}
+		return &sn.Response{Data: gin.H{
+			"signin":     true,
+			"id":         req.ID,
+			"permission": perm,
+		}}, nil
+	} else {
+		perm["guest"] = sn.PermAll
+		return &sn.Response{Data: gin.H{
+			"signin":     false,
+			"permission": perm,
+		}}, nil
+	}
 }
 
-func APIGetCSRFToken(req *Request) (*Response, error) {
+func APIGetCSRFToken(req *sn.Request) (*sn.Response, error) {
 	token, err := security.NewCSRFToken()
 	if err != nil {
 		return nil, err
 	}
-	return &Response{Data: token}, nil
+
+	req.Context.SetCookie(security.CSRF_COOKIE, token,
+		viper.GetInt("csrf.expire"), "/", "", viper.GetBool("listen.ssl"), false) // http_only must not be set
+	return sn.ResponseOK, nil
 }
 
-func APIPing(req *Request) (*Response, error) {
-	return rspOK, nil
+func APIShutdown(req *sn.Request) (*sn.Response, error) {
+	req.Logger.Warn("Manually shutdown skynet")
+	go func() {
+		// return to user first
+		time.Sleep(time.Second * 2)
+		sn.Skynet.ExitChan <- true
+	}()
+	return sn.ResponseOK, nil
 }

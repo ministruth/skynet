@@ -1,43 +1,20 @@
-import Table from '@/components/layout/table';
-import { checkAPI, fileToBase64, getAPI, getIntl, postAPI } from '@/utils';
-import { UploadOutlined } from '@ant-design/icons';
+import { UserPerm, getAPI, getIntl } from '@/utils';
 import ProCard from '@ant-design/pro-card';
 import { ParamsType } from '@ant-design/pro-provider';
 import { ActionType, ProColumns } from '@ant-design/pro-table';
-import { Button, message, Tag, Upload } from 'antd';
-import type { SortOrder } from 'antd/lib/table/interface';
-import { RcFile } from 'antd/lib/upload';
+import { Tag } from 'antd';
+import { SortOrder } from 'antd/es/table/interface';
+import { CustomTagProps } from 'rc-select/es/BaseSelect';
 import { useRef } from 'react';
-import { useModel } from 'umi';
+import Table from '../layout/table';
+import { IDColumn, SearchColumn } from '../layout/table/column';
 import TableDelete from '../layout/table/deleteBtn';
+import styles from '../layout/table/style.less';
 import PluginAble from './ableBtn';
 
-const handleUpload = async (
-  ref: React.MutableRefObject<ActionType | undefined>,
-  refresh: () => Promise<void>,
-  file: RcFile,
-) => {
-  let f = await fileToBase64(file).catch((e) => Error(e));
-  if (f instanceof Error) {
-    message.error(`Error: ${f.message}`);
-    return false;
-  }
-  return checkAPI(
-    postAPI('/plugin', {
-      file: f,
-    }),
-  ).then((rsp) => {
-    if (rsp) ref.current?.reloadAndRest?.();
-    return rsp;
-  });
-};
-
-const request = async (
-  params?: ParamsType,
-  sort?: Record<string, SortOrder>,
-) => {
+const request = async (params?: ParamsType, _?: Record<string, SortOrder>) => {
   const msg = await getAPI('/plugin', {
-    enable: params?.enable,
+    status: params?.status,
     text: params?.text,
     page: params?.current,
     size: params?.pageSize,
@@ -49,70 +26,59 @@ const request = async (
   };
 };
 
-// const pluginColumns: Columns = (intl) => [
-//   {
-//     title: intl.get('pages.group.table.name'),
-//     dataIndex: 'name',
-//     tooltip: intl.get('pages.group.table.add.nametip'),
-//     formItemProps: {
-//       rules: [
-//         {
-//           required: true,
-//           message: intl.get('app.table.required'),
-//         },
-//       ],
-//     },
-//   },
-//   {
-//     title: intl.get('pages.group.table.note'),
-//     dataIndex: 'note',
-//   },
-// ];
-
 const PluginCard = () => {
   const intl = getIntl();
   const ref = useRef<ActionType>();
-  const { refresh } = useModel('@@initialState');
-  const columns: ProColumns[] = [
-    {
-      title: intl.get('app.table.id'),
-      ellipsis: true,
-      dataIndex: 'id',
-      align: 'center',
-      copyable: true,
-      hideInSearch: true,
-      width: 150,
+  const statusEnum: { [Key: number]: { label: string; color: string } } = {
+    0: {
+      label: 'Unload',
+      color: 'default',
     },
+    1: {
+      label: 'Disable',
+      color: 'warning',
+    },
+    2: {
+      label: 'Enable',
+      color: 'success',
+    },
+  };
+  const columns: ProColumns[] = [
+    SearchColumn(intl),
+    IDColumn(intl),
     {
       title: intl.get('pages.plugin.table.name'),
       dataIndex: 'name',
       align: 'center',
-      width: 150,
       hideInSearch: true,
     },
     {
-      title: intl.get('app.table.searchtext'),
-      key: 'text',
-      hideInTable: true,
-    },
-    {
       title: intl.get('pages.plugin.table.status'),
-      dataIndex: 'enable',
+      dataIndex: 'status',
       align: 'center',
-      valueType: 'checkbox',
-      valueEnum: {
-        false: intl.get('pages.plugin.table.disabled'),
-        true: intl.get('pages.plugin.table.enabled'),
+      valueType: 'select',
+      fieldProps: {
+        mode: 'multiple',
+        tagRender: (props: CustomTagProps) => {
+          return (
+            <Tag
+              color={statusEnum[props.value].color}
+              closable={props.closable}
+              onClose={props.onClose}
+              style={{ marginRight: 4 }}
+            >
+              {props.label}
+            </Tag>
+          );
+        },
       },
-      width: 100,
+      valueEnum: Object.entries(statusEnum).reduce(
+        (p, c) => ({ ...p, [c[0]]: { text: c[1].label } }),
+        {},
+      ),
       render: (_, row) => (
-        <Tag
-          style={{ marginRight: 0 }}
-          color={row.enable ? 'success' : undefined}
-        >
-          {row.enable
-            ? intl.get('pages.plugin.table.enabled')
-            : intl.get('pages.plugin.table.disabled')}
+        <Tag style={{ marginRight: 0 }} color={statusEnum[row.status].color}>
+          {statusEnum[row.status].label}
         </Tag>
       ),
     },
@@ -120,39 +86,35 @@ const PluginCard = () => {
       title: intl.get('pages.plugin.table.version'),
       dataIndex: 'version',
       align: 'center',
-      width: 100,
       hideInSearch: true,
     },
     {
-      title: intl.get('pages.plugin.table.skynetversion'),
-      dataIndex: 'skynet_version',
-      align: 'center',
-      width: 150,
-      hideInSearch: true,
-    },
-    {
-      title: intl.get('pages.plugin.table.message'),
-      dataIndex: 'message',
+      title: intl.get('pages.plugin.table.path'),
+      dataIndex: 'path',
       align: 'center',
       hideInSearch: true,
     },
     {
-      title: intl.get('app.table.operation'),
+      title: intl.get('app.op'),
       valueType: 'option',
       align: 'center',
       width: 100,
+      className: styles.operation,
       render: (_, row) => {
         return [
           <PluginAble
             key="able"
-            enable={row.enable}
+            enable={row.status === 2}
             tableRef={ref}
-            pluginID={row.id}
-            pluginName={row.name}
+            pid={row.id}
+            pname={row.name}
           />,
           <TableDelete
             key="delete"
             tableRef={ref}
+            disabled={row.status !== 0}
+            permName="manage.plugin"
+            perm={UserPerm.PermWriteExecute}
             url={`/plugin/${row.id}`}
             confirmTitle={intl.get('pages.plugin.table.delete.title', {
               name: row.name,
@@ -162,28 +124,27 @@ const PluginCard = () => {
       },
     },
   ];
-
   return (
-    <ProCard>
+    <ProCard bordered>
       <Table
         actionRef={ref}
         rowKey="id"
         request={request}
         columns={columns}
-        action={[
-          <Upload
-            key="upload"
-            name="file"
-            accept=".sp"
-            maxCount={1}
-            showUploadList={false}
-            action={(file: RcFile) => handleUpload(ref, refresh, file)}
-          >
-            <Button type="primary" icon={<UploadOutlined />}>
-              {intl.get('pages.plugin.table.upload')}
-            </Button>
-          </Upload>,
-        ]}
+        // action={[
+        //   <Upload
+        //     key="upload"
+        //     name="file"
+        //     accept=".sp"
+        //     maxCount={1}
+        //     showUploadList={false}
+        //     action={(file: RcFile) => handleUpload(ref, file)}
+        //   >
+        //     <Button type="primary" icon={<UploadOutlined />}>
+        //       {intl.get('pages.plugin.table.upload')}
+        //     </Button>
+        //   </Upload>,
+        // ]}
       />
     </ProCard>
   );

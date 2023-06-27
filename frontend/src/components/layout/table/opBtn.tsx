@@ -1,66 +1,39 @@
-import { checkPerm, UserPerm } from '@/utils';
-import { BetaSchemaForm, ProFormInstance } from '@ant-design/pro-form';
-import { FormSchema } from '@ant-design/pro-form/lib/components/SchemaForm';
-import { ActionType } from '@ant-design/pro-table';
-import { ReactElement, useEffect, useRef } from 'react';
-import { useAccess, useModel } from 'umi';
+import { checkPerm, getIntl, UserPerm } from '@/utils';
+import { useAccess, useModel } from '@umijs/max';
+import { ReactElement } from 'react';
+import ModalSchema, { ModalSchemaProps } from './modalSchema';
 
-export type TableOpProps = {
-  forceRollback?: boolean;
+export interface TableOpProps {
+  disabled?: boolean;
   perm?: UserPerm;
   permName?: string;
   rollback?: ReactElement<any, any>;
-  finish: (values: Record<string, any>) => Promise<boolean>;
-  tableRef?: React.MutableRefObject<ActionType | undefined>;
-};
+}
 
-const onFinish = async (
-  func: (values: Record<string, any>) => Promise<boolean>,
-  tableRef?: React.MutableRefObject<ActionType | undefined>,
-  formRef?: React.MutableRefObject<ProFormInstance<any> | undefined>,
-  data?: Record<string, any>,
-) => {
-  if (await func(data ? data : {})) {
-    tableRef?.current?.reloadAndRest?.();
-    return true;
-  }
-  return false;
-};
-
-const TableOp: React.FC<TableOpProps & FormSchema> = (props) => {
+const TableOp: React.FC<TableOpProps & ModalSchemaProps> = (props) => {
+  const intl = getIntl();
   const { initialState } = useModel('@@initialState');
   const access = useAccess();
-  const { forceRollback, perm, permName, tableRef, rollback, finish, ...rest } =
-    props;
-  const formRef = useRef<ProFormInstance>();
-  useEffect(() => {
-    formRef.current?.setFieldsValue(props.initialValues);
-  });
+
   if (
-    forceRollback ||
-    (perm &&
-      permName &&
-      !checkPerm(initialState?.signin, access, permName, perm))
+    props.disabled ||
+    (props.perm &&
+      props.permName &&
+      !checkPerm(initialState?.signin, access, props.permName, props.perm))
   )
-    return rollback ? rollback : <></>;
+    return props.rollback ? props.rollback : <></>;
   else
     return (
-      <BetaSchemaForm
-        formRef={formRef}
-        layoutType="ModalForm"
-        layout="horizontal"
-        labelCol={{ span: 6 }}
-        autoFocusFirstInput
-        preserve={false}
-        modalProps={{
-          forceRender: true,
-          onCancel: (e) => {
-            formRef.current?.resetFields();
-          },
-          destroyOnClose: true,
+      <ModalSchema
+        title={props.title}
+        trigger={props.trigger}
+        width={props.width}
+        schemaProps={{
+          layout: 'horizontal',
+          autoFocusFirstInput: true,
+          labelCol: { span: 6 },
+          ...props.schemaProps,
         }}
-        onFinish={(data) => onFinish(finish, tableRef, formRef, data)}
-        {...rest}
       />
     );
 };

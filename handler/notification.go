@@ -1,7 +1,9 @@
 package handler
 
 import (
-	"github.com/MXWXZ/skynet/db"
+	"sync/atomic"
+
+	"github.com/MXWXZ/skynet/sn"
 	"github.com/MXWXZ/skynet/utils"
 
 	"github.com/google/uuid"
@@ -10,49 +12,61 @@ import (
 )
 
 type NotificationImpl struct {
-	orm *db.ORM[db.Notification]
+	orm    *sn.ORM[sn.Notification]
+	unread *int64
 }
 
-var Notification = &NotificationImpl{}
+func NewNotificationHandler() sn.NotificationHandler {
+	var unread int64
+	return &NotificationImpl{orm: sn.NewORM[sn.Notification](sn.Skynet.DB), unread: &unread}
+}
 
-func (p *NotificationImpl) WithTx(tx *gorm.DB) *NotificationImpl {
+func (impl *NotificationImpl) WithTx(tx *gorm.DB) sn.NotificationHandler {
 	return &NotificationImpl{
-		orm: db.NewORM[db.Notification](tx),
+		orm:    sn.NewORM[sn.Notification](tx),
+		unread: impl.unread,
 	}
 }
 
-func (s *NotificationImpl) New(level db.NotifyLevel, name string, message string, detail string) error {
-	return s.orm.Create(&db.Notification{
+func (impl *NotificationImpl) SetUnread(num int64) {
+	atomic.StoreInt64(impl.unread, num)
+}
+
+func (impl *NotificationImpl) GetUnread() int64 {
+	return atomic.LoadInt64(impl.unread)
+}
+
+func (impl *NotificationImpl) New(level sn.NotifyLevel, name string, message string, detail string) error {
+	err := impl.orm.Create(&sn.Notification{
 		Level:   level,
 		Name:    name,
 		Message: message,
 		Detail:  detail,
 	})
+	if level > sn.NotifySuccess && err == nil {
+		atomic.AddInt64(impl.unread, 1)
+	}
+	return err
 }
 
-// GetAll get all notification by condition.
-func (u *NotificationImpl) GetAll(cond *db.Condition) ([]*db.Notification, error) {
-	return u.orm.Cond(cond).Find()
+func (impl *NotificationImpl) GetAll(cond *sn.Condition) ([]*sn.Notification, error) {
+	return impl.orm.Cond(cond).Find()
 }
 
-// Get get notification by id.
-func (u *NotificationImpl) Get(id uuid.UUID) (*db.Notification, error) {
-	return u.orm.Take(id)
+func (impl *NotificationImpl) Get(id uuid.UUID) (*sn.Notification, error) {
+	return impl.orm.Take(id)
 }
 
-// Count count notification by condition.
-func (u *NotificationImpl) Count(cond *db.Condition) (int64, error) {
-	return u.orm.Count(cond)
+func (impl *NotificationImpl) Count(cond *sn.Condition) (int64, error) {
+	return impl.orm.Count(cond)
 }
 
-// Delete delete notification by id.
-func (u *NotificationImpl) Delete(id uuid.UUID) (bool, error) {
-	return u.orm.DeleteID(id)
+func (impl *NotificationImpl) Delete(id uuid.UUID) (bool, error) {
+	return impl.orm.DeleteID(id)
 }
 
-// Delete delete all notification.
-func (u *NotificationImpl) DeleteAll() (int64, error) {
-	return u.orm.DeleteAll()
+func (impl *NotificationImpl) DeleteAll() (int64, error) {
+	return impl.orm.DeleteAll()
 }
 
 type NotificationHook struct{}
@@ -66,16 +80,16 @@ func (h NotificationHook) Levels() []logrus.Level {
 }
 
 func (h NotificationHook) Fire(e *logrus.Entry) error {
-	var level db.NotifyLevel
+	var level sn.NotifyLevel
 	switch e.Level {
 	case logrus.WarnLevel:
-		level = db.NotifyWarning
+		level = sn.NotifyWarning
 	case logrus.ErrorLevel:
-		level = db.NotifyError
+		level = sn.NotifyError
 	case logrus.FatalLevel:
-		level = db.NotifyFatal
+		level = sn.NotifyFatal
 	}
 	// log may in transaction, prevent deadlock
-	go Notification.New(level, "Skynet log", e.Message, utils.MustMarshal(e.Data))
+	go sn.Skynet.Notification.New(level, "Skynet log", e.Message, utils.MustMarshal(e.Data))
 	return nil
 }

@@ -2,9 +2,9 @@ import { deleleAPI, getIntl, StringIntl, UserPerm } from '@/utils';
 import { DeleteOutlined } from '@ant-design/icons';
 import { ActionType } from '@ant-design/pro-table';
 import confirm from '../modal';
-import TableBtn from './tipBtn';
+import TableBtn from './tableBtn';
 
-interface TableDeleteProps {
+export interface TableDeleteProps {
   disabled?: boolean;
   perm?: UserPerm;
   permName?: string;
@@ -47,7 +47,7 @@ const TableDelete: React.FC<TableDeleteProps> = (props) => {
   return (
     <TableBtn
       icon={DeleteOutlined}
-      tip={intl.get('app.table.deletetip')}
+      tip={intl.get('app.op.delete.tip')}
       color="#ff4d4f"
       disabled={props.disabled}
       perm={props.perm}

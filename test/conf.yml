@@ -1,13 +1,11 @@
 # yaml-language-server: $schema=../conf.schema.json
 redis:
-  address: "127.0.0.1:6379" # redis address
-  password: "" # redis password
-  db: 0 # redis database
-  timeout: 30 # connect timeout seconds
+  dsn: "redis://127.0.0.1:6379/0" # redis DSN
+  timeout: 10 # connect timeout seconds
 
 database:
-  type: "sqlite" # Support sqlite
-  path: "file::memory:" # sqlite:db path
+  type: "sqlite" # database type, support sqlite, mysql
+  dsn: "file::memory:?cache=shared&_pragma=busy_timeout(10000)&_pragma=foreign_keys(1)" # database DSN
   salt_prefix: "en[7" # password salt prefix, modification needs reset all user password
   salt_suffix: "z1&." # password salt suffix, modification needs reset all user password
 
@@ -16,15 +14,13 @@ session:
   prefix: "session_" # prefix in redis, please prevent glob pattern keywords like ? and *
   expire: 3600 # default expire time seconds
   remember: 5184000 # remember expire time seconds
-  timeout: 3 # connect/query timeout seconds
+  timeout: 10 # connect/query timeout seconds
 
-csrf:
-  prefix: "csrf_" # prefix in redis, please prevent glob pattern keywords like ? and *
-  expire: 10 # default expire time seconds
-  timeout: 3 # connect/query timeout seconds
+header:
+  csp: "default-src 'none'" # Content Security Policy, https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP
 
 listen:
-  address: "127.0.0.1:8090" # listen address
+  address: "0.0.0.0:8080" # listen address
   allowhosts: "" # if set, only allow listed host, allow regex, seperated by ,
   ssl: false # enable ssl
   ssl_cert: "" # ssl certificate path(.crt)
@@ -38,18 +34,12 @@ proxy:
 recaptcha:
   enable: false # if enable recaptcha
   cnmirror: true # china recaptcha mirror
-  sitekey: "" # recaptcha sitekey
+  sitekey: "test" # recaptcha sitekey
   secret: "" # recaptcha secret
   timeout: 10 # connect timeout seconds
 
-log:
-  console: false # log to console
-  file: "" # log file path, empty to disable
-  json: false # use json format
-  stack: false # show log stack
+csrf:
+  prefix: "csrf_" # redis prefix
+  timeout: 10 # cookie timeout second
 
-plugin:
-  timeout: 60 # plugin function timeout
-
-debug: false # true to show some debug output
-default_avatar: "../default.webp" # default avatar
+avatar: "../default.webp" # default avatar

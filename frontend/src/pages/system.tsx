@@ -15,8 +15,7 @@ const System = () => {
         title={intl.get('menus.system')}
         routes={[
           {
-            path: '/system',
-            breadcrumbName: 'menus.system',
+            title: 'menus.system',
           },
         ]}
         content={intl.get('pages.system.content')}

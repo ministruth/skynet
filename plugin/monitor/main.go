@@ -1,32 +1,14 @@
 package main
 
-import (
-	"time"
+import "github.com/MXWXZ/skynet/sn"
 
-	sp "github.com/MXWXZ/skynet/plugin"
+type Instance struct{}
 
-	"github.com/hashicorp/go-plugin"
-)
-
-type PluginAPI struct{}
-
-func (m *PluginAPI) Enable(h sp.PluginHelper) (*sp.PluginError, error) {
-	return &sp.PluginError{}, nil
+func NewPlugin() sn.PluginInstance {
+	return new(Instance)
 }
 
-func (m *PluginAPI) Disable(h sp.PluginHelper) (*sp.PluginError, error) {
-	return &sp.PluginError{}, nil
-}
-
-func main() {
-	plugin.Serve(&plugin.ServeConfig{
-		HandshakeConfig: sp.Handshake,
-		Plugins: map[string]plugin.Plugin{
-			"grpc": &sp.PluginGRPCImpl{
-				Impl:          &PluginAPI{},
-				PluginTimeout: time.Second * 10,
-			},
-		},
-		GRPCServer: plugin.DefaultGRPCServer,
-	})
-}
+func (inst *Instance) PluginLoad() error    { return nil }
+func (inst *Instance) PluginEnable() error  { return nil }
+func (inst *Instance) PluginDisable() error { return nil }
+func (inst *Instance) PluginUnload() error  { return nil }

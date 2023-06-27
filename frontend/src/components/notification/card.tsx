@@ -1,4 +1,3 @@
-import Table from '@/components/layout/table';
 import {
   checkPerm,
   deleleAPI,
@@ -12,13 +11,20 @@ import {
 import ProCard from '@ant-design/pro-card';
 import { ParamsType } from '@ant-design/pro-provider';
 import { ActionType, ProColumns } from '@ant-design/pro-table';
+import { useAccess, useModel } from '@umijs/max';
 import { Button, Tag } from 'antd';
-import type { SortOrder } from 'antd/lib/table/interface';
-import Paragraph from 'antd/lib/typography/Paragraph';
+import type { SortOrder } from 'antd/es/table/interface';
+import Paragraph from 'antd/es/typography/Paragraph';
+import { CustomTagProps } from 'rc-select/es/BaseSelect';
 import { useRef } from 'react';
 import { FormattedMessage } from 'react-intl';
-import { useAccess, useModel } from 'umi';
 import confirm from '../layout/modal';
+import Table from '../layout/table';
+import {
+  CreatedAtColumn,
+  IDColumn,
+  SearchColumn,
+} from '../layout/table/column';
 import styles from './style.less';
 
 const request = async (
@@ -46,7 +52,7 @@ const handleDeleteAll = async (
   ref: React.MutableRefObject<ActionType | undefined>,
 ) => {
   confirm({
-    title: intl.get('pages.notification.table.deleteall.title'),
+    title: intl.get('pages.notification.op.deleteall.title'),
     content: intl.get('app.confirm'),
     onOk() {
       return new Promise((resolve, reject) => {
@@ -93,33 +99,45 @@ const NotificationCard = () => {
   };
 
   const columns: ProColumns[] = [
-    {
-      title: intl.get('app.table.id'),
-      ellipsis: true,
-      dataIndex: 'id',
-      align: 'center',
-      copyable: true,
-      hideInSearch: true,
-      width: 150,
-    },
+    SearchColumn(intl),
+    IDColumn(intl),
     {
       title: intl.get('pages.notification.table.name'),
       dataIndex: 'name',
       align: 'center',
-      width: 150,
       hideInSearch: true,
+      onCell: () => {
+        return {
+          style: {
+            maxWidth: 150,
+          },
+        };
+      },
     },
     {
       title: intl.get('pages.notification.table.level'),
       dataIndex: 'level',
       align: 'center',
-      valueType: 'checkbox',
-      colSize: 3,
+      valueType: 'select',
+      fieldProps: {
+        mode: 'multiple',
+        tagRender: (props: CustomTagProps) => {
+          return (
+            <Tag
+              color={levelEnum[props.value].color}
+              closable={props.closable}
+              onClose={props.onClose}
+              style={{ marginRight: 4 }}
+            >
+              {props.label}
+            </Tag>
+          );
+        },
+      },
       valueEnum: Object.entries(levelEnum).reduce(
         (p, c) => ({ ...p, [c[0]]: { text: c[1].label } }),
         {},
       ),
-      width: 100,
       render: (_, row) => (
         <Tag style={{ marginRight: 0 }} color={levelEnum[row.level].color}>
           {levelEnum[row.level].label}
@@ -127,53 +145,32 @@ const NotificationCard = () => {
       ),
     },
     {
-      title: intl.get('app.table.searchtext'),
-      key: 'text',
-      hideInTable: true,
-    },
-    {
       title: intl.get('pages.notification.table.message'),
       dataIndex: 'message',
       align: 'center',
       hideInSearch: true,
-    },
-    {
-      title: intl.get('app.table.createdat'),
-      dataIndex: 'created_at',
-      align: 'center',
-      width: 180,
-      valueType: 'dateTime',
-      sorter: true,
-      hideInSearch: true,
-    },
-    {
-      title: intl.get('app.table.createdat'),
-      dataIndex: 'created_at',
-      valueType: 'dateRange',
-      hideInTable: true,
-      search: {
-        transform: (value) => {
-          return {
-            createdStart: value[0],
-            createdEnd: value[1],
-          };
-        },
+      onCell: () => {
+        return {
+          style: {
+            maxWidth: 350,
+          },
+        };
       },
     },
+    ...CreatedAtColumn(intl),
   ];
 
   return (
-    <ProCard>
+    <ProCard bordered>
       <Table
         actionRef={ref}
         poll
         rowKey="id"
-        request={(params, sort) => request(params, sort)}
+        request={request}
         columns={columns}
         action={[
           <Button
             key="delete"
-            type="ghost"
             danger
             onClick={() => handleDeleteAll(intl, ref)}
             disabled={
@@ -185,12 +182,12 @@ const NotificationCard = () => {
               )
             }
           >
-            <FormattedMessage id="app.table.deleteall" />
+            <FormattedMessage id="app.op.deleteall" />
           </Button>,
         ]}
         expandable={{
           expandRowByClick: true,
-          expandedRowRender: (record) => {
+          expandedRowRender: (record: any) => {
             return (
               <Paragraph>
                 <pre className={styles.detail}>

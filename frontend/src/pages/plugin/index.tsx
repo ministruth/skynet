@@ -15,8 +15,7 @@ const Plugin = () => {
         title={intl.get('menus.plugin')}
         routes={[
           {
-            path: '/plugin',
-            breadcrumbName: 'menus.plugin',
+            title: 'menus.plugin',
           },
         ]}
         content={intl.get('pages.plugin.content')}

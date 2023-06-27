@@ -2,7 +2,7 @@ import { StringIntl } from '@/utils';
 import { ExclamationCircleTwoTone } from '@ant-design/icons';
 import { Modal, ModalFuncProps } from 'antd';
 
-interface confirmProps {
+export interface confirmProps {
   title: string;
   content: string;
   intl: StringIntl;

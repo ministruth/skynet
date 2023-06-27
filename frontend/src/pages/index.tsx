@@ -3,12 +3,12 @@ import ReCAPTCHA from '@/components/recaptcha';
 import { getIntl, postAPI } from '@/utils';
 import { LockOutlined, UserOutlined } from '@ant-design/icons';
 import { LoginForm, ProFormCheckbox, ProFormText } from '@ant-design/pro-form';
+import { Helmet, history, SelectLang, useModel } from '@umijs/max';
 import { Form } from 'antd';
 import _ from 'lodash';
 import { useEffect } from 'react';
 import { FormattedMessage } from 'react-intl';
 import Recaptcha from 'react-recaptcha';
-import { history, SelectLang, useModel } from 'umi';
 import styles from './index.less';
 
 const handleSubmit = async (
@@ -43,8 +43,11 @@ const Login = () => {
 
   return (
     <div className={styles.container}>
+      <Helmet>
+        <title>{intl.get('titles.index')}</title>
+      </Helmet>
       <div className={styles.lang} data-lang>
-        <SelectLang />
+        <SelectLang reload={false} />
       </div>
       <div className={styles.content}>
         <LoginForm
@@ -62,6 +65,7 @@ const Login = () => {
             fieldProps={{
               size: 'large',
               prefix: <UserOutlined />,
+              maxLength: 32,
             }}
             placeholder={intl.get('pages.index.username')}
             rules={[
@@ -70,10 +74,6 @@ const Login = () => {
                 message: (
                   <FormattedMessage id="pages.index.username.required" />
                 ),
-              },
-              {
-                max: 32,
-                message: <FormattedMessage id="pages.index.username.toolong" />,
               },
             ]}
           />
@@ -125,7 +125,5 @@ const Login = () => {
     </div>
   );
 };
-
-Login.title = 'titles.index';
 
 export default Login;

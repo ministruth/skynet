@@ -1,21 +1,21 @@
 {
-  "$schema": "https://json-schema.org/draft/2019-09/schema",
+  "$schema": "http://json-schema.org/draft-07/schema",
   "type": "object",
   "properties": {
     "redis": {
       "type": "object",
+      "required": ["dsn"],
       "properties": {
-        "address": { "type": "string" },
-        "password": { "type": "string" },
-        "db": { "type": "number", "minimum": 0 },
+        "dsn": { "type": "string" },
         "timeout": { "type": "number", "minimum": 0 }
       }
     },
     "database": {
       "type": "object",
+      "required": ["type", "dsn"],
       "properties": {
-        "type": { "type": "string" },
-        "path": { "type": "string" },
+        "type": { "type": "string", "enum": ["sqlite", "mysql"] },
+        "dsn": { "type": "string" },
         "salt_prefix": { "type": "string" },
         "salt_suffix": { "type": "string" }
       }
@@ -30,12 +30,10 @@
         "timeout": { "type": "number", "minimum": 0 }
       }
     },
-    "csrf": {
+    "header": {
       "type": "object",
       "properties": {
-        "prefix": { "type": "string" },
-        "expire": { "type": "number", "minimum": 0 },
-        "timeout": { "type": "number", "minimum": 0 }
+        "csp": { "type": "string" }
       }
     },
     "listen": {
@@ -66,22 +64,13 @@
         "timeout": { "type": "number", "minimum": 0 }
       }
     },
-    "log": {
+    "csrf": {
       "type": "object",
       "properties": {
-        "console": { "type": "boolean" },
-        "file": { "type": "string" },
-        "json": { "type": "boolean" },
-        "stack": { "type": "boolean" }
+        "prefix": { "type": "string" },
+        "expire": { "type": "number", "minimum": 0 }
       }
     },
-    "plugin": {
-      "type": "object",
-      "properties": {
-        "timeout": { "type": "number", "minimum": 0 }
-      }
-    },
-    "debug": { "type": "boolean" },
-    "default_avatar": { "type": "string" }
+    "avatar": { "type": "string" }
   }
 }

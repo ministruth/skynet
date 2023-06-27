@@ -1,24 +1,9 @@
 import { getIntl } from '@/utils';
 import { PageContainer, PageContainerProps } from '@ant-design/pro-layout';
-import { Route } from 'antd/lib/breadcrumb/Breadcrumb';
-import { Link } from 'umi';
+import { BreadcrumbItemType } from 'antd/es/breadcrumb/Breadcrumb';
 
-function render(
-  route: Route,
-  params: any,
-  routes: Array<Route>,
-  paths: Array<string>,
-) {
-  const last = routes.indexOf(route) === routes.length - 1;
-  return last ? (
-    <span>{route.breadcrumbName}</span>
-  ) : (
-    <Link to={paths.join('/')}>{route.breadcrumbName}</Link>
-  );
-}
-
-interface MainContainerProps {
-  routes: Route[];
+export interface MainContainerProps {
+  routes: BreadcrumbItemType[];
 }
 
 const MainContainer: React.FC<PageContainerProps & MainContainerProps> = (
@@ -26,18 +11,16 @@ const MainContainer: React.FC<PageContainerProps & MainContainerProps> = (
 ) => {
   const intl = getIntl();
   props.routes.forEach((item) => {
-    item.breadcrumbName = intl.get(item.breadcrumbName);
+    if (typeof item.title === 'string') item.title = intl.get(item.title);
   });
   return (
     <PageContainer
       {...props}
       header={{
         breadcrumb: {
-          itemRender: render,
-          routes: [
+          items: [
             {
-              path: '',
-              breadcrumbName: 'Skynet',
+              title: 'Skynet',
             },
             ...props.routes,
           ],

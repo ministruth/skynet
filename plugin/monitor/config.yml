@@ -1,6 +1,3 @@
 id: "2eb2e1a5-66b4-45f9-ad24-3c4f05c858aa"
 name: "monitor"
 version: "1.0.0"
-skynet_version: ">= 1.0, < 1.1"
-command_unix: "./monitor-$OS-$ARCH"
-command_windows: "monitor.exe"

@@ -2,9 +2,8 @@
 
 ## Environment
 
-[swag](https://github.com/swaggo/swag)
-[genny](https://github.com/cheekybits/genny)
-[protobuf](https://github.com/protocolbuffers/protobuf/
+- [swag](https://github.com/swaggo/swag)
+- [protobuf](https://github.com/protocolbuffers/protobuf/)
 
 ## API format
 
@@ -14,7 +13,8 @@ We only support these HTTP status codes:
 - HTTP 200: OK.
 - HTTP 301/302: redirect.
 - HTTP 400: parameters are not correct.
-- HTTP 403: permission denied or path not found, in order to prevent plugin guessing.
+- HTTP 403: permission denied.
+- HTTP 404: path not found.
 - HTTP 500: internal error.
 
 When the status code is 200, the return value is in the general format:
@@ -88,9 +88,3 @@ You can use `utils/log` as the wrapper for `logrus`.
     }
     ```
 - In HTTP handler, prefer throw error to trigger 500 response other than `panic`, never use `log.Fatal`.
-
-## Plugin Develop
-
-### Makefile
-
-**Plugin `bin` folder is reserved**

@@ -13,16 +13,17 @@ response:
   success: "Success"
   user:
     invalid: "Invalid username or password"
-    exist: "Username already exists"
+    notexist: "User not exist"
+    exist: "Username already exist"
   recaptcha:
     invalid: "reCAPTCHA not valid"
-  restart: "Skynet restarting"
   group:
     notexist: "Group not exist"
     exist: "Group name already exist"
-    rootupdate: "Root group is not allowed to update"
-    rootdelete: "Root group is not allowed to delete"
+    rootupdate: "root group is not allowed to update"
+    rootdelete: "root group is not allowed to delete"
+  permission:
+    notexist: "Permission not exist"
   plugin:
     notexist: "Plugin not exist"
-    formaterror: "Plugin package format error"
-    exist: "Plugin already exists"
+    loaded: "Plugin is already loaded"

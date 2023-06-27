@@ -1,227 +1,361 @@
 package api
 
 import (
-	"github.com/MXWXZ/skynet/db"
-	"github.com/MXWXZ/skynet/handler"
+	"github.com/MXWXZ/skynet/sn"
 	"github.com/google/uuid"
 )
 
-func initAPI() []*APIItem {
-	PID := db.GetDefaultID
-	return []*APIItem{
+func initAPI() []*sn.APIItem {
+	PID := sn.Skynet.ID.Get
+	return []*sn.APIItem{
 		{
 			Path:   "/ping",
-			Method: APIGet,
-			Perm: &handler.Perm{
-				ID:   PID(db.PermGuestID),
-				Perm: db.PermAll,
+			Method: sn.APIGet,
+			Perm: &sn.PermEntry{
+				ID: PID(sn.PermGuestID),
 			},
 			Func: APIPing,
 		},
 		{
 			Path:   "/signin",
-			Method: APIPost,
-			Perm: &handler.Perm{
-				ID:   PID(db.PermGuestID),
-				Perm: db.PermAll,
+			Method: sn.APIPost,
+			Perm: &sn.PermEntry{
+				ID: PID(sn.PermGuestID),
 			},
 			Func: APISignIn,
 		},
 		{
 			Path:   "/signout",
-			Method: APIGet,
-			Perm: &handler.Perm{
-				ID:   PID(db.PermUserID),
-				Perm: db.PermAll,
+			Method: sn.APIPost,
+			Perm: &sn.PermEntry{
+				ID: PID(sn.PermUserID),
 			},
 			Func: APISignOut,
 		},
 		{
 			Path:   "/token",
-			Method: APIGet,
-			Perm: &handler.Perm{
-				ID:   PID(db.PermGuestID),
-				Perm: db.PermAll,
+			Method: sn.APIGet,
+			Perm: &sn.PermEntry{
+				ID: PID(sn.PermGuestID),
 			},
 			Func: APIGetCSRFToken,
 		},
 		{
-			Path:   "/reload",
-			Method: APIPost,
-			Perm: &handler.Perm{
-				ID:   PID(db.PermManageSystemID),
-				Perm: db.PermExecute,
+			Path:   "/shutdown",
+			Method: sn.APIPost,
+			Perm: &sn.PermEntry{
+				ID:   PID(sn.PermManageSystemID),
+				Perm: sn.PermExecute,
 			},
-			Func: APIReload,
+			Func: APIShutdown,
 		},
 		{
 			Path:   "/access",
-			Method: APIGet,
-			Perm: &handler.Perm{
-				ID:   PID(db.PermGuestID),
-				Perm: db.PermAll,
+			Method: sn.APIGet,
+			Perm: &sn.PermEntry{
+				ID: PID(sn.PermGuestID),
 			},
 			Func: APIGetAccess,
 		},
 		{
 			Path:   "/menu",
-			Method: APIGet,
-			Perm: &handler.Perm{
-				ID:   PID(db.PermUserID),
-				Perm: db.PermAll,
+			Method: sn.APIGet,
+			Perm: &sn.PermEntry{
+				ID: PID(sn.PermUserID),
 			},
 			Func: APIGetMenu,
 		},
 		{
 			Path:   "/setting/public",
-			Method: APIGet,
-			Perm: &handler.Perm{
-				ID:   PID(db.PermGuestID),
-				Perm: db.PermAll,
+			Method: sn.APIGet,
+			Perm: &sn.PermEntry{
+				ID: PID(sn.PermGuestID),
 			},
 			Func: APIGetPublicSetting,
 		},
 		{
 			Path:   "/notification",
-			Method: APIGet,
-			Perm: &handler.Perm{
-				ID:   PID(db.PermManageNotificationID),
-				Perm: db.PermRead,
+			Method: sn.APIGet,
+			Perm: &sn.PermEntry{
+				ID:   PID(sn.PermManageNotificationID),
+				Perm: sn.PermRead,
 			},
 			Func: APIGetNotification,
 		},
 		{
+			Path:   "/notification/unread",
+			Method: sn.APIGet,
+			Perm: &sn.PermEntry{
+				ID:   PID(sn.PermManageNotificationID),
+				Perm: sn.PermRead,
+			},
+			Func: APIGetUnreadNotification,
+		},
+		{
 			Path:   "/notification",
-			Method: APIDelete,
-			Perm: &handler.Perm{
-				ID:   PID(db.PermManageNotificationID),
-				Perm: db.PermWriteExecute,
+			Method: sn.APIDelete,
+			Perm: &sn.PermEntry{
+				ID:   PID(sn.PermManageNotificationID),
+				Perm: sn.PermWriteExecute,
 			},
 			Func: APIDeleteNotification,
 		},
 		{
 			Path:   "/user",
-			Method: APIGet,
-			Perm: &handler.Perm{
-				ID:   PID(db.PermManageUserID),
-				Perm: db.PermRead,
+			Method: sn.APIGet,
+			Perm: &sn.PermEntry{
+				ID:   PID(sn.PermManageUserID),
+				Perm: sn.PermRead,
 			},
-			Func: APIGetUser,
+			Func: APIGetUsers,
 		},
 		{
 			Path:   "/user",
-			Method: APIPost,
-			Perm: &handler.Perm{
-				ID:   PID(db.PermManageUserID),
-				Perm: db.PermWriteExecute,
+			Method: sn.APIPost,
+			Perm: &sn.PermEntry{
+				ID:   PID(sn.PermManageUserID),
+				Perm: sn.PermWriteExecute,
 			},
 			Func: APIAddUser,
 		},
 		{
+			Path:   "/user",
+			Method: sn.APIDelete,
+			Perm: &sn.PermEntry{
+				ID:   PID(sn.PermManageUserID),
+				Perm: sn.PermWriteExecute,
+			},
+			Func: APIDeleteUsers,
+		},
+		{
 			Path:   "/user/:id",
-			Method: APIDelete,
-			Perm: &handler.Perm{
-				ID:   PID(db.PermManageUserID),
-				Perm: db.PermWriteExecute,
+			Method: sn.APIGet,
+			Perm: &sn.PermEntry{
+				ID:   PID(sn.PermManageUserID),
+				Perm: sn.PermRead,
+			},
+			Func: APIGetUser,
+		},
+		{
+			Path:   "/user/:id",
+			Method: sn.APIPut,
+			Perm: &sn.PermEntry{
+				ID:   PID(sn.PermManageUserID),
+				Perm: sn.PermWriteExecute,
+			},
+			Func: APIPutUser,
+		},
+		{
+			Path:   "/user/:id",
+			Method: sn.APIDelete,
+			Perm: &sn.PermEntry{
+				ID:   PID(sn.PermManageUserID),
+				Perm: sn.PermWriteExecute,
 			},
 			Func: APIDeleteUser,
 		},
 		{
-			Path:   "/group",
-			Method: APIGet,
-			Perm: &handler.Perm{
-				ID:   PID(db.PermManageGroupID),
-				Perm: db.PermRead,
+			Path:   "/user/:id/group",
+			Method: sn.APIGet,
+			Perm: &sn.PermEntry{
+				ID:   PID(sn.PermManageUserID),
+				Perm: sn.PermRead,
 			},
-			Func: APIGetGroup,
+			Func: APIGetUserGroup,
+		},
+		{
+			Path:   "/user/:id/kick",
+			Method: sn.APIPost,
+			Perm: &sn.PermEntry{
+				ID:   PID(sn.PermManageUserID),
+				Perm: sn.PermExecute,
+			},
+			Func: APIKickUser,
+		},
+		{
+			Path:   "/user/:id/permission",
+			Method: sn.APIGet,
+			Perm: &sn.PermEntry{
+				ID:   PID(sn.PermManageUserID),
+				Perm: sn.PermRead,
+			},
+			Func: APIGetUserPermission,
+		},
+		{
+			Path:   "/user/:id/permission",
+			Method: sn.APIPut,
+			Perm: &sn.PermEntry{
+				ID:   PID(sn.PermManageUserID),
+				Perm: sn.PermWriteExecute,
+			},
+			Func: APIPutUserPermission,
 		},
 		{
 			Path:   "/group",
-			Method: APIPost,
-			Perm: &handler.Perm{
-				ID:   PID(db.PermManageGroupID),
-				Perm: db.PermWriteExecute,
+			Method: sn.APIGet,
+			Perm: &sn.PermEntry{
+				ID:   PID(sn.PermManageUserID),
+				Perm: sn.PermRead,
+			},
+			Func: APIGetGroups,
+		},
+		{
+			Path:   "/group",
+			Method: sn.APIPost,
+			Perm: &sn.PermEntry{
+				ID:   PID(sn.PermManageUserID),
+				Perm: sn.PermWriteExecute,
 			},
 			Func: APIAddGroup,
 		},
 		{
+			Path:   "/group",
+			Method: sn.APIDelete,
+			Perm: &sn.PermEntry{
+				ID:   PID(sn.PermManageUserID),
+				Perm: sn.PermWriteExecute,
+			},
+			Func: APIDeleteGroups,
+		},
+		{
 			Path:   "/group/:id",
-			Method: APIDelete,
-			Perm: &handler.Perm{
-				ID:   PID(db.PermManageGroupID),
-				Perm: db.PermWriteExecute,
+			Method: sn.APIGet,
+			Perm: &sn.PermEntry{
+				ID:   PID(sn.PermManageUserID),
+				Perm: sn.PermRead,
+			},
+			Func: APIGetGroup,
+		},
+		{
+			Path:   "/group/:id",
+			Method: sn.APIDelete,
+			Perm: &sn.PermEntry{
+				ID:   PID(sn.PermManageUserID),
+				Perm: sn.PermWriteExecute,
 			},
 			Func: APIDeleteGroup,
 		},
 		{
 			Path:   "/group/:id",
-			Method: APIPut,
-			Perm: &handler.Perm{
-				ID:   PID(db.PermManageGroupID),
-				Perm: db.PermWriteExecute,
+			Method: sn.APIPut,
+			Perm: &sn.PermEntry{
+				ID:   PID(sn.PermManageUserID),
+				Perm: sn.PermWriteExecute,
 			},
 			Func: APIPutGroup,
 		},
 		{
+			Path:   "/group/:id/user",
+			Method: sn.APIGet,
+			Perm: &sn.PermEntry{
+				ID:   PID(sn.PermManageUserID),
+				Perm: sn.PermRead,
+			},
+			Func: APIGetGroupUser,
+		},
+		{
+			Path:   "/group/:id/user/:uid",
+			Method: sn.APIDelete,
+			Perm: &sn.PermEntry{
+				ID:   PID(sn.PermManageUserID),
+				Perm: sn.PermWriteExecute,
+			},
+			Func: APIDeleteGroupUser,
+		},
+		{
+			Path:   "/group/:id/user",
+			Method: sn.APIPost,
+			Perm: &sn.PermEntry{
+				ID:   PID(sn.PermManageUserID),
+				Perm: sn.PermWriteExecute,
+			},
+			Func: APIAddGroupUsers,
+		},
+		{
+			Path:   "/group/:id/user",
+			Method: sn.APIDelete,
+			Perm: &sn.PermEntry{
+				ID:   PID(sn.PermManageUserID),
+				Perm: sn.PermWriteExecute,
+			},
+			Func: APIDeleteGroupUsers,
+		},
+		{
+			Path:   "/group/:id/permission",
+			Method: sn.APIGet,
+			Perm: &sn.PermEntry{
+				ID:   PID(sn.PermManageUserID),
+				Perm: sn.PermRead,
+			},
+			Func: APIGetGroupPermission,
+		},
+		{
+			Path:   "/group/:id/permission",
+			Method: sn.APIPut,
+			Perm: &sn.PermEntry{
+				ID:   PID(sn.PermManageUserID),
+				Perm: sn.PermWriteExecute,
+			},
+			Func: APIPutGroupPermission,
+		},
+		{
+			Path:   "/permission",
+			Method: sn.APIGet,
+			Perm: &sn.PermEntry{
+				ID:   PID(sn.PermUserID),
+				Perm: sn.PermRead,
+			},
+			Func: APIGetPermission,
+		},
+		{
 			Path:   "/plugin",
-			Method: APIGet,
-			Perm: &handler.Perm{
-				ID:   PID(db.PermManagePluginID),
-				Perm: db.PermRead,
+			Method: sn.APIGet,
+			Perm: &sn.PermEntry{
+				ID:   PID(sn.PermManagePluginID),
+				Perm: sn.PermRead,
 			},
 			Func: APIGetPlugin,
 		},
-		// {
-		// 	Path:   "/plugin",
-		// 	Method: sn.APIPost,
-		// 	Perm: &handler.Perm{
-		// 		ID:   PID(sn.PermManagePluginID),
-		// 		Perm: sn.PermWriteExecute,
-		// 	},
-		// 	Func: APIAddPlugin,
-		// },
 		{
 			Path:   "/plugin/entry",
-			Method: APIGet,
-			Perm: &handler.Perm{
-				ID:   PID(db.PermGuestID),
-				Perm: db.PermAll,
+			Method: sn.APIGet,
+			Perm: &sn.PermEntry{
+				ID: PID(sn.PermGuestID),
 			},
 			Func: APIGetPluginEntry,
 		},
 		{
 			Path:   "/plugin/:id",
-			Method: APIPut,
-			Perm: &handler.Perm{
-				ID:   PID(db.PermManagePluginID),
-				Perm: db.PermWriteExecute,
+			Method: sn.APIPut,
+			Perm: &sn.PermEntry{
+				ID:   PID(sn.PermManagePluginID),
+				Perm: sn.PermWriteExecute,
 			},
 			Func: APIPutPlugin,
 		},
-		// {
-		// 	Path:   "/plugin/:id",
-		// 	Method: sn.APIDelete,
-		// 	Perm: &handler.Perm{
-		// 		ID:   PID(sn.PermManagePluginID),
-		// 		Perm: sn.PermWriteExecute,
-		// 	},
-		// 	Func: APIDeletePlugin,
-		// },
+		{
+			Path:   "/plugin/:id",
+			Method: sn.APIDelete,
+			Perm: &sn.PermEntry{
+				ID:   PID(sn.PermManagePluginID),
+				Perm: sn.PermWriteExecute,
+			},
+			Func: APIDeletePlugin,
+		},
 	}
 }
 
-func initMenu() []*MenuItem {
+func initMenu() []*sn.MenuItem {
 	UID := uuid.MustParse
-	PID := db.GetDefaultID
-	return []*MenuItem{
+	PID := sn.Skynet.ID.Get
+	return []*sn.MenuItem{
 		{
 			ID:   UID("7bd9a6d3-db3d-4954-89ca-d5b1f3d9974f"),
 			Name: "menu.dashboard",
 			Path: "/dashboard",
 			Icon: "DashboardOutlined",
-			Perm: &handler.Perm{
-				ID:   PID(db.PermUserID),
-				Perm: db.PermAll,
+			Perm: &sn.PermEntry{
+				ID: PID(sn.PermUserID),
 			},
 		},
 		{
@@ -233,14 +367,14 @@ func initMenu() []*MenuItem {
 			ID:   UID("cca5b3b0-40a3-465c-8b08-91f3e8d3b14d"),
 			Name: "menu.plugin",
 			Icon: "ApiOutlined",
-			Children: []*MenuItem{
+			Children: []*sn.MenuItem{
 				{
 					ID:   UID("251a16e1-655b-4716-8766-cd2bc66d6309"),
 					Name: "menu.plugin.manage",
 					Path: "/plugin",
-					Perm: &handler.Perm{
-						ID:   PID(db.PermManagePluginID),
-						Perm: db.PermRead,
+					Perm: &sn.PermEntry{
+						ID:   PID(sn.PermManagePluginID),
+						Perm: sn.PermRead,
 					},
 				},
 			},
@@ -250,23 +384,23 @@ func initMenu() []*MenuItem {
 			Name:      "menu.user",
 			OmitEmpty: true,
 			Icon:      "UserOutlined",
-			Children: []*MenuItem{
+			Children: []*sn.MenuItem{
 				{
 					ID:   UID("0d2165b9-e08b-429f-ad4e-420472083e0f"),
 					Name: "menu.user.user",
 					Path: "/user",
-					Perm: &handler.Perm{
-						ID:   PID(db.PermManageUserID),
-						Perm: db.PermRead,
+					Perm: &sn.PermEntry{
+						ID:   PID(sn.PermManageUserID),
+						Perm: sn.PermRead,
 					},
 				},
 				{
 					ID:   UID("03e3caeb-9008-4e5c-9e19-c11d6b567aa7"),
 					Name: "menu.user.group",
 					Path: "/group",
-					Perm: &handler.Perm{
-						ID:   PID(db.PermManageGroupID),
-						Perm: db.PermRead,
+					Perm: &sn.PermEntry{
+						ID:   PID(sn.PermManageUserID),
+						Perm: sn.PermRead,
 					},
 				},
 			},
@@ -276,19 +410,20 @@ func initMenu() []*MenuItem {
 			Name: "menu.notification",
 			Path: "/notification",
 			Icon: "NotificationOutlined",
-			Perm: &handler.Perm{
-				ID:   PID(db.PermManageNotificationID),
-				Perm: db.PermRead,
+			Perm: &sn.PermEntry{
+				ID:   PID(sn.PermManageNotificationID),
+				Perm: sn.PermRead,
 			},
+			BadgeFunc: sn.Skynet.Notification.GetUnread,
 		},
 		{
 			ID:   UID("4b9df963-c540-48f4-9bfb-500f06ecfef0"),
 			Name: "menu.system",
 			Path: "/system",
 			Icon: "SettingOutlined",
-			Perm: &handler.Perm{
-				ID:   PID(db.PermManageSystemID),
-				Perm: db.PermRead,
+			Perm: &sn.PermEntry{
+				ID:   PID(sn.PermManageSystemID),
+				Perm: sn.PermRead,
 			},
 		},
 	}

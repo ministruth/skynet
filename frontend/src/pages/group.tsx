@@ -8,19 +8,17 @@ const Group = () => {
   return (
     <MainLayout
       title="titles.group"
-      access="manage.group"
+      access="manage.user"
       perm={UserPerm.PermRead}
     >
       <MainContainer
         title={intl.get('menus.user.group')}
         routes={[
           {
-            path: '',
-            breadcrumbName: 'menus.user',
+            title: 'menus.user',
           },
           {
-            path: '/group',
-            breadcrumbName: 'menus.user.group',
+            title: 'menus.user.group',
           },
         ]}
         content={intl.get('pages.group.content')}

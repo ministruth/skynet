@@ -1,36 +1,19 @@
-import {
-  checkPerm,
-  getIntl,
-  ping,
-  postAPI,
-  StringIntl,
-  UserPerm,
-} from '@/utils';
+import { checkPerm, getIntl, postAPI, StringIntl, UserPerm } from '@/utils';
 import ProCard from '@ant-design/pro-card';
+import { FormattedMessage, useAccess, useModel } from '@umijs/max';
 import { Button } from 'antd';
-import { FormattedMessage, history, useAccess, useModel } from 'umi';
 import confirm from '../layout/modal';
-import RowItem from '../layout/rowitem';
+import RowItem from '../layout/rowItem';
 import styles from './style.less';
 
-const handleReload = (intl: StringIntl, refresh: () => Promise<void>) => {
-  let t: NodeJS.Timer;
+const handleShutdown = (intl: StringIntl) => {
   confirm({
-    title: intl.get('pages.system.dangerzone.reload.title'),
-    content: intl.get('pages.system.dangerzone.reload.content'),
+    title: intl.get('pages.system.dangerzone.shutdown.title'),
+    content: intl.get('pages.system.dangerzone.shutdown.content'),
     onOk() {
       return new Promise((resolve, reject) => {
-        postAPI('/reload', {}).then(async (rsp) => {
-          if (rsp && rsp.code === 0)
-            t = setInterval(async () => {
-              if (await ping()) {
-                clearInterval(t);
-                resolve(rsp);
-                refresh().then(() => {
-                  history.push('/');
-                });
-              }
-            }, 1000);
+        postAPI('/shutdown', {}).then((rsp) => {
+          if (rsp && rsp.code === 0) resolve(rsp);
           else reject(rsp);
         });
       });
@@ -41,7 +24,7 @@ const handleReload = (intl: StringIntl, refresh: () => Promise<void>) => {
 
 const DangerZoneCard = () => {
   const intl = getIntl();
-  const { initialState, refresh } = useModel('@@initialState');
+  const { initialState } = useModel('@@initialState');
   const access = useAccess();
 
   return (
@@ -51,12 +34,12 @@ const DangerZoneCard = () => {
       bordered
     >
       <RowItem
-        span={3}
-        text={<FormattedMessage id="pages.system.dangerzone.reload.text" />}
+        span={{ xs: 14, md: 6 }}
+        text={<FormattedMessage id="pages.system.dangerzone.shutdown.text" />}
         item={
           <Button
             danger
-            onClick={() => handleReload(intl, refresh)}
+            onClick={() => handleShutdown(intl)}
             disabled={
               !checkPerm(
                 initialState?.signin,
@@ -66,7 +49,7 @@ const DangerZoneCard = () => {
               )
             }
           >
-            {intl.get('pages.system.dangerzone.reload.button')}
+            {intl.get('pages.system.dangerzone.shutdown.button')}
           </Button>
         }
         nospace

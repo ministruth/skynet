@@ -12,9 +12,9 @@ func TestPublicSetting(t *testing.T) {
 			name: "Get Public Setting",
 			url:  "/setting/public",
 			data: msa{
-				"recaptcha.cnmirror": false,
+				"recaptcha.cnmirror": true,
 				"recaptcha.enable":   false,
-				"recaptcha.sitekey":  "",
+				"recaptcha.sitekey":  "test",
 			},
 		},
 	}

@@ -1,16 +1,16 @@
-import { checkAPI, getIntl, postAPI, UserPerm } from '@/utils';
+import { UserPerm, checkAPI, getIntl, postAPI } from '@/utils';
 import { PlusOutlined } from '@ant-design/icons';
 import { ParamsType } from '@ant-design/pro-provider';
 import { FormattedMessage } from 'react-intl';
 import { Columns } from '../layout/table/column';
 import TableOp from '../layout/table/opBtn';
-import TableBtn from '../layout/table/tipBtn';
+import TableBtn from '../layout/table/tableBtn';
 import { GroupBtnProps, GroupColumns } from './card';
 
 const cloneColumns: Columns = (intl) => [
   {
     renderFormItem: () => (
-      <FormattedMessage id="pages.group.table.clone.content" />
+      <FormattedMessage id="pages.group.op.clone.content" />
     ),
   },
   {
@@ -20,42 +20,48 @@ const cloneColumns: Columns = (intl) => [
     },
   },
   {
-    title: intl.get('pages.group.table.clone.base'),
+    title: intl.get('pages.group.form.basegroup'),
     dataIndex: 'baseName',
     readonly: true,
   },
   ...GroupColumns(intl),
   {
-    title: intl.get('pages.group.table.clone.user'),
+    title: intl.get('pages.group.form.cloneuser'),
     dataIndex: 'clone_user',
     valueType: 'switch',
   },
 ];
 
-const handleClone = (params: ParamsType) => {
-  delete params.baseName;
-  return checkAPI(postAPI('/group', params));
-};
-
 const GroupClone: React.FC<GroupBtnProps> = (props) => {
   const intl = getIntl();
+  const handleClone = async (params: ParamsType) => {
+    delete params.baseName;
+    if (await checkAPI(postAPI('/group', params))) {
+      props.tableRef?.current?.reloadAndRest?.();
+      return true;
+    }
+    return false;
+  };
+
   return (
     <TableOp
+      title={intl.get('pages.group.op.clone.title')}
       trigger={
         <TableBtn
           key="clone"
           icon={PlusOutlined}
-          tip={intl.get('pages.group.table.clonetip')}
+          tip={intl.get('pages.group.op.clone.tip')}
         />
       }
-      permName="manage.group"
+      schemaProps={{
+        onFinish: handleClone,
+        columns: cloneColumns(intl),
+        initialValues: props.initialValues,
+      }}
+      permName="manage.user"
       perm={UserPerm.PermWriteExecute}
       rollback={<PlusOutlined key="clone" />}
-      finish={handleClone}
       width={500}
-      title={intl.get('pages.group.table.clone')}
-      columns={cloneColumns(intl)}
-      {...props}
     />
   );
 };

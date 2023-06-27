@@ -1,167 +1,111 @@
 package handler
 
 import (
-	"time"
-
-	"github.com/MXWXZ/skynet/db"
+	"github.com/MXWXZ/skynet/sn"
 	"github.com/MXWXZ/skynet/utils"
-
 	"github.com/google/uuid"
 	"github.com/spf13/viper"
+	"golang.org/x/exp/slices"
 	"gorm.io/gorm"
 )
 
-// HashPass returns hashed password.
-func HashPass(pass string) string {
+type UserImpl struct {
+	orm *sn.ORM[sn.User]
+}
+
+func NewUserHandler() sn.UserHandler {
+	return &UserImpl{orm: sn.NewORM[sn.User](sn.Skynet.DB)}
+}
+
+func (impl *UserImpl) hashPass(pass string) string {
 	return utils.MD5(viper.GetString("database.salt_prefix") + pass + viper.GetString("database.salt_suffix"))
 }
 
-type UserImpl struct {
-	orm *db.ORM[db.User]
+func (impl *UserImpl) WithTx(tx *gorm.DB) sn.UserHandler {
+	return &UserImpl{orm: sn.NewORM[sn.User](tx)}
 }
 
-var User = &UserImpl{}
-
-func (u *UserImpl) WithTx(tx *gorm.DB) *UserImpl {
-	return &UserImpl{
-		orm: db.NewORM[db.User](tx),
-	}
-}
-
-// New create new user and return created user and created pass, when password is empty, generate random pass,
-// by default no user group will be attached.
-func (u *UserImpl) New(username string, password string,
-	avatar []byte) (user *db.User, newpass string, err error) {
-	if password == "" {
-		newpass = utils.RandString(8)
-	} else {
-		newpass = password
-	}
-	user = &db.User{
+func (impl *UserImpl) New(username string, password string, avatar string) (*sn.User, error) {
+	user := &sn.User{
 		Username: username,
-		Password: HashPass(newpass),
+		Password: impl.hashPass(password),
 		Avatar:   avatar,
 	}
-	if err := u.orm.Create(user); err != nil {
-		return nil, "", err
+	if err := impl.orm.Create(user); err != nil {
+		return nil, err
 	}
-	return
+	return user, nil
 }
 
-// CheckPass check whether user and pass match.
-//
-// If error, return nil,-1,err.
-//
-// If user not found, return nil,1,nil.
-//
-// If pass not match, return nil,2,nil.
-//
-// Return user,0,nil if all match.
-func (u *UserImpl) CheckPass(user string, pass string) (*db.User, int, error) {
-	rec, err := u.GetByName(user)
+func (impl *UserImpl) CheckPass(user string, pass string) (*sn.User, int, error) {
+	rec, err := impl.GetByName(user)
 	if err != nil {
 		return nil, -1, err
 	}
 	if rec == nil {
 		return nil, 1, nil
 	}
-	if rec.Password != HashPass(pass) {
+	if rec.Password != impl.hashPass(pass) {
 		return nil, 2, nil
 	}
 	return rec, 0, nil
 }
 
-// GetAll get all user by condition.
-func (u *UserImpl) GetAll(cond *db.Condition) ([]*db.User, error) {
-	return u.orm.Cond(cond).Find()
+func (impl *UserImpl) GetAll(cond *sn.Condition) ([]*sn.User, error) {
+	return impl.orm.Cond(cond).Find()
 }
 
-// Get get user by id.
-func (u *UserImpl) Get(id uuid.UUID) (*db.User, error) {
-	return u.orm.Take(id)
+func (impl *UserImpl) Get(id uuid.UUID) (*sn.User, error) {
+	return impl.orm.Take(id)
 }
 
-// GetByName get user by name.
-//
-// Return nil,nil when user not found.
-func (u *UserImpl) GetByName(name string) (*db.User, error) {
-	return u.orm.Where("username = ?", name).Take()
+func (impl *UserImpl) GetByName(name string) (*sn.User, error) {
+	return impl.orm.Where("username = ?", name).Take()
 }
 
-// Count count user by condition.
-func (u *UserImpl) Count(cond *db.Condition) (int64, error) {
-	return u.orm.Count(cond)
+func (impl *UserImpl) Count(cond *sn.Condition) (int64, error) {
+	return impl.orm.Count(cond)
 }
 
-// Kick kick user id login.
-func (u *UserImpl) Kick(id uuid.UUID) error {
-	return db.DeleteSessions([]uuid.UUID{id})
+func (impl *UserImpl) Kick(id uuid.UUID) error {
+	return sn.Skynet.Session.Delete([]uuid.UUID{id})
 }
 
-// Reset reset user password by id, return new password.
-//
-// Return "",nil when user not found.
-func (u *UserImpl) Reset(id uuid.UUID) (string, error) {
-	user, err := u.Get(id)
-	if err != nil {
+func (impl *UserImpl) Reset(id uuid.UUID) (string, error) {
+	newPass := utils.RandString(8)
+	if err := impl.Update([]string{"password"}, &sn.User{
+		GeneralFields: sn.GeneralFields{ID: id},
+		Password:      newPass,
+	}); err != nil {
 		return "", err
 	}
+	if err := impl.Kick(id); err != nil {
+		return "", err
+	}
+	return newPass, nil
+}
+
+func (impl *UserImpl) Update(column []string, user *sn.User) error {
 	if user == nil {
-		return "", nil
+		return nil
 	}
-
-	// ensure security, kick first
-	if err := u.Kick(id); err != nil {
-		return "", err
+	kick := false
+	if slices.Contains(column, "password") {
+		kick = true
+		user.Password = impl.hashPass(user.Password)
 	}
-
-	newpass := utils.RandString(8)
-	user.Password = HashPass(newpass)
-	if err := u.orm.Save(user); err != nil {
-		return "", err
+	if err := impl.orm.ID(user.ID).Updates(column, user); err != nil {
+		return err
 	}
-	return newpass, nil
+	if kick {
+		return impl.Kick(user.ID)
+	}
+	return nil
 }
 
-// Update update user infos, properties remain no change if left empty.
-func (u *UserImpl) Update(id uuid.UUID, username string, password string,
-	avatar []byte, lastTime *time.Time, lastIP string) error {
-	user := new(db.User)
-	user.Username = username
-	if password != "" {
-		user.Password = HashPass(password)
+func (impl *UserImpl) Delete(id uuid.UUID) error {
+	if _, err := impl.orm.DeleteID(id); err != nil {
+		return err
 	}
-	if avatar != nil {
-		user.Avatar = avatar
-	}
-	if lastTime != nil {
-		user.LastLogin = lastTime.UnixMilli()
-	}
-	user.LastIP = lastIP
-	return u.orm.ID(id).Updates(nil, user)
-}
-
-// Delete delete user data.
-//
-// Warning: this function will not delete permission or unlink group.
-func (u *UserImpl) Delete(id uuid.UUID) (ok bool, err error) {
-	// kick first
-	if err := u.Kick(id); err != nil {
-		return false, err
-	}
-
-	ok, err = u.orm.DeleteID(id)
-	return
-}
-
-// Delete delete all user data.
-//
-// Warning: this function will not delete permission or unlink group.
-func (u *UserImpl) DeleteAll() (int64, error) {
-	// kick first
-	if err := db.DeleteSessions(nil); err != nil {
-		return 0, err
-	}
-
-	return u.orm.DeleteAll()
+	return impl.Kick(id)
 }

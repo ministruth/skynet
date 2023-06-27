@@ -1,48 +1,98 @@
 import Table from '@/components/layout/table';
 import {
   checkAPI,
-  fileToBase64,
+  checkPerm,
+  deleleAPI,
   getAPI,
   getIntl,
   paramSort,
   paramTime,
   postAPI,
+  StringIntl,
   UserPerm,
 } from '@/utils';
-import {
-  EditOutlined,
-  LogoutOutlined,
-  PlusOutlined,
-  ProfileOutlined,
-  UploadOutlined,
-} from '@ant-design/icons';
+import { LogoutOutlined } from '@ant-design/icons';
 import ProCard from '@ant-design/pro-card';
 import { ParamsType } from '@ant-design/pro-provider';
 import { ActionType, ProColumns } from '@ant-design/pro-table';
-import { Button, Form, message, Upload } from 'antd';
-import type { SortOrder } from 'antd/lib/table/interface';
-import { useRef } from 'react';
+import { useAccess, useModel } from '@umijs/max';
+import { Button, Tag } from 'antd';
+import { Store } from 'antd/es/form/interface';
+import type { SortOrder } from 'antd/es/table/interface';
+import { CustomTagProps } from 'rc-select/es/BaseSelect';
+import { Key, useRef, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
-import { Columns, CreatedAtColumn } from '../layout/table/column';
+import confirm from '../layout/modal';
+import {
+  Column,
+  Columns,
+  CreatedAtColumn,
+  IDColumn,
+  SearchColumn,
+} from '../layout/table/column';
 import TableDelete from '../layout/table/deleteBtn';
 import TableNew from '../layout/table/newBtn';
+import styles from '../layout/table/style.less';
+import TableBtn from '../layout/table/tableBtn';
+import AvatarUpload from './avatar';
+import UserClone from './cloneBtn';
+import UserPermBtn from './permBtn';
+import UserUpdate from './updateBtn';
 
-const handleAdd = async (params: ParamsType) => {
-  var file;
-  const { avatar, ...rest } = params;
-  if (avatar && avatar.length != 0) {
-    file = await fileToBase64(avatar[0].originFileObj).catch((e) => Error(e));
-    if (file instanceof Error) {
-      message.error(`Error: ${file.message}`);
-      return false;
-    }
-  }
-  return checkAPI(
-    postAPI('/user', {
-      avatar: file,
-      ...rest,
+export interface UserBtnProps {
+  tableRef: React.MutableRefObject<ActionType | undefined>;
+  initialValues?: Store;
+}
+
+const handleDeleteSelected = async (
+  intl: StringIntl,
+  ref: React.MutableRefObject<ActionType | undefined>,
+  keys: Key[],
+) => {
+  confirm({
+    title: intl.get('pages.user.op.delete.selected.title'),
+    content: intl.get('app.confirm'),
+    onOk() {
+      return new Promise((resolve, reject) => {
+        deleleAPI('/user', { id: keys }).then((rsp) => {
+          if (rsp && rsp.code === 0) {
+            ref.current?.reloadAndRest?.();
+            resolve(rsp);
+          } else {
+            reject(rsp);
+          }
+        });
+      });
+    },
+    intl: intl,
+  });
+};
+
+const handleKick = (
+  intl: StringIntl,
+  id: string,
+  name: string,
+  refresh: boolean,
+) => {
+  confirm({
+    title: intl.get('pages.user.op.kick.title', {
+      username: name,
     }),
-  );
+    content: intl.get('app.confirm'),
+    onOk() {
+      return new Promise((resolve, reject) => {
+        postAPI(`/user/${id}/kick`, {}).then((rsp) => {
+          if (rsp && rsp.code === 0) {
+            resolve(rsp);
+            if (refresh) window.location.href = '/user';
+          } else {
+            reject(rsp);
+          }
+        });
+      });
+    },
+    intl: intl,
+  });
 };
 
 const request = async (
@@ -67,97 +117,54 @@ const request = async (
   };
 };
 
-const userColumns: Columns = (intl) => [
+export const UserColumns: Columns = (intl) => [
   {
     title: intl.get('pages.user.table.username'),
     dataIndex: 'username',
-    tooltip: intl.get('pages.user.table.add.usernametip'),
+    tooltip: intl.get('pages.user.form.username.tip'),
+    fieldProps: {
+      maxLength: 32,
+    },
     formItemProps: {
-      rules: [
-        {
-          required: true,
-          message: intl.get('app.table.required'),
-        },
-      ],
+      rules: [{ required: true }],
     },
   },
   {
     title: intl.get('pages.user.table.password'),
     dataIndex: 'password',
+    valueType: 'password',
     formItemProps: {
-      rules: [
-        {
-          required: true,
-          message: intl.get('app.table.required'),
-        },
-      ],
+      rules: [{ required: true }],
     },
   },
 ];
 
-const addColumns: Columns = (intl) => [
-  {
-    renderFormItem: () => (
-      <FormattedMessage id="pages.user.table.add.content" />
-    ),
-  },
-  ...userColumns(intl),
-  {
-    title: intl.get('pages.user.table.avatar'),
-    dataIndex: 'avatar',
-    formItemProps: {
-      valuePropName: 'fileList',
-    },
-    renderFormItem: () => {
-      return (
-        <Form.Item
-          name="avatar"
-          valuePropName="fileList"
-          getValueFromEvent={(e: any) => {
-            if (Array.isArray(e)) {
-              return e;
-            }
-            return e && e.fileList;
-          }}
-          noStyle
-        >
-          <Upload
-            maxCount={1}
-            listType="picture"
-            accept=".png,.jpg,.jpeg,.webp"
-            beforeUpload={(file) => {
-              if (
-                !['image/png', 'image/jpeg', 'image/webp'].includes(file.type)
-              ) {
-                message.error(`${file.name} is not allowed`);
-                return Upload.LIST_IGNORE;
-              }
-              return false;
-            }}
-          >
-            <Button icon={<UploadOutlined />}>
-              {intl.get('pages.user.table.add.upload')}
-            </Button>
-          </Upload>
-        </Form.Item>
-      );
-    },
-  },
-  {
-    title: intl.get('pages.user.table.group'),
-    tooltip: intl.get('pages.user.table.add.grouptip'),
+export const GroupColumn: Column = (intl) => {
+  return {
+    title: intl.get('pages.user.form.group'),
+    tooltip: intl.get('pages.user.form.group.tip'),
     dataIndex: 'group',
-    debounceTime: 3000,
     fieldProps: {
       mode: 'multiple',
       showSearch: true,
+      tagRender: (props: CustomTagProps) => {
+        return (
+          <Tag
+            color={props.label === 'root' ? 'red' : undefined}
+            closable={props.closable}
+            onClose={props.onClose}
+            style={{ marginRight: 4 }}
+          >
+            {props.label}
+          </Tag>
+        );
+      },
     },
-    placeholder: intl.get('pages.user.table.newline'),
     request: async ({ keyWords }: any) => {
       const msg = await getAPI(
         '/group',
         {
-          text: keyWords,
+          name: keyWords,
           page: 1,
           size: 5,
         },
@@ -165,28 +172,41 @@ const addColumns: Columns = (intl) => [
       );
       return msg.data.data.map((e: any) => ({ value: e.id, label: e.name }));
     },
+  };
+};
+
+export const AvatarColumn: Column = (intl) => {
+  return {
+    title: intl.get('pages.user.table.avatar'),
+    dataIndex: 'avatar',
+    renderFormItem: () => {
+      return <AvatarUpload />;
+    },
+  };
+};
+
+export const AddColumns: Columns = (intl) => [
+  {
+    renderFormItem: () => <FormattedMessage id="pages.user.op.add.content" />,
   },
+  ...UserColumns(intl),
+  AvatarColumn(intl),
+  GroupColumn(intl),
 ];
 
 const UserCard = () => {
   const intl = getIntl();
   const ref = useRef<ActionType>();
+  const { initialState } = useModel('@@initialState');
+  const access = useAccess();
   const columns: ProColumns[] = [
-    {
-      title: intl.get('app.table.id'),
-      ellipsis: true,
-      dataIndex: 'id',
-      align: 'center',
-      copyable: true,
-      hideInSearch: true,
-      width: 150,
-    },
+    SearchColumn(intl),
+    IDColumn(intl),
     {
       title: intl.get('pages.user.table.avatar'),
       dataIndex: 'avatar',
       valueType: 'avatar',
       align: 'center',
-      width: 80,
       hideInSearch: true,
     },
     {
@@ -194,24 +214,25 @@ const UserCard = () => {
       dataIndex: 'username',
       align: 'center',
       hideInSearch: true,
-    },
-    {
-      title: intl.get('app.table.searchtext'),
-      key: 'text',
-      hideInTable: true,
+      ellipsis: true,
+      onCell: () => {
+        return {
+          style: {
+            maxWidth: 150,
+          },
+        };
+      },
     },
     {
       title: intl.get('pages.user.table.lastip'),
       dataIndex: 'last_ip',
       align: 'center',
-      width: 180,
       hideInSearch: true,
     },
     {
       title: intl.get('pages.user.table.lastlogin'),
       dataIndex: 'last_login',
       align: 'center',
-      width: 180,
       valueType: 'dateTime',
       sorter: true,
       hideInSearch: true,
@@ -232,23 +253,52 @@ const UserCard = () => {
     },
     ...CreatedAtColumn(intl),
     {
-      title: intl.get('app.table.operation'),
+      title: intl.get('app.op'),
       valueType: 'option',
       align: 'center',
-      width: 170,
+      width: 100,
+      className: styles.operation,
       render: (_, row) => {
         return [
-          <PlusOutlined key="clone" />,
-          <EditOutlined key="update" />,
-          <ProfileOutlined key="view" />,
-          <LogoutOutlined key="kick" />,
+          <UserClone
+            key="clone"
+            tableRef={ref}
+            initialValues={{
+              base: row.id,
+              baseName: row.username,
+            }}
+          />,
+          <UserUpdate
+            key="update"
+            tableRef={ref}
+            initialValues={{
+              ...row,
+            }}
+          />,
+          <UserPermBtn key="perm" uid={row.id} />,
+          <TableBtn
+            key="kick"
+            icon={LogoutOutlined}
+            tip={intl.get('pages.user.op.kick.tip')}
+            color="#faad14"
+            perm={UserPerm.PermExecute}
+            permName="manage.user"
+            onClick={() =>
+              handleKick(
+                intl,
+                row.id,
+                row.username,
+                row.id === initialState?.id,
+              )
+            }
+          />,
           <TableDelete
             key="delete"
             permName="manage.user"
             perm={UserPerm.PermWriteExecute}
             tableRef={ref}
             url={`/user/${row.id}`}
-            confirmTitle={intl.get('pages.user.table.delete.title', {
+            confirmTitle={intl.get('pages.user.op.delete.title', {
               username: row.username,
             })}
           />,
@@ -257,30 +307,58 @@ const UserCard = () => {
     },
   ];
 
+  const [selectedRowKeys, setSelectedRowKeys] = useState<Key[]>([]);
+  const onSelectChange = (keys: Key[]) => {
+    setSelectedRowKeys(keys);
+  };
+  const rowSelection = {
+    selectedRowKeys,
+    onChange: onSelectChange,
+  };
+  const handleAdd = async (params: ParamsType) => {
+    if (await checkAPI(postAPI('/user', params))) {
+      ref.current?.reloadAndRest?.();
+      return true;
+    }
+    return false;
+  };
+
   return (
-    <ProCard>
+    <ProCard bordered>
       <Table
         actionRef={ref}
         rowKey="id"
-        postData={(data: any[]) => {
-          data.map((e) => {
-            e.avatar = 'data:image/webp;base64,' + e.avatar;
-          });
-          return data;
-        }}
+        rowSelection={rowSelection}
+        tableAlertRender={false}
         request={request}
         columns={columns}
         action={[
           <TableNew
-            tableRef={ref}
             permName="manage.user"
             perm={UserPerm.PermWriteExecute}
             key="add"
             width={500}
-            title={intl.get('pages.user.table.add')}
-            finish={handleAdd}
-            columns={addColumns(intl)}
+            title={intl.get('pages.user.op.add.title')}
+            schemaProps={{
+              onFinish: handleAdd,
+              columns: AddColumns(intl),
+            }}
           />,
+          <Button
+            key="delete"
+            danger
+            disabled={
+              !checkPerm(
+                initialState?.signin,
+                access,
+                'manage.user',
+                UserPerm.PermWriteExecute,
+              ) || selectedRowKeys.length === 0
+            }
+            onClick={() => handleDeleteSelected(intl, ref, selectedRowKeys)}
+          >
+            <FormattedMessage id="app.op.delete" />
+          </Button>,
         ]}
       />
     </ProCard>

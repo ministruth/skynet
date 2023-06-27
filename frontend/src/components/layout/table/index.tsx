@@ -12,9 +12,11 @@ type TableProp<T, U extends ParamsType, ValueType = 'text'> = {
   postRequest?: (data: any[]) => any[];
 } & ProTableProps<T, U, ValueType>;
 
-function Table<T, U = ParamsType, ValueType = 'text'>(
-  props: TableProp<T, U, ValueType>,
-) {
+function Table<
+  T extends Record<string, any>,
+  U extends ParamsType = ParamsType,
+  ValueType = 'text',
+>(props: TableProp<T, U, ValueType>) {
   const intl = getIntl();
   const [polling, setPolling] = useState(true);
   const [time, setTime] = useState(() => Date.now());
@@ -22,6 +24,7 @@ function Table<T, U = ParamsType, ValueType = 'text'>(
 
   return (
     <ProTable<T, U, ValueType>
+      scroll={{ x: 'max-content' }}
       polling={props.poll ? (polling ? 1000 : undefined) : undefined}
       headerTitle={intl.get('app.table.lastupdate', {
         time: moment(time).format('HH:mm:ss'),

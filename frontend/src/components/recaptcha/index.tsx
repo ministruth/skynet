@@ -1,8 +1,7 @@
+import { Helmet } from '@umijs/max';
 import Recaptcha from 'react-recaptcha';
-import { Helmet } from 'umi';
 
-interface RecaptchaProps {
-  className?: string;
+export interface RecaptchaProps {
   value?: string;
   onChange?: (value: string) => void;
   innerRef?: React.LegacyRef<Recaptcha>;
@@ -28,7 +27,6 @@ const ReCAPTCHA: React.FC<RecaptchaProps> = (props) => {
         render="explicit"
         ref={props.innerRef}
         sitekey={props.sitekey}
-        className={props.className}
         onloadCallback={() => {}}
         verifyCallback={(res) => {
           props.onChange?.(res);

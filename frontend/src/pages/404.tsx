@@ -1,9 +1,10 @@
+import MainLayout from '@/components/layout';
 import { getIntl } from '@/utils';
+import { Helmet, history, useModel } from '@umijs/max';
 import { Button, Result } from 'antd';
 import { FormattedMessage } from 'react-intl';
-import { history, useModel } from 'umi';
 
-const NoFoundPage: { title: any; path: any; exact: any } = () => {
+const NoFoundPage = () => {
   const intl = getIntl();
   const { initialState } = useModel('@@initialState');
   const content = (
@@ -23,11 +24,16 @@ const NoFoundPage: { title: any; path: any; exact: any } = () => {
       }
     />
   );
-  return <>{content}</>;
+  return initialState?.signin ? (
+    <MainLayout title="titles.404">{content}</MainLayout>
+  ) : (
+    <>
+      <Helmet>
+        <title>{intl.get('titles.404')}</title>
+      </Helmet>
+      {content}
+    </>
+  );
 };
-
-NoFoundPage.title = 'titles.404';
-NoFoundPage.path = undefined;
-NoFoundPage.exact = undefined;
 
 export default NoFoundPage;

@@ -1,143 +1,164 @@
 package handler
 
 import (
-	"github.com/MXWXZ/skynet/db"
-	"github.com/MXWXZ/skynet/utils/tpl"
+	"github.com/MXWXZ/skynet/sn"
+	"github.com/MXWXZ/skynet/utils"
 
 	"github.com/google/uuid"
-	"github.com/ztrue/tracerr"
 	"gorm.io/gorm"
 )
 
-var ErrUUIDConflict = tracerr.New("uuid conflict")
-
-type Perm struct {
-	ID   uuid.UUID
-	Name string // filled automatically
-	Perm db.UserPerm
-}
-
-type PermListType int32
-
-const (
-	PermListUser PermListType = iota
-	PermListGroup
-)
-
-type PermList struct {
-	Perm  tpl.SafeMap[uuid.UUID, *Perm]
-	Group []uuid.UUID
-	Type  PermListType
-}
-
 type PermissionImpl struct {
-	orm   *db.ORM[db.Permission]
-	cache *tpl.SafeMap[uuid.UUID, *PermList]
+	tx   *gorm.DB
+	link *sn.ORM[sn.PermissionLink]
+	perm *sn.ORM[sn.Permission]
 }
 
-var Permission = &PermissionImpl{
-	cache: new(tpl.SafeMap[uuid.UUID, *PermList]),
-}
-
-func (p *PermissionImpl) WithTx(tx *gorm.DB) *PermissionImpl {
+func NewPermissionHandler() sn.PermissionHandler {
 	return &PermissionImpl{
-		orm:   db.NewORM[db.Permission](tx),
-		cache: p.cache,
+		tx:   sn.Skynet.DB,
+		link: sn.NewORM[sn.PermissionLink](sn.Skynet.DB),
+		perm: sn.NewORM[sn.Permission](sn.Skynet.DB),
 	}
 }
 
-// AddToGroup add permission to group gid.
-func (p *PermissionImpl) AddToGroup(gid uuid.UUID, perm []*Perm) (permRet []*db.Permission, err error) {
+func (impl *PermissionImpl) WithTx(tx *gorm.DB) sn.PermissionHandler {
+	return &PermissionImpl{
+		tx:   tx,
+		link: sn.NewORM[sn.PermissionLink](tx),
+		perm: sn.NewORM[sn.Permission](tx),
+	}
+}
+
+func (impl *PermissionImpl) Grant(uid uuid.UUID, gid uuid.UUID, pid uuid.UUID, perm sn.UserPerm) error {
+	if uid == uuid.Nil && gid == uuid.Nil {
+		return nil
+	}
+	return impl.tx.Transaction(func(tx *gorm.DB) error {
+		impl := impl.WithTx(tx)
+		if uid != uuid.Nil {
+			_, err := impl.DeleteUser(uid, pid)
+			if err != nil {
+				return err
+			}
+			if perm != -1 {
+				impl.AddToUser(uid, []*sn.PermEntry{{
+					ID:   pid,
+					Perm: perm,
+				}})
+			}
+		}
+		if gid != uuid.Nil {
+			_, err := impl.DeleteGroup(gid, pid)
+			if err != nil {
+				return err
+			}
+			if perm != -1 {
+				impl.AddToGroup(gid, []*sn.PermEntry{{
+					ID:   pid,
+					Perm: perm,
+				}})
+			}
+		}
+		return nil
+	})
+}
+
+func (impl *PermissionImpl) AddToUser(uid uuid.UUID, perm []*sn.PermEntry) (ret []*sn.PermissionLink, err error) {
 	if len(perm) == 0 {
 		return nil, nil
 	}
 	for _, v := range perm {
-		permRet = append(permRet, &db.Permission{
-			GID:  gid,
+		ret = append(ret, &sn.PermissionLink{
+			UID:  uuid.NullUUID{UUID: uid, Valid: true},
 			PID:  v.ID,
 			Perm: v.Perm,
 		})
 	}
-	err = p.orm.Creates(permRet)
-	if err != nil {
-		p.cache.Delete(gid)
-	}
+	err = impl.link.Creates(ret)
 	return
 }
 
-func (p *PermissionImpl) newPermList(perm []*db.Permission, t PermListType) *PermList {
-	ret := new(PermList)
-	for _, v := range perm {
-		perm := &Perm{
-			ID:   v.PID,
-			Perm: v.Perm,
-		}
-		if v.PermissionList != nil {
-			perm.Name = v.PermissionList.Name
-		}
-		ret.Perm.Set(v.PID, perm)
+func (impl *PermissionImpl) AddToGroup(gid uuid.UUID, perm []*sn.PermEntry) (ret []*sn.PermissionLink, err error) {
+	if len(perm) == 0 {
+		return nil, nil
 	}
-	ret.Type = t
+	for _, v := range perm {
+		ret = append(ret, &sn.PermissionLink{
+			GID:  uuid.NullUUID{UUID: gid, Valid: true},
+			PID:  v.ID,
+			Perm: v.Perm,
+		})
+	}
+	err = impl.link.Creates(ret)
+	return
+}
+
+func (impl *PermissionImpl) toPermEntry(perm []*sn.PermissionLink) map[uuid.UUID]*sn.PermEntry {
+	ret := make(map[uuid.UUID]*sn.PermEntry)
+	for _, v := range perm {
+		var origin []*sn.PermEntry
+		if v.Group != nil {
+			origin = []*sn.PermEntry{{
+				ID:        v.Group.ID,
+				Name:      v.Group.Name,
+				Note:      v.Group.Note,
+				Perm:      v.Perm,
+				Origin:    nil,
+				CreatedAt: v.CreatedAt,
+				UpdatedAt: v.UpdatedAt,
+			}}
+		}
+		entry := &sn.PermEntry{
+			ID:        v.PID,
+			Perm:      v.Perm,
+			Origin:    origin,
+			CreatedAt: v.CreatedAt,
+			UpdatedAt: v.UpdatedAt,
+		}
+		if v.Permission != nil {
+			entry.Name = v.Permission.Name
+			entry.Note = v.Permission.Note
+		}
+		ret[entry.ID] = entry
+	}
 	return ret
 }
 
-// GetUserMerged returns merged user permission list.
-func (p *PermissionImpl) GetUserMerged(id uuid.UUID) (map[uuid.UUID]*Perm, error) {
-	if id == uuid.Nil {
-		return make(map[uuid.UUID]*Perm), nil
+func (impl *PermissionImpl) GetUserMerged(uid uuid.UUID) (ret map[uuid.UUID]*sn.PermEntry, err error) {
+	if uid == uuid.Nil {
+		return make(map[uuid.UUID]*sn.PermEntry), nil
 	}
-	userPerm, err := p.GetUser(id, false)
-	if err != nil {
-		return nil, err
-	}
-	ret := userPerm.Perm.Map()
-	for _, v := range userPerm.Group {
-		gp, err := p.GetGroup(v, false)
-		if err != nil {
-			return nil, err
-		}
-		gp.Perm.Range(func(k uuid.UUID, v *Perm) bool {
-			if _, ok := ret[k]; !ok { // not allow override
-				ret[k] = v
-			}
-			return true
-		})
-	}
-	return ret, nil
-}
-
-// GetUser get user perm list, if force ignore cache.
-func (p *PermissionImpl) GetUser(id uuid.UUID, force bool) (ret *PermList, err error) {
-	if !force {
-		if v, ok := p.cache.Get(id); ok {
-			if v.Type != PermListUser {
-				return nil, ErrUUIDConflict
-			}
-			return v, nil
-		}
-	}
-
-	err = p.orm.TX().Transaction(func(tx *gorm.DB) error {
-		// user perm
-		userPerm, err := p.WithTx(tx).GetAll(id, uuid.Nil, true)
+	err = impl.tx.Transaction(func(tx *gorm.DB) error {
+		impl := impl.WithTx(tx)
+		ret = make(map[uuid.UUID]*sn.PermEntry)
+		link, err := sn.Skynet.Group.WithTx(tx).GetUserAllGroup(uid)
 		if err != nil {
 			return err
 		}
-		// group perm
-		groupPerm, err := Group.WithTx(tx).GetUserAllGroup(id)
-		if err != nil {
-			return err
-		}
-
-		ret = p.newPermList(userPerm, PermListUser)
-		for _, v := range groupPerm {
-			// trigger cache init
-			if _, err := p.WithTx(tx).GetGroup(v.ID, false); err != nil {
+		for _, v := range link {
+			groupPerm, err := impl.GetGroup(v.Group.ID)
+			if err != nil {
 				return err
 			}
-			ret.Group = append(ret.Group, v.ID)
+			for k, v := range groupPerm {
+				if e, ok := ret[k]; ok {
+					e.Perm = e.Perm | v.Perm
+					e.CreatedAt = utils.Min(e.CreatedAt, v.CreatedAt)
+					e.UpdatedAt = utils.Max(e.UpdatedAt, v.UpdatedAt)
+					e.Origin = append(e.Origin, v.Origin...)
+				} else {
+					ret[k] = v
+				}
+			}
 		}
-		p.cache.Set(id, ret)
+		userPerm, err := impl.GetUser(uid)
+		if err != nil {
+			return err
+		}
+		for k, v := range userPerm {
+			ret[k] = v
+		}
 		return nil
 	})
 	if err != nil {
@@ -146,82 +167,70 @@ func (p *PermissionImpl) GetUser(id uuid.UUID, force bool) (ret *PermList, err e
 	return
 }
 
-// GetGroup get group perm list, if force ignore cache.
-func (p *PermissionImpl) GetGroup(id uuid.UUID, force bool) (*PermList, error) {
-	if !force {
-		if v, ok := p.cache.Get(id); ok {
-			if v.Type != PermListGroup {
-				return nil, ErrUUIDConflict
-			}
-			return v, nil
-		}
-	}
-	res, err := p.GetAll(uuid.Nil, id, true)
+func (impl *PermissionImpl) GetUser(uid uuid.UUID) (map[uuid.UUID]*sn.PermEntry, error) {
+	res, err := impl.GetAll(uid, uuid.Nil, false, false, true)
 	if err != nil {
 		return nil, err
 	}
-	ret := p.newPermList(res, PermListGroup)
-	p.cache.Set(id, ret)
+	ret := impl.toPermEntry(res)
 	return ret, nil
 }
 
-// GetAll find all permission by condition, if join is true,
-// return records will join PermissionList.
-//
-// uid and gid should not be both uuid.Nil or both have value, otherwise,
-// nil,nil will be returned
-func (p *PermissionImpl) GetAll(uid uuid.UUID, gid uuid.UUID, join bool) ([]*db.Permission, error) {
+func (impl *PermissionImpl) GetEntry() ([]*sn.Permission, error) {
+	return impl.perm.Find()
+}
+
+func (impl *PermissionImpl) GetGroup(gid uuid.UUID) (map[uuid.UUID]*sn.PermEntry, error) {
+	res, err := impl.GetAll(uuid.Nil, gid, false, true, true)
+	if err != nil {
+		return nil, err
+	}
+	ret := impl.toPermEntry(res)
+	return ret, nil
+}
+
+func (impl *PermissionImpl) GetAll(uid uuid.UUID, gid uuid.UUID,
+	joinUser bool, joinGroup bool, joinPerm bool) ([]*sn.PermissionLink, error) {
 	if (uid != uuid.Nil && gid != uuid.Nil) || (uid == uuid.Nil && gid == uuid.Nil) {
 		return nil, nil
 	}
 
-	orm := p.orm
+	link := impl.link
 	if uid != uuid.Nil {
-		orm = orm.Where("permissions.uid = ?", uid)
+		link = link.Where("permission_links.uid = ?", uid)
 	} else {
-		orm = orm.Where("permissions.gid = ?", gid)
+		link = link.Where("permission_links.gid = ?", gid)
 	}
-	if join {
-		orm = orm.Joins("PermissionList")
+	if joinUser {
+		link = link.Joins("User")
+	}
+	if joinGroup {
+		link = link.Joins("Group")
+	}
+	if joinPerm {
+		link = link.Joins("Permission")
 	}
 
-	return orm.Find()
+	return link.Find()
 }
 
-// DeleteAll delete all uid or gid permission.
-//
-// Note: uid or gid is uuid.Nil means not base on this condition.
-// If both uuid.Nil, do nothing. If both given, delete using OR condition.
-func (p *PermissionImpl) DeleteAll(uid uuid.UUID, gid uuid.UUID) (row int64, err error) {
-	if uid == uuid.Nil && gid == uuid.Nil {
-		return 0, nil
+func (impl *PermissionImpl) Delete(id uuid.UUID) error {
+	_, err := impl.link.DeleteID(id)
+	return err
+}
+
+func (impl *PermissionImpl) DeleteUser(uid uuid.UUID, pid uuid.UUID) (int64, error) {
+	if pid == uuid.Nil {
+		return impl.link.Delete("uid = ?", uid)
+	} else {
+		return impl.link.Delete("uid = ? AND pid = ?", uid, pid)
 	}
-	err = p.orm.TX().Transaction(func(tx *gorm.DB) error {
-		tp := p.WithTx(tx)
-		orm := tp.orm
-		if uid != uuid.Nil {
-			if gid != uuid.Nil {
-				orm = orm.Where("uid = ? OR gid = ?", uid, gid)
-			} else {
-				orm = orm.Where("uid = ?", uid)
-			}
-		} else {
-			orm = orm.Where("gid = ?", gid)
-		}
-		row, err = orm.Delete()
-		if err != nil {
-			return err
-		}
-		return nil
-	})
-	if err != nil {
-		return 0, err
+}
+
+func (impl *PermissionImpl) DeleteGroup(gid uuid.UUID, pid uuid.UUID) (int64, error) {
+	if pid == uuid.Nil {
+		return impl.link.Delete("gid = ?", gid)
+	} else {
+		return impl.link.Delete("gid = ? AND pid = ?", gid, pid)
 	}
-	if uid != uuid.Nil {
-		p.cache.Delete(uid)
-	}
-	if gid != uuid.Nil {
-		p.cache.Delete(gid)
-	}
-	return
 }

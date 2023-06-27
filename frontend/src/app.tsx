@@ -1,67 +1,51 @@
-import { getAPI } from '@/utils';
-import { PageLoading } from '@ant-design/pro-layout';
+import { getAPI, UserPerm } from '@/utils';
+import { RequestConfig } from '@umijs/max';
 import { message } from 'antd';
-import 'antd/dist/antd.css';
-import _ from 'lodash';
+import 'antd/dist/reset.css';
 import { stringify } from 'qs';
-import { ErrorShowType, getLocale, RequestConfig } from 'umi';
-import { ResponseError } from 'umi-request';
 
-const errorHandler = (error: ResponseError) => {
-  if (error.name == 'BizError') {
-    message.error(error.data.msg);
-  } else if (error.response.status != 200) {
-    if (_.isEmpty(error.data)) message.error(error.response.statusText);
-    else message.error(error.data);
-  }
-};
+export interface GlobalState {
+  signin: boolean;
+  id: string | undefined;
+  permission: { [Key: string]: UserPerm };
+}
 
 export const request: RequestConfig = {
-  errorHandler,
-  prefix: '/api',
-  timeout: 3000,
-  params: {
-    lang: getLocale(),
-  },
+  baseURL: '/api',
+  timeout: 10000,
   paramsSerializer: function (params) {
     return stringify(params, { arrayFormat: 'brackets' });
   },
-  timeoutMessage: 'Request timeout',
   errorConfig: {
-    adaptor: (data) => {
-      return {
-        ...data,
-        success: data.code === 0,
-        errorMessage: data.msg,
-      };
+    errorHandler: (error: any, opts: any) => {
+      if (opts?.skipErrorHandler) throw error;
+      if (error.response) {
+        message.error(`${error.response.status}: ${error.response.statusText}`);
+        if (error.response.status === 403)
+          setTimeout(() => {
+            window.location.href = '/';
+          }, 1000);
+      } else {
+        message.error('Unknown error');
+      }
     },
   },
-  showType: ErrorShowType.ERROR_MESSAGE,
 };
 
-export async function getInitialState(): Promise<{
-  signin: boolean;
-  permission: { [Key: string]: any };
-  menu: [{ [Key: string]: any }];
-}> {
+export async function getInitialState(): Promise<GlobalState> {
   var access = (await getAPI('/access')).data;
-  var menu = access.signin ? (await getAPI('/menu')).data : [];
   return {
     signin: access.signin,
+    id: access.id,
     permission: access.permission,
-    menu: menu,
   };
 }
 
-export const initialStateConfig = {
-  loading: <PageLoading />,
-};
-
 export const qiankun = fetch('/api/plugin/entry')
-  .then((rsp) => (rsp.status == 200 ? rsp.json() : { code: -1 }))
+  .then((rsp) => (rsp.status === 200 ? rsp.json() : { code: -1 }))
   .then((rsp) => {
     let data = [];
-    if (rsp.code == 0)
+    if (rsp.code === 0)
       data = rsp.data.map((v: string) => {
         return {
           name: v,

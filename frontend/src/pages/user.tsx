@@ -15,12 +15,10 @@ const User = () => {
         title={intl.get('menus.user.user')}
         routes={[
           {
-            path: '',
-            breadcrumbName: 'menus.user',
+            title: 'menus.user',
           },
           {
-            path: '/user',
-            breadcrumbName: 'menus.user.user',
+            title: 'menus.user.user',
           },
         ]}
         content={intl.get('pages.user.content')}

@@ -1,11 +1,10 @@
 import logo from '@/assets/logo.png';
 import Footer from '@/components/footer';
 import DeniedPage from '@/pages/403';
-import { checkPerm, getIntl, UserPerm } from '@/utils';
+import { checkPerm, getAPI, getIntl, postAPI, UserPerm } from '@/utils';
 import * as icons from '@ant-design/icons';
+import { LogoutOutlined } from '@ant-design/icons';
 import ProLayout, { MenuDataItem } from '@ant-design/pro-layout';
-import _ from 'lodash';
-import React, { ReactNode, useEffect } from 'react';
 import {
   Access,
   Helmet,
@@ -14,25 +13,35 @@ import {
   SelectLang,
   useAccess,
   useModel,
-} from 'umi';
+} from '@umijs/max';
+import { Badge } from 'antd';
+import _ from 'lodash';
+import React, { PropsWithChildren, ReactNode, useEffect } from 'react';
 
-interface MainLayoutProps {
+export interface MainLayoutProps {
   title?: string;
   access?: string;
   perm?: UserPerm;
+  postMenuData?: (item: MenuDataItem[]) => MenuDataItem[];
 }
 
-const loopMenuItem = (menus: MenuDataItem[]): MenuDataItem[] =>
-  menus.map(({ name, icon, path, children }) => ({
-    path: path,
-    // @ts-ignore
-    icon: icon && React.createElement(icons[icon]),
-    name: name,
-    routes: children && loopMenuItem(children),
+const loopMenuItem = (menus: MenuDataItem[]): MenuDataItem[] => {
+  return menus.map(({ icon, children, badge, ...item }) => ({
+    ...item,
+    icon: icon && (
+      <Badge size="small" count={badge}>
+        {
+          // @ts-ignore
+          React.createElement(icons[icon])
+        }
+      </Badge>
+    ),
+    children: children && loopMenuItem(children),
   }));
+};
 
-const MainLayout: React.FC<MainLayoutProps> = (props) => {
-  const { initialState } = useModel('@@initialState');
+const MainLayout: React.FC<PropsWithChildren<MainLayoutProps>> = (props) => {
+  const { initialState, refresh } = useModel('@@initialState');
   const access = useAccess();
   const intl = getIntl();
 
@@ -59,6 +68,29 @@ const MainLayout: React.FC<MainLayoutProps> = (props) => {
 
   return (
     <ProLayout
+      token={{
+        header: {
+          colorBgHeader: '#292f33',
+          colorHeaderTitle: '#fff',
+          colorTextMenu: '#dfdfdf',
+          colorTextMenuSecondary: '#dfdfdf',
+          colorTextMenuSelected: '#fff',
+          colorBgMenuItemSelected: '#22272b',
+          colorTextMenuActive: 'rgba(255,255,255,0.85)',
+          colorTextRightActionsItem: '#dfdfdf',
+        },
+        colorTextAppListIconHover: '#fff',
+        colorTextAppListIcon: '#dfdfdf',
+        sider: {
+          colorMenuBackground: '#fff',
+          colorMenuItemDivider: '#dfdfdf',
+          colorBgMenuItemHover: '#f6f6f6',
+          colorTextMenu: '#595959',
+          colorTextMenuSelected: '#242424',
+          colorTextMenuActive: '#242424',
+          colorBgMenuItemCollapsedElevated: '#242424',
+        },
+      }}
       title="Skynet" // should enable to fix bug for small device
       pageTitleRender={() => {
         let title = '';
@@ -76,16 +108,29 @@ const MainLayout: React.FC<MainLayoutProps> = (props) => {
       footerRender={() => <Footer />}
       menu={{
         locale: true,
-        request: async () => loopMenuItem(initialState?.menu as MenuDataItem[]),
+        request: async (p) =>
+          getAPI('/menu').then((data) => {
+            let d = data.data as MenuDataItem[];
+            return loopMenuItem(props.postMenuData ? props.postMenuData(d) : d);
+          }),
       }}
       menuItemRender={(item, dom) => (
         <Link to={item.path ?? '/dashboard'}>{dom}</Link>
       )}
-      rightContentRender={() => (
-        <div data-lang>
-          <SelectLang />
-        </div>
-      )}
+      actionsRender={() => [
+        <SelectLang style={{ padding: 0 }} reload={true} />,
+        <LogoutOutlined
+          onClick={() => {
+            postAPI('/signout', {}).then((rsp) => {
+              if (rsp && rsp.code === 0)
+                setTimeout(() => {
+                  window.location.href = '/';
+                }, 1000);
+            });
+          }}
+        />,
+      ]}
+      // make copyright at the bottom
       style={{
         height: '100vh',
       }}
