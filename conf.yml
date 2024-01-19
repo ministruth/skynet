@@ -1,30 +1,28 @@
 # yaml-language-server: $schema=conf.schema.json
-redis:
-  dsn: "redis://127.0.0.1:6379/0" # redis DSN
-  timeout: 10 # connect timeout seconds
-
 database:
-  type: "sqlite" # database type, support sqlite, mysql
-  dsn: "data.db?_pragma=busy_timeout(10000)&_pragma=foreign_keys(1)" # database DSN
-  salt_prefix: "en[7" # password salt prefix, modification needs reset all user password
-  salt_suffix: "z1&." # password salt suffix, modification needs reset all user password
+  dsn: "sqlite://../data.db?mode=rwc" # database dsn, support sqlite, mysql, postgresql
+  salt_prefix: 8 # password salt prefix length
+  salt_suffix: 8 # password salt suffix length
+
+redis:
+  dsn: "redis://127.0.0.1:6379/0" # redis dsn
 
 session:
-  cookie: "GOSESSIONID" # session cookie name
+  key: "Ckm7cYj0XDaIkGQeXYun7fuduCT8V5dMwYzMAz2mb5nlj3FTAgLYp5MstHh18PW8" # session sign key, at least 64 in length
   prefix: "session_" # prefix in redis, please prevent glob pattern keywords like ? and *
+  cookie: "SESSIONID" # session cookie name
   expire: 3600 # default expire time seconds
   remember: 5184000 # remember expire time seconds
-  timeout: 10 # connect/query timeout seconds
-
-header:
-  csp: "default-src 'none'" # Content Security Policy, https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP
 
 listen:
   address: "0.0.0.0:8080" # listen address
-  allowhosts: "" # if set, only allow listed host, allow regex, seperated by ,
+  worker: 0 # web workers, 0 for cores
   ssl: false # enable ssl
   ssl_cert: "" # ssl certificate path(.crt)
   ssl_key: "" # ssl key path(.key)
+
+header:
+  csp: "default-src 'none'; script-src 'self' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; base-uri 'self'" # Content Security Policy, https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP
 
 proxy:
   enable: false # if skynet is behind proxy, enable to get correct ip
@@ -33,13 +31,15 @@ proxy:
 
 recaptcha:
   enable: false # if enable recaptcha
-  cnmirror: true # china recaptcha mirror
+  url: "https://www.recaptcha.net" # verify url
   sitekey: "" # recaptcha sitekey
   secret: "" # recaptcha secret
   timeout: 10 # connect timeout seconds
 
 csrf:
   prefix: "csrf_" # redis prefix
-  expire: 10 # cookie timeout second
+  timeout: 10 # timeout second
 
+max_body: 536870912 # max body size
 avatar: "default.webp" # default avatar
+lang: "en-US" # default language

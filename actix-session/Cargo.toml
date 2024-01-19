@@ -1,0 +1,33 @@
+[package]
+name = "actix-session"
+version = "0.8.0"
+authors = [
+    "Nikolay Kim <fafhrd91@gmail.com>",
+    "Luca Palmieri <rust@lpalmieri.com>",
+]
+description = "Session management for Actix We"
+keywords = ["http", "web", "framework", "async", "session"]
+homepage = "https://actix.rs"
+repository = "https://github.com/actix/actix-extras.git"
+license = "MIT OR Apache-2.0"
+edition = "2018"
+
+[dependencies]
+actix-service = "2"
+actix-utils = "3"
+actix-web = { version = "4", default-features = false, features = [
+    "cookies",
+    "secure-cookies",
+] }
+
+anyhow = "1"
+async-trait = "0.1"
+derive_more = "0.99.7"
+rand = "0.8"
+serde = { version = "1" }
+serde_json = { version = "1" }
+tracing = { version = "0.1.30", default-features = false, features = ["log"] }
+redis = { version = "0.24", default-features = false, features = [
+    "tokio-comp",
+    "connection-manager",
+] }

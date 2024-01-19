@@ -1,0 +1,32 @@
+menu:
+  system: "系统"
+  dashboard: "仪表盘"
+  service: "服务"
+  notification: "消息"
+  user: "用户"
+  user.user: "用户"
+  user.group: "用户组"
+  plugin: "插件"
+  plugin.manage: "插件管理"
+
+response:
+  success: "成功"
+  not_ready: "服务尚未就绪"
+  recaptcha:
+    invalid: "reCAPTCHA无效"
+  user:
+    invalid: "用户名或密码错误"
+    notexist: "用户不存在"
+    exist: "用户名已被占用"
+    root: "不允许对root用户进行此操作"
+    invalid_avatar: "头像文件类型错误"
+  group:
+    notexist: "用户组不存在"
+    exist: "用户组名已存在"
+  permission:
+    notexist: "权限不存在"
+  plugin:
+    loaded: "插件已加载"
+    exist: "插件已存在"
+    invalid: "插件文件无效"
+    invalid_hash: "插件哈希值错误"

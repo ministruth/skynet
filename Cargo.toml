@@ -1,0 +1,11 @@
+[workspace]
+
+members = [
+    "actix-session",
+    "skynet_macro",
+    "skynet_i18n",
+    "migration",
+    "skynet",
+    "plugin/monitor",
+]
+resolver = "2"

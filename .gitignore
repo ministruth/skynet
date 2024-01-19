@@ -1,5 +1,10 @@
+/target
+/bin
+*.crt
+*.key
 .vscode
 *.db
+log.txt
 *.crt
 *.key
 .VSCodeCounter

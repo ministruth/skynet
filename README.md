@@ -1,48 +1,47 @@
 # skynet
 
-[![Go Report Card](https://goreportcard.com/badge/github.com/mxwxz/skynet)](https://goreportcard.com/report/github.com/mxwxz/skynet)
+![status](https://img.shields.io/badge/status-dev-lightgrey) ![rustc](https://img.shields.io/badge/rustc-1.56+-red)
 
 Skynet is a service integration and management system, specially optimized for personal and home-lab use. With plugin support, you can easily embed whatever software you want to satisfy your need.
 
-Security is considered as **Tier 0** priority in Skynet, we will not consider features that conflict with our security policy. If you find vulnerabilities, please report ASAP.
+Security is considered as **TOP** priority in Skynet, we will not consider features that conflict with our security policy. If you find vulnerabilities, please report ASAP.
 
 ## Quick start
 
-We recommend docker image for simple start up.
+### Run in docker
 
-1. `mkdir skynet && cd skynet`
-2. Copy `conf.yml` and `docker-compose.yml` to the folder
-3. `vim conf.yml` to modify your config, you **MUST** change redis address config to `redis:6379`
-4. `touch data.db` or copy your existing database
-5. `docker-compose up -d` to start skynet
-6. visit `localhost:8080`
+### Run natively
+
+**We do not recommend this method, use at your own risk!**
+
+1. Download the release and extract.
+2. Install redis on your machine.
+3. `vim conf.yml` to modify your config.
+4. `touch data.db` or copy your existing database.
+5. `./skynet check` to verify your config.
+6. `./skynet run` to start up the server.
+7. Visit `localhost:8080`.
 
 ### Create initial user
 
-You need to use the command line to add your initial user, you may add more users in web UI or use the command line for batch add.
-Note that `--root` is needed to give you root privilege, by default no permission is allowed.
+You must use the command line to initialize your root user:
 
-    skynet user add $username --root
+    skynet user init
+
+Like linux, root user can ignore all built-in privilege checkers. Remember your initial randomized password, you can change it after login.
+
+You may add more users in the web UI or use the command line for batch add:
+
+    skynet user add <USERNAME>
+
+Note that no permission is allowed for these users.
 
 ## Plugins
 
-You can find plugins in our [official support plugin](plugin) or other user shares.
+You can find plugins in our [official support plugin](https://github.com/MXWXZ/skynet/plugin) or other user shares.
 
 **!!Please note that all plugins have the same privilege as skynet, use trusted plugins ONLY!!**
 
-## Databases
-
-Supported databases: SQLite, MySQL, PostgreSQL(Planned).
-
-- SQLite DSN: `data.db?_pragma=busy_timeout(10000)&_pragma=foreign_keys(1)`
-  - The parameter `busy_timeout` is a must since concurrency write may happen.
-  - The parameter `foreign_keys` is a must since sqlite3 does not enable foreign keys by default.
-- MySQL DSN: `user:pass@tcp(127.0.0.1:3306)/dbname?charset=utf8mb4&parseTime=True&loc=Local`
-
 ## Develop
 
-See [develop note](develop.md)
-
-## Reference Project
-
-see [go.mod](go.mod)
+See [develop note](develop.md).

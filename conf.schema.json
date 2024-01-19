@@ -1,76 +1,77 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema",
   "type": "object",
+  "required": ["redis", "database"],
   "properties": {
     "redis": {
       "type": "object",
-      "required": ["dsn"],
       "properties": {
-        "dsn": { "type": "string" },
-        "timeout": { "type": "number", "minimum": 0 }
-      }
+        "dsn": { "type": "string", "minLength": 1 }
+      },
+      "required": ["dsn"]
     },
     "database": {
       "type": "object",
-      "required": ["type", "dsn"],
       "properties": {
-        "type": { "type": "string", "enum": ["sqlite", "mysql"] },
-        "dsn": { "type": "string" },
-        "salt_prefix": { "type": "string" },
-        "salt_suffix": { "type": "string" }
-      }
+        "dsn": { "type": "string", "minLength": 1 },
+        "salt_prefix": { "type": "number", "minimum": 4, "maximum": 32 },
+        "salt_suffix": { "type": "number", "minimum": 4, "maximum": 32 }
+      },
+      "required": ["dsn"]
     },
     "session": {
       "type": "object",
       "properties": {
-        "cookie": { "type": "string" },
-        "prefix": { "type": "string" },
-        "expire": { "type": "number", "minimum": 0 },
-        "remember": { "type": "number", "minimum": 0 },
-        "timeout": { "type": "number", "minimum": 0 }
-      }
-    },
-    "header": {
-      "type": "object",
-      "properties": {
-        "csp": { "type": "string" }
+        "key": { "type": "string", "minLength": 64 },
+        "prefix": { "type": "string", "minLength": 1 },
+        "cookie": { "type": "string", "minLength": 1 },
+        "expire": { "type": "number", "minimum": 1 },
+        "remember": { "type": "number", "minimum": 1 }
       }
     },
     "listen": {
       "type": "object",
       "properties": {
-        "address": { "type": "string" },
-        "allowhosts": { "type": "string" },
+        "address": { "type": "string", "minLength": 1 },
+        "worker": { "type": "number", "minimum": 0 },
         "ssl": { "type": "boolean" },
         "ssl_cert": { "type": "string" },
         "ssl_key": { "type": "string" }
+      }
+    },
+    "header": {
+      "type": "object",
+      "properties": {
+        "csp": { "type": "string", "minLength": 1 }
       }
     },
     "proxy": {
       "type": "object",
       "properties": {
         "enable": { "type": "boolean" },
-        "header": { "type": "string" },
-        "trusted": { "type": "string" }
+        "header": { "type": "string", "minimum": 1 },
+        "trusted": { "type": "string", "minimum": 1 }
       }
     },
     "recaptcha": {
       "type": "object",
       "properties": {
         "enable": { "type": "boolean" },
-        "cnmirror": { "type": "boolean" },
-        "sitekey": { "type": "string" },
-        "secret": { "type": "string" },
+        "url": { "type": "string", "minimum": 1 },
+        "sitekey": { "type": "string", "minimum": 1 },
+        "secret": { "type": "string", "minimum": 1 },
         "timeout": { "type": "number", "minimum": 0 }
       }
     },
     "csrf": {
       "type": "object",
       "properties": {
-        "prefix": { "type": "string" },
-        "expire": { "type": "number", "minimum": 0 }
+        "prefix": { "type": "string", "minimum": 1 },
+        "expire": { "type": "number", "minimum": 1 }
       }
     },
-    "avatar": { "type": "string" }
+    "max_body": { "type": "number", "minimum": 1 },
+    "avatar": { "type": "string", "minLength": 1 },
+    "lang": { "type": "string", "minLength": 1 }
   }
 }

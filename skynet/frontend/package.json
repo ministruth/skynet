@@ -1,0 +1,42 @@
+{
+  "name": "skynet",
+  "version": "1.0.0",
+  "private": true,
+  "description": "Service integration and management system, optimized for home-lab use",
+  "author": "MXWXZ <me@imwxz.com>",
+  "scripts": {
+    "build": "max build",
+    "dev": "max dev",
+    "format": "prettier --cache --write .",
+    "postinstall": "max setup",
+    "setup": "max setup",
+    "start": "npm run dev"
+  },
+  "dependencies": {
+    "@ant-design/icons": "5.2.6",
+    "@ant-design/pro-components": "2.6.48",
+    "@umijs/max": "4.1.1",
+    "antd": "5.13.2",
+    "crc-32": "1.2.2",
+    "js-cookie": "3.0.5",
+    "lodash": "4.17.21",
+    "qs": "6.11.2",
+    "react": "18.2.0",
+    "react-dom": "18.2.0",
+    "react-recaptcha": "2.3.10"
+  },
+  "devDependencies": {
+    "@types/js-cookie": "3.0.6",
+    "@types/lodash": "4.14.202",
+    "@types/qs": "6.9.11",
+    "@types/react": "18.2.48",
+    "@types/react-dom": "18.2.18",
+    "@types/react-recaptcha": "2.3.7",
+    "@umijs/max": "4.1.1",
+    "lint-staged": "15.2.0",
+    "prettier": "3.2.4",
+    "prettier-plugin-organize-imports": "3.2.4",
+    "prettier-plugin-packagejson": "2.4.9",
+    "typescript": "5.3.3"
+  }
+}

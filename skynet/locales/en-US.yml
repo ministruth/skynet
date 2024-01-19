@@ -1,0 +1,32 @@
+menu:
+  system: "System"
+  dashboard: "Dashboard"
+  service: "Service"
+  notification: "Notification"
+  user: "User"
+  user.user: "User"
+  user.group: "Group"
+  plugin: "Plugin"
+  plugin.manage: "Manage"
+
+response:
+  success: "Success"
+  not_ready: "Server is not ready"
+  recaptcha:
+    invalid: "reCAPTCHA does not valid"
+  user:
+    invalid: "Invalid username or password"
+    notexist: "User does not exist"
+    exist: "Username already exists"
+    root: "Cannot perform operation on root user"
+    invalid_avatar: "Avatar file mime is invalid"
+  group:
+    notexist: "Group does not exist"
+    exist: "Group name already exists"
+  permission:
+    notexist: "Permission does not exist"
+  plugin:
+    loaded: "Plugin is already loaded"
+    exist: "Plugin already exists"
+    invalid: "Plugin file is invalid"
+    invalid_hash: "Plugin hash mismatch"
