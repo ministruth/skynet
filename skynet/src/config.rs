@@ -274,7 +274,7 @@ impl Config {
 
             max_body: ConfigItem {
                 name: "max_body".to_owned(),
-                default: 536870912,
+                default: 512*1024*1024,
                 checker: checker_ge!(1),
                 ..Default::default()
             },

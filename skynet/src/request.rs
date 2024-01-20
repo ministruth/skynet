@@ -88,18 +88,23 @@ pub struct PaginationParam {
 }
 
 impl PaginationParam {
-    pub fn left(&self) -> u64 {
+    #[must_use]
+    pub const fn left(&self) -> u64 {
         (self.page - 1) * self.size
     }
 
-    pub fn right(&self) -> u64 {
+    #[must_use]
+    pub const fn right(&self) -> u64 {
         self.page * self.size
     }
 
-    pub fn split<T>(&self, mut data: Vec<T>) -> PageData<T> {
+    /// # Panics
+    /// Panics when size too long.
+    #[must_use]
+    pub fn split<T>(&self, data: Vec<T>) -> PageData<T> {
         let cnt = data.len() as u64;
         PageData::new((
-            data.drain(..)
+            data.into_iter()
                 .skip(self.left().try_into().unwrap())
                 .take(self.size.try_into().unwrap())
                 .collect(),

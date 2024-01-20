@@ -134,9 +134,8 @@ pub async fn add(
             remove_dir_all(dst)?;
             if e.root_cause().is::<PluginError>() {
                 finish!(Response::new(ResponseCode::CodePluginExist));
-            } else {
-                return Err(e.into());
             }
+            return Err(e.into());
         }
     }
     tx.commit().await?;

@@ -36,7 +36,7 @@ check:
 	-A clippy::panic -A clippy::wildcard_enum_match_arm -A clippy::default_numeric_fallback -A clippy::single_char_lifetime_names \
 	-A clippy::partial_pub_fields -A clippy::missing_docs_in_private_items -A clippy::pub_use -A clippy::expect_used \
 	-A clippy::print_stdout -A clippy::blanket_clippy_restriction_lints -A clippy::should_implement_trait -A clippy::similar_names \
-	-A clippy::as_conversions
+	-A clippy::as_conversions -A clippy::significant_drop_in_scrutinee 
 
 ## build: Build skynet(dev).
 build:

@@ -3,7 +3,7 @@ use std::{
     collections::HashMap,
     env,
     ffi::{OsStr, OsString},
-    ops::Index,
+    ops::{Index, IndexMut},
     path::{Path, PathBuf},
     result,
     sync::Arc,
@@ -138,62 +138,10 @@ pub struct PluginInstance {
 }
 
 impl PluginInstance {
+    /// Get setting name.
+    #[must_use]
     pub fn setting_name(&self) -> String {
         format!("{}{}", PLUGIN_SETTING_PREFIX, self.id)
-    }
-
-    pub async fn set(
-        &mut self,
-        db: &DatabaseTransaction,
-        skynet: &Skynet,
-        enable: bool,
-    ) -> Result<()> {
-        match self.status {
-            PluginStatus::Unload => {
-                if enable {
-                    skynet
-                        .setting
-                        .set(db, &self.setting_name(), "1")
-                        .await
-                        .and_then(|_| Ok(self.status = PluginStatus::PendingEnable))
-                } else {
-                    Ok(())
-                }
-            }
-            PluginStatus::PendingDisable => {
-                if enable {
-                    skynet
-                        .setting
-                        .set(db, &self.setting_name(), "1")
-                        .await
-                        .and_then(|_| Ok(self.status = PluginStatus::Enable))
-                } else {
-                    Ok(())
-                }
-            }
-            PluginStatus::PendingEnable => {
-                if enable {
-                    Ok(())
-                } else {
-                    skynet
-                        .setting
-                        .set(db, &self.setting_name(), "0")
-                        .await
-                        .and_then(|_| Ok(self.status = PluginStatus::Unload))
-                }
-            }
-            PluginStatus::Enable => {
-                if enable {
-                    Ok(())
-                } else {
-                    skynet
-                        .setting
-                        .set(db, &self.setting_name(), "0")
-                        .await
-                        .and_then(|_| Ok(self.status = PluginStatus::PendingDisable))
-                }
-            }
-        }
     }
 }
 
@@ -224,6 +172,7 @@ pub struct PluginManager {
 }
 
 impl PluginManager {
+    /// Get instance by `id`.
     pub fn get(&self, id: &HyUuid) -> Option<Arc<PluginInstance>> {
         for i in self.plugin.read().iter() {
             if i.id == *id {
@@ -233,6 +182,12 @@ impl PluginManager {
         None
     }
 
+    /// Set plugin enable status.
+    ///
+    /// # Errors
+    ///
+    /// Will return `Err` when db error.
+    #[allow(clippy::significant_drop_tightening)]
     pub async fn set(
         &self,
         db: &DatabaseTransaction,
@@ -240,16 +195,64 @@ impl PluginManager {
         id: &HyUuid,
         enable: bool,
     ) -> Result<bool> {
-        for i in self.plugin.write().iter_mut() {
-            if let Some(x) = Arc::get_mut(i) {
-                if x.id == *id {
-                    return x.set(db, skynet, enable).await.and(Ok(true));
+        let mut idx = None;
+        {
+            let rlock = self.plugin.read();
+            for i in 0..rlock.len() {
+                if rlock.index(i).id == *id {
+                    idx = Some((i, rlock.index(i).setting_name()));
+                    break;
                 }
             }
         }
-        Ok(false)
+        if let Some((idx, setting_name)) = idx {
+            if enable {
+                skynet.setting.set(db, &setting_name, "1").await?;
+            } else {
+                skynet.setting.set(db, &setting_name, "0").await?;
+            }
+            if let Some(inst) = Arc::get_mut(self.plugin.write().index_mut(idx)) {
+                match inst.status {
+                    PluginStatus::Unload => {
+                        if enable {
+                            inst.status = PluginStatus::PendingEnable;
+                        }
+                    }
+                    PluginStatus::PendingDisable => {
+                        if enable {
+                            inst.status = PluginStatus::Enable;
+                        }
+                    }
+                    PluginStatus::PendingEnable => {
+                        if !enable {
+                            inst.status = PluginStatus::Unload;
+                        }
+                    }
+                    PluginStatus::Enable => {
+                        if !enable {
+                            inst.status = PluginStatus::PendingDisable;
+                        }
+                    }
+                }
+            }
+            Ok(true)
+        } else {
+            Ok(false)
+        }
     }
 
+    /// Load new plugin in `path`.
+    ///
+    /// Plugin files should be put directly in the `path`. Two files are compulsory:
+    /// - `path/*.(dll,dylib,so)`: plugin main file.
+    /// - `path/config.yml`: plugin config file.
+    ///
+    /// Return `Ok(true)` for success load, `Ok(false)` for plugin file not found.
+    ///
+    /// # Errors
+    ///
+    /// Will return `Err` when db error.
+    #[allow(clippy::significant_drop_tightening)]
     pub async fn load<P: AsRef<Path>>(
         &self,
         db: &DatabaseTransaction,
@@ -270,8 +273,8 @@ impl PluginManager {
         if dll.len() != 1 {
             return Ok(false);
         }
-        let dll = dll.pop().unwrap();
-        let inst = self.load_internal(path.as_ref().join(PLUGIN_CONFIG), dll)?;
+        let dll = dll.pop().unwrap_or_default();
+        let inst = Self::load_internal(path.as_ref().join(PLUGIN_CONFIG), dll)?;
         if let Some(x) = self.get(&inst.id) {
             bail!(PluginError::ConflictID(x.id, inst.name, x.name.clone()));
         }
@@ -307,7 +310,7 @@ impl PluginManager {
             })
             .filter_map(result::Result::ok)
         {
-            match self.load_internal(
+            match Self::load_internal(
                 entry.path().parent().unwrap().join(PLUGIN_CONFIG),
                 entry.path().into(),
             ) {
@@ -319,7 +322,7 @@ impl PluginManager {
                         );
                     }
                     conflict_id.insert(obj.id, obj.name.clone());
-                    instance.push(obj)
+                    instance.push(obj);
                 }
                 Err(e) => error!("Plugin `{:?}` read error: `{}`", entry.path(), e),
             }
@@ -366,12 +369,12 @@ impl PluginManager {
                 i.instance = None;
             }
         }
-        self.plugin = RwLock::new(instance.into_iter().map(|x| Arc::new(x)).collect());
+        self.plugin = RwLock::new(instance.into_iter().map(Arc::new).collect());
         skynet
     }
 
     /// Load plugin .dll/.so/.dylib file.
-    fn load_internal<P: AsRef<OsStr>>(&self, config: P, filename: P) -> Result<PluginInstance> {
+    fn load_internal<P: AsRef<OsStr>>(config: P, filename: P) -> Result<PluginInstance> {
         let config = config
             .as_ref()
             .to_str()

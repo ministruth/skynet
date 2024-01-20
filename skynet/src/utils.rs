@@ -93,7 +93,12 @@ pub fn parse_dataurl(data: &str) -> (Vec<u8>, Option<infer::Type>) {
     }
 }
 
-#[must_use]
+/// Unzip `data` to `path`.
+///
+/// `path` must be a non-existing path. It will be automatically removed when return error.
+///
+/// # Errors
+/// Will return `Err` when extract failed, with `path` removed.
 pub fn unzip(data: &[u8], path: &PathBuf) -> Result<()> {
     if path.exists() {
         bail!("Cannot extract to existed folder");
@@ -121,8 +126,8 @@ pub fn unzip(data: &[u8], path: &PathBuf) -> Result<()> {
         }
         Ok(())
     };
-    func().or_else(|e| {
+    func().map_err(|e| {
         let _ = fs::remove_dir_all(path);
-        Err(e)
+        e
     })
 }
