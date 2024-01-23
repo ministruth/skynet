@@ -1,20 +1,24 @@
-use std::{collections::HashMap, io, path::PathBuf};
+use std::{
+    collections::HashMap,
+    io,
+    path::PathBuf,
+    sync::{atomic::AtomicU64, Arc},
+};
 
 use chrono::DateTime;
 use clap::{Args, Parser, Subcommand};
 use cmd::{check, run, user};
 use enum_as_inner::EnumAsInner;
+use enum_map::EnumMap;
 use handler_impl::{
     group::DefaultGroupHandler, notifications::DefaultNotificationHandler,
     permission::DefaultPermHandler, setting::DefaultSettingHandler, user::DefaultUserHandler,
 };
 use parking_lot::RwLock;
-use sea_orm::DatabaseConnection;
 use skynet::{config::Config, logger::Logger, plugin::PluginManager};
 
 mod api;
 mod cmd;
-mod db;
 mod handler_impl;
 
 #[allow(clippy::struct_excessive_bools)]
@@ -118,22 +122,26 @@ async fn main() -> io::Result<()> {
         notification: Box::new(DefaultNotificationHandler::new()),
         setting: Box::new(DefaultSettingHandler::new()),
 
+        default_id: EnumMap::default(),
         config: Config::new(),
         locale: HashMap::new(),
-
-        db: DatabaseConnection::default(),
-        redis: None,
 
         plugin: PluginManager::new(),
         menu: Vec::new(),
 
+        unread_notification: Arc::new(AtomicU64::new(0)),
         running: RwLock::new(false),
         start_time: DateTime::default(),
     };
     // init logger first
     skynet
         .logger
-        .init(!cli.quiet, cli.log_json, cli.verbose)
+        .init(
+            skynet.unread_notification.clone(),
+            !cli.quiet,
+            cli.log_json,
+            cli.verbose,
+        )
         .unwrap();
 
     match &cli.command {

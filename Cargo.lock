@@ -1615,6 +1615,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "futures-rustls"
+version = "0.24.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "35bd3cf68c183738046838e300353e4716c674dc5e56890de4826801a6622a28"
+dependencies = [
+ "futures-io",
+ "rustls",
+]
+
+[[package]]
 name = "futures-sink"
 version = "0.3.30"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2304,10 +2314,9 @@ dependencies = [
 name = "monitor"
 version = "0.1.0"
 dependencies = [
- "anyhow",
- "parking_lot",
+ "futures",
+ "sea-orm-migration",
  "skynet",
- "uuid",
 ]
 
 [[package]]
@@ -2906,21 +2915,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c580d9cbbe1d1b479e8d67cf9daf6a62c957e6846048408b80b43ac3f6af84cd"
 dependencies = [
  "arc-swap",
+ "async-std",
  "async-trait",
  "bytes",
  "combine",
  "futures",
+ "futures-rustls",
  "futures-util",
  "itoa",
- "native-tls",
  "percent-encoding",
  "pin-project-lite",
+ "rustls",
+ "rustls-native-certs",
+ "rustls-pemfile",
+ "rustls-webpki",
  "ryu",
  "sha1_smol",
  "socket2 0.4.10",
  "tokio",
- "tokio-native-tls",
  "tokio-retry",
+ "tokio-rustls",
  "tokio-util",
  "url",
 ]
@@ -3197,6 +3211,18 @@ dependencies = [
  "ring",
  "rustls-webpki",
  "sct",
+]
+
+[[package]]
+name = "rustls-native-certs"
+version = "0.6.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a9aace74cb666635c918e9c12bc0d348266037aa8eb599b5cba565709a8dff00"
+dependencies = [
+ "openssl-probe",
+ "rustls-pemfile",
+ "schannel",
+ "security-framework",
 ]
 
 [[package]]
@@ -3662,6 +3688,7 @@ dependencies = [
  "actix-web",
  "actix-web-validator",
  "anyhow",
+ "async-std",
  "async-trait",
  "base64 0.21.5",
  "chrono",
@@ -3814,6 +3841,8 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d84b0a3c3739e220d94b3239fd69fb1f74bc36e16643423bd99de3b43c21bfbd"
 dependencies = [
  "ahash 0.8.7",
+ "async-io 1.13.0",
+ "async-std",
  "atoi",
  "bigdecimal",
  "byteorder",
@@ -3874,6 +3903,7 @@ version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "d0bd4519486723648186a08785143599760f7cc81c52334a55d6a83ea1e20841"
 dependencies = [
+ "async-std",
  "atomic-write-file",
  "dotenvy",
  "either",

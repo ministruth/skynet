@@ -9,10 +9,10 @@ use anyhow::Result;
 use derivative::Derivative;
 use futures::future::LocalBoxFuture;
 use log::{debug, error};
-use redis::AsyncCommands;
+use redis::{aio::ConnectionManager, AsyncCommands};
 use serde_json::json;
 use skynet::{
-    permission::{IDTypes::*, PermEntry, DEFAULT_ID, PERM_EXECUTE, PERM_READ, PERM_WRITE},
+    permission::{IDTypes::*, PermEntry, PERM_EXECUTE, PERM_READ, PERM_WRITE},
     request::{APIRoute, Request, RspError},
     utils, HyUuid, MenuItem, Skynet,
 };
@@ -36,8 +36,7 @@ pub mod user;
 pub const CSRF_COOKIE: &str = "CSRF_TOKEN";
 pub const CSRF_HEADER: &str = "X-CSRF-Token";
 
-pub fn new_menu() -> Vec<MenuItem> {
-    let id = DEFAULT_ID.get().unwrap();
+pub fn new_menu(skynet: &Skynet) -> Vec<MenuItem> {
     vec![
         MenuItem {
             id: HyUuid(uuid!("7bd9a6d3-db3d-4954-89ca-d5b1f3d9974f")),
@@ -62,7 +61,7 @@ pub fn new_menu() -> Vec<MenuItem> {
                 name: "menu.plugin.manage".to_owned(),
                 path: "/plugin".to_owned(),
                 perm: Some(PermEntry {
-                    pid: id[PermManagePluginID],
+                    pid: skynet.default_id[PermManagePluginID],
                     perm: PERM_READ,
                 }),
                 ..Default::default()
@@ -80,7 +79,7 @@ pub fn new_menu() -> Vec<MenuItem> {
                     name: "menu.user.user".to_owned(),
                     path: "/user".to_owned(),
                     perm: Some(PermEntry {
-                        pid: id[PermManageUserID],
+                        pid: skynet.default_id[PermManageUserID],
                         perm: PERM_READ,
                     }),
                     ..Default::default()
@@ -90,7 +89,7 @@ pub fn new_menu() -> Vec<MenuItem> {
                     name: "menu.user.group".to_owned(),
                     path: "/group".to_owned(),
                     perm: Some(PermEntry {
-                        pid: id[PermManageUserID],
+                        pid: skynet.default_id[PermManageUserID],
                         perm: PERM_READ,
                     }),
                     ..Default::default()
@@ -104,11 +103,11 @@ pub fn new_menu() -> Vec<MenuItem> {
             path: "/notification".to_owned(),
             icon: "NotificationOutlined".to_owned(),
             perm: Some(PermEntry {
-                pid: id[PermManageNotificationID],
+                pid: skynet.default_id[PermManageNotificationID],
                 perm: PERM_READ,
             }),
             badge_func: Some(Box::new(|s: &Skynet| -> i64 {
-                s.notification.get_unread().try_into().unwrap()
+                s.get_unread().try_into().unwrap()
             })),
             ..Default::default()
         },
@@ -118,7 +117,7 @@ pub fn new_menu() -> Vec<MenuItem> {
             path: "/system".to_owned(),
             icon: "SettingOutlined".to_owned(),
             perm: Some(PermEntry {
-                pid: id[PermManageSystemID],
+                pid: skynet.default_id[PermManageSystemID],
                 perm: PERM_READ,
             }),
             ..Default::default()
@@ -127,8 +126,7 @@ pub fn new_menu() -> Vec<MenuItem> {
 }
 
 #[allow(clippy::module_name_repetitions, clippy::too_many_lines)]
-pub fn new_api() -> Vec<APIRoute> {
-    let id = DEFAULT_ID.get().unwrap();
+pub fn new_api(skynet: &Skynet) -> Vec<APIRoute> {
     vec![
         APIRoute {
             path: "/settings/public".to_owned(),
@@ -171,7 +169,7 @@ pub fn new_api() -> Vec<APIRoute> {
             method: Method::POST,
             route: post().to(misc::shutdown),
             permission: PermEntry {
-                pid: id[PermManageSystemID],
+                pid: skynet.default_id[PermManageSystemID],
                 perm: PERM_EXECUTE,
             },
         },
@@ -186,7 +184,7 @@ pub fn new_api() -> Vec<APIRoute> {
             method: Method::GET,
             route: get().to(user::get_all),
             permission: PermEntry {
-                pid: id[PermManageUserID],
+                pid: skynet.default_id[PermManageUserID],
                 perm: PERM_READ,
             },
         },
@@ -195,7 +193,7 @@ pub fn new_api() -> Vec<APIRoute> {
             method: Method::POST,
             route: post().to(user::add),
             permission: PermEntry {
-                pid: id[PermManageUserID],
+                pid: skynet.default_id[PermManageUserID],
                 perm: PERM_WRITE,
             },
         },
@@ -204,7 +202,7 @@ pub fn new_api() -> Vec<APIRoute> {
             method: Method::DELETE,
             route: delete().to(user::delete_batch),
             permission: PermEntry {
-                pid: id[PermManageUserID],
+                pid: skynet.default_id[PermManageUserID],
                 perm: PERM_WRITE,
             },
         },
@@ -213,7 +211,7 @@ pub fn new_api() -> Vec<APIRoute> {
             method: Method::GET,
             route: get().to(user::get),
             permission: PermEntry {
-                pid: id[PermManageUserID],
+                pid: skynet.default_id[PermManageUserID],
                 perm: PERM_READ,
             },
         },
@@ -222,7 +220,7 @@ pub fn new_api() -> Vec<APIRoute> {
             method: Method::PUT,
             route: put().to(user::put),
             permission: PermEntry {
-                pid: id[PermManageUserID],
+                pid: skynet.default_id[PermManageUserID],
                 perm: PERM_WRITE,
             },
         },
@@ -231,7 +229,7 @@ pub fn new_api() -> Vec<APIRoute> {
             method: Method::DELETE,
             route: delete().to(user::delete),
             permission: PermEntry {
-                pid: id[PermManageUserID],
+                pid: skynet.default_id[PermManageUserID],
                 perm: PERM_WRITE,
             },
         },
@@ -240,7 +238,7 @@ pub fn new_api() -> Vec<APIRoute> {
             method: Method::POST,
             route: post().to(user::kick),
             permission: PermEntry {
-                pid: id[PermManageUserID],
+                pid: skynet.default_id[PermManageUserID],
                 perm: PERM_EXECUTE,
             },
         },
@@ -249,7 +247,7 @@ pub fn new_api() -> Vec<APIRoute> {
             method: Method::GET,
             route: get().to(user::get_group),
             permission: PermEntry {
-                pid: id[PermManageUserID],
+                pid: skynet.default_id[PermManageUserID],
                 perm: PERM_READ,
             },
         },
@@ -258,7 +256,7 @@ pub fn new_api() -> Vec<APIRoute> {
             method: Method::GET,
             route: get().to(permission::get_user),
             permission: PermEntry {
-                pid: id[PermManageUserID],
+                pid: skynet.default_id[PermManageUserID],
                 perm: PERM_READ,
             },
         },
@@ -267,7 +265,7 @@ pub fn new_api() -> Vec<APIRoute> {
             method: Method::PUT,
             route: put().to(permission::put_user),
             permission: PermEntry {
-                pid: id[PermManageUserID],
+                pid: skynet.default_id[PermManageUserID],
                 perm: PERM_WRITE,
             },
         },
@@ -276,7 +274,7 @@ pub fn new_api() -> Vec<APIRoute> {
             method: Method::GET,
             route: get().to(group::get_all),
             permission: PermEntry {
-                pid: id[PermManageUserID],
+                pid: skynet.default_id[PermManageUserID],
                 perm: PERM_READ,
             },
         },
@@ -285,7 +283,7 @@ pub fn new_api() -> Vec<APIRoute> {
             method: Method::POST,
             route: post().to(group::add),
             permission: PermEntry {
-                pid: id[PermManageUserID],
+                pid: skynet.default_id[PermManageUserID],
                 perm: PERM_WRITE,
             },
         },
@@ -294,7 +292,7 @@ pub fn new_api() -> Vec<APIRoute> {
             method: Method::DELETE,
             route: delete().to(group::delete_batch),
             permission: PermEntry {
-                pid: id[PermManageUserID],
+                pid: skynet.default_id[PermManageUserID],
                 perm: PERM_WRITE,
             },
         },
@@ -303,7 +301,7 @@ pub fn new_api() -> Vec<APIRoute> {
             method: Method::GET,
             route: get().to(group::get),
             permission: PermEntry {
-                pid: id[PermManageUserID],
+                pid: skynet.default_id[PermManageUserID],
                 perm: PERM_READ,
             },
         },
@@ -312,7 +310,7 @@ pub fn new_api() -> Vec<APIRoute> {
             method: Method::PUT,
             route: put().to(group::put),
             permission: PermEntry {
-                pid: id[PermManageUserID],
+                pid: skynet.default_id[PermManageUserID],
                 perm: PERM_WRITE,
             },
         },
@@ -321,7 +319,7 @@ pub fn new_api() -> Vec<APIRoute> {
             method: Method::DELETE,
             route: delete().to(group::delete),
             permission: PermEntry {
-                pid: id[PermManageUserID],
+                pid: skynet.default_id[PermManageUserID],
                 perm: PERM_WRITE,
             },
         },
@@ -330,7 +328,7 @@ pub fn new_api() -> Vec<APIRoute> {
             method: Method::GET,
             route: get().to(group::get_user),
             permission: PermEntry {
-                pid: id[PermManageUserID],
+                pid: skynet.default_id[PermManageUserID],
                 perm: PERM_READ,
             },
         },
@@ -339,7 +337,7 @@ pub fn new_api() -> Vec<APIRoute> {
             method: Method::POST,
             route: post().to(group::add_user),
             permission: PermEntry {
-                pid: id[PermManageUserID],
+                pid: skynet.default_id[PermManageUserID],
                 perm: PERM_WRITE,
             },
         },
@@ -348,7 +346,7 @@ pub fn new_api() -> Vec<APIRoute> {
             method: Method::DELETE,
             route: delete().to(group::delete_user_batch),
             permission: PermEntry {
-                pid: id[PermManageUserID],
+                pid: skynet.default_id[PermManageUserID],
                 perm: PERM_WRITE,
             },
         },
@@ -357,7 +355,7 @@ pub fn new_api() -> Vec<APIRoute> {
             method: Method::DELETE,
             route: delete().to(group::delete_user),
             permission: PermEntry {
-                pid: id[PermManageUserID],
+                pid: skynet.default_id[PermManageUserID],
                 perm: PERM_WRITE,
             },
         },
@@ -366,7 +364,7 @@ pub fn new_api() -> Vec<APIRoute> {
             method: Method::GET,
             route: get().to(permission::get_group),
             permission: PermEntry {
-                pid: id[PermManageUserID],
+                pid: skynet.default_id[PermManageUserID],
                 perm: PERM_READ,
             },
         },
@@ -375,7 +373,7 @@ pub fn new_api() -> Vec<APIRoute> {
             method: Method::PUT,
             route: put().to(permission::put_group),
             permission: PermEntry {
-                pid: id[PermManageUserID],
+                pid: skynet.default_id[PermManageUserID],
                 perm: PERM_WRITE,
             },
         },
@@ -384,7 +382,7 @@ pub fn new_api() -> Vec<APIRoute> {
             method: Method::GET,
             route: get().to(permission::get),
             permission: PermEntry {
-                pid: id[PermManageUserID],
+                pid: skynet.default_id[PermManageUserID],
                 perm: PERM_READ,
             },
         },
@@ -393,7 +391,7 @@ pub fn new_api() -> Vec<APIRoute> {
             method: Method::GET,
             route: get().to(notifications::get_all),
             permission: PermEntry {
-                pid: id[PermManageNotificationID],
+                pid: skynet.default_id[PermManageNotificationID],
                 perm: PERM_READ,
             },
         },
@@ -402,7 +400,7 @@ pub fn new_api() -> Vec<APIRoute> {
             method: Method::DELETE,
             route: delete().to(notifications::delete_all),
             permission: PermEntry {
-                pid: id[PermManageNotificationID],
+                pid: skynet.default_id[PermManageNotificationID],
                 perm: PERM_WRITE,
             },
         },
@@ -411,7 +409,7 @@ pub fn new_api() -> Vec<APIRoute> {
             method: Method::GET,
             route: get().to(notifications::get_unread),
             permission: PermEntry {
-                pid: id[PermManageNotificationID],
+                pid: skynet.default_id[PermManageNotificationID],
                 perm: PERM_READ,
             },
         },
@@ -420,7 +418,7 @@ pub fn new_api() -> Vec<APIRoute> {
             method: Method::GET,
             route: get().to(plugin::get),
             permission: PermEntry {
-                pid: id[PermManagePluginID],
+                pid: skynet.default_id[PermManagePluginID],
                 perm: PERM_READ,
             },
         },
@@ -429,7 +427,7 @@ pub fn new_api() -> Vec<APIRoute> {
             method: Method::POST,
             route: post().to(plugin::add),
             permission: PermEntry {
-                pid: id[PermManagePluginID],
+                pid: skynet.default_id[PermManagePluginID],
                 perm: PERM_WRITE,
             },
         },
@@ -438,7 +436,7 @@ pub fn new_api() -> Vec<APIRoute> {
             method: Method::PUT,
             route: put().to(plugin::put),
             permission: PermEntry {
-                pid: id[PermManagePluginID],
+                pid: skynet.default_id[PermManagePluginID],
                 perm: PERM_WRITE,
             },
         },
@@ -447,7 +445,7 @@ pub fn new_api() -> Vec<APIRoute> {
             method: Method::DELETE,
             route: delete().to(plugin::delete),
             permission: PermEntry {
-                pid: id[PermManagePluginID],
+                pid: skynet.default_id[PermManagePluginID],
                 perm: PERM_WRITE,
             },
         },
@@ -521,6 +519,7 @@ where
 {
     async fn check_csrf(req: &ServiceRequest) -> Result<bool, actix_web::Error> {
         let skynet = req.app_data::<web::Data<Skynet>>().unwrap();
+        let redis = req.app_data::<web::Data<ConnectionManager>>().unwrap();
         let cookie = req.cookie(CSRF_COOKIE);
         if cookie.is_none() {
             debug!("Missing CSRF cookie");
@@ -540,7 +539,7 @@ where
             debug!("Mismatch CSRF cookie and header");
             return Ok(false);
         }
-        let result = check_csrf_token(skynet, csrf)
+        let result = check_csrf_token(skynet, redis, csrf)
             .await
             .map_err(RspError::from)?;
         if !result {
@@ -615,11 +614,10 @@ where
 
 /// Generate new csrf token.
 /// 32 length, a-zA-Z0-9.
-pub async fn new_csrf_token(s: &Skynet) -> Result<String> {
+pub async fn new_csrf_token(s: &Skynet, redis: &ConnectionManager) -> Result<String> {
     let token = utils::rand_string(32);
-    s.redis
+    redis
         .clone()
-        .unwrap()
         .set_ex(
             format!("{}{}", s.config.csrf_prefix.get(), token),
             "1",
@@ -630,11 +628,9 @@ pub async fn new_csrf_token(s: &Skynet) -> Result<String> {
 }
 
 /// Check csrf token.
-pub async fn check_csrf_token(s: &Skynet, token: &str) -> Result<bool> {
-    let res: Option<String> = s
-        .redis
+pub async fn check_csrf_token(s: &Skynet, redis: &ConnectionManager, token: &str) -> Result<bool> {
+    let res: Option<String> = redis
         .clone()
-        .unwrap()
         .get_del(format!("{}{}", s.config.csrf_prefix.get(), token))
         .await?;
     res.map_or_else(|| Ok(false), |x| Ok(x == "1"))

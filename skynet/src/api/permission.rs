@@ -5,7 +5,7 @@ use actix_web::{
     Responder,
 };
 use actix_web_validator::Json;
-use sea_orm::TransactionTrait;
+use sea_orm::{DatabaseConnection, TransactionTrait};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use skynet::{
@@ -16,8 +16,8 @@ use skynet::{
 };
 use validator::Validate;
 
-pub async fn get(skynet: Data<Skynet>) -> RspResult<impl Responder> {
-    let tx = skynet.db.begin().await?;
+pub async fn get(db: Data<DatabaseConnection>, skynet: Data<Skynet>) -> RspResult<impl Responder> {
+    let tx = db.begin().await?;
     let data = skynet.perm.find(&tx, Condition::default()).await?.0;
     tx.commit().await?;
     finish!(Response::data(data));
@@ -43,8 +43,12 @@ struct GetRsp {
     pub updated_at: i64,
 }
 
-pub async fn get_group(gid: Path<HyUuid>, skynet: Data<Skynet>) -> RspResult<impl Responder> {
-    let tx = skynet.db.begin().await?;
+pub async fn get_group(
+    gid: Path<HyUuid>,
+    db: Data<DatabaseConnection>,
+    skynet: Data<Skynet>,
+) -> RspResult<impl Responder> {
+    let tx = db.begin().await?;
     if skynet.group.find_by_id(&tx, &gid).await?.is_none() {
         finish!(Response::not_found());
     }
@@ -67,8 +71,12 @@ pub async fn get_group(gid: Path<HyUuid>, skynet: Data<Skynet>) -> RspResult<imp
     finish!(Response::data(data));
 }
 
-pub async fn get_user(uid: Path<HyUuid>, skynet: Data<Skynet>) -> RspResult<impl Responder> {
-    let tx = skynet.db.begin().await?;
+pub async fn get_user(
+    uid: Path<HyUuid>,
+    db: Data<DatabaseConnection>,
+    skynet: Data<Skynet>,
+) -> RspResult<impl Responder> {
+    let tx = db.begin().await?;
     if skynet.user.find_by_id(&tx, &uid).await?.is_none() {
         finish!(Response::not_found());
     }
@@ -127,11 +135,12 @@ pub struct VecPutReq {
 
 pub async fn put_group(
     param: Json<VecPutReq>,
+    db: Data<DatabaseConnection>,
     req: Request,
     gid: Path<HyUuid>,
     skynet: Data<Skynet>,
 ) -> RspResult<impl Responder> {
-    let tx = skynet.db.begin().await?;
+    let tx = db.begin().await?;
     if skynet.group.find_by_id(&tx, &gid).await?.is_none() {
         finish!(Response::not_found());
     }
@@ -168,6 +177,7 @@ pub async fn put_group(
 
 pub async fn put_user(
     param: Json<VecPutReq>,
+    db: Data<DatabaseConnection>,
     req: Request,
     uid: Path<HyUuid>,
     skynet: Data<Skynet>,
@@ -175,7 +185,7 @@ pub async fn put_user(
     if uid.is_nil() {
         finish!(Response::new(ResponseCode::CodeUserRoot));
     }
-    let tx = skynet.db.begin().await?;
+    let tx = db.begin().await?;
     if skynet.user.find_by_id(&tx, &uid).await?.is_none() {
         finish!(Response::not_found());
     }

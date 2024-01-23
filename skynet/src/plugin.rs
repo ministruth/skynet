@@ -12,18 +12,20 @@ use std::{
 use anyhow::{bail, Result};
 use derivative::Derivative;
 use enum_as_inner::EnumAsInner;
+use futures::executor::block_on;
 use libloading::{Library, Symbol};
-use log::{debug, error};
+use log::{debug, error, info};
+use migration::MigratorTrait;
 use parking_lot::RwLock;
 use rs_config::Config;
-use sea_orm::DatabaseTransaction;
+use sea_orm::{DatabaseConnection, DatabaseTransaction};
 use semver::Version;
 use serde::Serialize;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use serde_with::{serde_as, DisplayFromStr};
 use walkdir::WalkDir;
 
-use crate::{logger::Logger, APIRoute, HyUuid, Skynet};
+use crate::{db, APIRoute, HyUuid, Skynet};
 
 const PLUGIN_SETTING_PREFIX: &str = "plugin_";
 const PLUGIN_CREATE: &[u8] = b"_plugin_create";
@@ -43,7 +45,7 @@ const PLUGIN_CONFIG: &str = "config.yml";
 /// - **<`on_unload`>**
 /// - Skynet shutdown
 pub trait Plugin: Send + Sync {
-    /// Fired to init logger.
+    /// Fired to init thread context.
     ///
     /// # Warning
     ///
@@ -51,9 +53,9 @@ pub trait Plugin: Send + Sync {
     ///
     /// # Errors
     ///
-    /// Will return `Err` if logger cannot be set.
-    fn _init_logger(&self, s: &mut Logger) -> Result<()> {
-        s.reinit()
+    /// Will return `Err` if context cannot be set.
+    fn _init(&self, s: &mut Skynet) -> Result<()> {
+        s.logger.reinit(s.unread_notification.clone())
     }
 
     /// Fired when the plugin is loaded.
@@ -94,6 +96,21 @@ macro_rules! create_plugin {
             Box::into_raw(boxed)
         }
     };
+}
+
+/// # Errors
+///
+/// Will return `Err` for db error.
+pub fn init_db<M>(s: &Skynet, _: M) -> Result<DatabaseConnection>
+where
+    M: MigratorTrait,
+{
+    block_on(async {
+        let db = db::connect(s.config.database_dsn.get()).await?;
+        M::up(&db, None).await?;
+        s.logger.set_db(db.clone());
+        Ok::<DatabaseConnection, anyhow::Error>(db)
+    })
 }
 
 #[derive(thiserror::Error, Derivative)]
@@ -342,18 +359,19 @@ impl PluginManager {
         let mut skynet = skynet;
         for i in &mut instance {
             if i.status.is_enable() {
+                info!("Plugin init: {}({})", i.id, i.name);
                 let inst = i.instance.as_ref().unwrap();
-                if let Err(e) = inst._init_logger(&mut skynet.logger) {
+                if let Err(e) = inst._init(&mut skynet) {
                     i.status = PluginStatus::Unload;
                     error!(
-                        "Plugin {}({}) unload because of `_init_logger` error: {}",
+                        "Plugin {}({}) unload because of `_init` error: {}",
                         i.id, i.name, e,
                     );
                 } else {
                     let load_res = inst.on_load(skynet);
                     skynet = load_res.0;
                     match load_res.1 {
-                        Ok(()) => debug!("Plugin loaded: {}({})", i.id, i.name),
+                        Ok(()) => info!("Plugin loaded: {}({})", i.id, i.name),
                         Err(e) => {
                             i.status = PluginStatus::Unload;
                             error!(

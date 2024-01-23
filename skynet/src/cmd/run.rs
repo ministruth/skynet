@@ -1,6 +1,6 @@
 use std::{fs::File, io::BufReader, path::Path};
 
-use crate::{api, db, Cli};
+use crate::{api, Cli};
 use actix_files::NamedFile;
 use actix_session::{
     config::{PersistentSession, TtlExtensionPolicy},
@@ -10,7 +10,9 @@ use actix_session::{
 use actix_web::{
     cookie::{time::Duration, Key, SameSite},
     dev::{fn_service, ServerHandle, ServiceRequest, ServiceResponse},
-    middleware, web, App, HttpServer,
+    middleware,
+    web::{scope, Data},
+    App, HttpServer,
 };
 use actix_web_validator::JsonConfig;
 use chrono::Utc;
@@ -19,11 +21,14 @@ use parking_lot::Mutex;
 use redis::aio::ConnectionManager;
 use rustls::{Certificate, PrivateKey, ServerConfig};
 use rustls_pemfile::{certs, pkcs8_private_keys};
-use sea_orm::TransactionTrait;
-use skynet::{config, logger, permission::DEFAULT_ID, plugin::PluginManager, Skynet};
+use sea_orm::{DatabaseConnection, TransactionTrait};
+use skynet::{config, db, plugin::PluginManager, Skynet};
 use skynet_i18n::i18n;
 
-pub async fn init_skynet(cli: &Cli, mut skynet: Skynet) -> Skynet {
+pub async fn init_skynet(
+    cli: &Cli,
+    mut skynet: Skynet,
+) -> (Skynet, DatabaseConnection, ConnectionManager) {
     // load config
     skynet.config = config::load_file(cli.config.to_str().unwrap());
     debug!("Config file {:?} loaded", cli.config);
@@ -32,35 +37,33 @@ pub async fn init_skynet(cli: &Cli, mut skynet: Skynet) -> Skynet {
     skynet.add_locale(i18n!("locales"));
 
     // init db
-    skynet.db = db::connect(skynet.config.database_dsn.get()).await.unwrap();
-    DEFAULT_ID.set(db::init(&skynet.db).await.unwrap()).unwrap();
+    let db = db::connect(skynet.config.database_dsn.get()).await.unwrap();
+    skynet.default_id = db::init(&db).await.unwrap();
     debug!("DB connected");
 
     // init redis
-    skynet.redis = Some(
-        ConnectionManager::new(redis::Client::open(skynet.config.redis_dsn.get()).unwrap())
-            .await
-            .unwrap(),
-    );
+    let redis = ConnectionManager::new(redis::Client::open(skynet.config.redis_dsn.get()).unwrap())
+        .await
+        .unwrap();
     debug!("Redis connected");
 
     // init notification
-    logger::DBLOGGER.set(skynet.db.clone()).unwrap();
-    logger::Logger::write_db_pending(&skynet.db).await;
+    skynet.logger.set_db(db.clone());
+    skynet.logger.write_pending(&db).await;
 
     // init setting
-    let tx = skynet.db.begin().await.unwrap();
+    let tx = db.begin().await.unwrap();
     skynet.setting.build_cache(&tx).await.unwrap();
     tx.commit().await.unwrap();
 
     // init menu
-    skynet.menu = api::new_menu();
+    skynet.menu = api::new_menu(&skynet);
 
     // init plugin
     let mut plugin = PluginManager::new();
     let mut skynet = plugin.load_all(skynet, &cli.plugin);
     skynet.plugin = plugin;
-    skynet
+    (skynet, db, redis)
 }
 
 fn load_rustls_config<P: AsRef<Path>>(cert: P, key: P) -> ServerConfig {
@@ -98,11 +101,14 @@ fn get_security_header(ssl: bool, csp: String) -> middleware::DefaultHeaders {
     ret
 }
 
-fn get_session_middleware(s: &Skynet) -> SessionMiddleware<RedisSessionStore> {
+fn get_session_middleware(
+    s: &Skynet,
+    redis: &ConnectionManager,
+) -> SessionMiddleware<RedisSessionStore> {
     let cookie_prefix = s.config.session_prefix.get().to_owned();
     let cookie_fn = move |x: &str| format!("{cookie_prefix}{x}");
     SessionMiddleware::builder(
-        RedisSessionStore::builder(s.redis.clone().unwrap())
+        RedisSessionStore::builder(redis.clone())
             .cache_keygen(cookie_fn.clone())
             .build()
             .unwrap(),
@@ -138,15 +144,12 @@ impl StopHandle {
 }
 
 pub async fn command(cli: &Cli, skynet: Skynet, disable_csrf: bool) {
-    let mut skynet = init_skynet(cli, skynet).await;
+    let (mut skynet, db, mut redis) = init_skynet(cli, skynet).await;
     if disable_csrf {
         warn!("CSRF protection is disabled, for debugging purpose only");
     }
     if !cli.persist_session {
-        let _: () = redis::cmd("FLUSHDB")
-            .query_async(skynet.redis.as_mut().unwrap())
-            .await
-            .unwrap();
+        let _: () = redis::cmd("FLUSHDB").query_async(&mut redis).await.unwrap();
     }
 
     let mut worker: usize = skynet.config.listen_worker.get().try_into().unwrap();
@@ -155,21 +158,23 @@ pub async fn command(cli: &Cli, skynet: Skynet, disable_csrf: bool) {
     }
     // run server
     skynet.start_time = Utc::now();
-    let skynet = web::Data::new(skynet);
-    let cli_data = web::Data::new(cli.clone());
-    let stop_handle = web::Data::new(StopHandle::default());
+    let skynet = Data::new(skynet);
+    let cli_data = Data::new(cli.clone());
+    let db = Data::new(db);
+    let redis = Data::new(redis);
+    let stop_handle = Data::new(StopHandle::default());
     let server = HttpServer::new({
         let stop_handle = stop_handle.clone();
         let skynet = skynet.clone();
         move || {
-            let mut route = api::new_api();
+            let mut route = api::new_api(&skynet);
             route = skynet.plugin.parse_route(route);
 
             App::new()
                 .service(
-                    web::scope("/api")
+                    scope("/api")
                         .configure(api::router(route, disable_csrf))
-                        .wrap(get_session_middleware(&skynet)),
+                        .wrap(get_session_middleware(&skynet, &redis)),
                 )
                 .service(
                     actix_files::Files::new("/", "./assets")
@@ -189,6 +194,8 @@ pub async fn command(cli: &Cli, skynet: Skynet, disable_csrf: bool) {
                 .wrap(middleware::Logger::default())
                 .app_data(skynet.clone())
                 .app_data(cli_data.clone())
+                .app_data(db.clone())
+                .app_data(redis.clone())
                 .app_data(
                     JsonConfig::default().limit(skynet.config.max_body.get().try_into().unwrap()),
                 )

@@ -6,7 +6,8 @@ use sea_orm::{
     ActiveModelTrait, ColumnTrait, ConnectOptions, Database, DatabaseConnection, EntityTrait,
     QueryFilter, Set,
 };
-use skynet::{
+
+use crate::{
     entity::permissions,
     permission::IDTypes::{self, *},
     HyUuid,
@@ -24,17 +25,22 @@ fn default_perm() -> Vec<(IDTypes, String)> {
     ]
 }
 
+/// # Errors
+///
+/// Will return `Err` for db error.
 pub async fn connect<S: AsRef<str>>(dsn: S) -> Result<DatabaseConnection, DbErr> {
     let mut opt = ConnectOptions::new(dsn.as_ref().to_owned());
     opt.sqlx_logging(false);
-    let db = Database::connect(opt).await?;
-    Migrator::up(&db, None).await?;
-    Ok(db)
+    Database::connect(opt).await
 }
 
+/// # Errors
+///
+/// Will return `Err` for db error.
 pub async fn init(db: &DatabaseConnection) -> Result<EnumMap<IDTypes, HyUuid>> {
-    let mut ret = EnumMap::<IDTypes, HyUuid>::default();
+    Migrator::up(db, None).await?;
 
+    let mut ret = EnumMap::<IDTypes, HyUuid>::default();
     // default permission
     for (id, note) in default_perm() {
         let name = id.to_string();

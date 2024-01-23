@@ -8,7 +8,8 @@ use actix_web::{cookie::time::Duration, web::Data, Responder};
 use actix_web_validator::Json;
 use anyhow::{bail, Result};
 use log::warn;
-use sea_orm::TransactionTrait;
+use redis::aio::ConnectionManager;
+use sea_orm::{DatabaseConnection, TransactionTrait};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use skynet::{
@@ -32,6 +33,7 @@ pub struct SigninReq {
 
 pub async fn signin(
     param: Json<SigninReq>,
+    db: Data<DatabaseConnection>,
     req: Request,
     session: Session,
     skynet: Data<Skynet>,
@@ -64,7 +66,7 @@ pub async fn signin(
         }
     }
 
-    let tx = skynet.db.begin().await?;
+    let tx = db.begin().await?;
     let (ok, user) = skynet
         .user
         .check_pass(&tx, &param.username, &param.password)
@@ -166,8 +168,11 @@ pub async fn get_access(req: Request) -> RspResult<impl Responder> {
     finish!(Response::data(rsp));
 }
 
-pub async fn get_token(skynet: Data<Skynet>) -> RspResult<impl Responder> {
-    let token = new_csrf_token(&skynet).await?;
+pub async fn get_token(
+    skynet: Data<Skynet>,
+    redis: Data<ConnectionManager>,
+) -> RspResult<impl Responder> {
+    let token = new_csrf_token(&skynet, &redis).await?;
     finish!(Response::ok().add_cookie(ResponseCookie {
         name: CSRF_COOKIE.to_owned(),
         value: token,

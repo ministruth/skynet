@@ -8,11 +8,9 @@ publish = false
 [dependencies]
 async-std = { version = "^1", features = ["attributes", "tokio1"] }
 
-[dependencies.sea-orm-migration]
-version = "^0"
-features = [
+sea-orm-migration = { version = "^0", features = [
     "sqlx-sqlite",
     "sqlx-postgres",
     "sqlx-mysql",
     "runtime-actix-rustls",
-]
+] }

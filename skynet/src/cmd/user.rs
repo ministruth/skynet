@@ -1,20 +1,25 @@
 use std::{fs, path::PathBuf};
 
 use log::{debug, error, info};
-use sea_orm::TransactionTrait;
+use sea_orm::{DatabaseConnection, TransactionTrait};
 use skynet::Skynet;
 
 use crate::{Cli, UserCli, UserCommands};
 
 use super::run::init_skynet;
 
-async fn create(skynet: &Skynet, avatar: &Option<PathBuf>, username: &str) {
+async fn create(
+    skynet: &Skynet,
+    db: &DatabaseConnection,
+    avatar: &Option<PathBuf>,
+    username: &str,
+) {
     let mut avatar_file: Option<Vec<u8>> = None;
     if let Some(x) = avatar {
         avatar_file = Some(fs::read(x).unwrap());
         debug!("Read avatar success: {:?}", x);
     }
-    let tx = skynet.db.begin().await.unwrap();
+    let tx = db.begin().await.unwrap();
     if skynet
         .user
         .find_by_name(&tx, username)
@@ -35,19 +40,19 @@ async fn create(skynet: &Skynet, avatar: &Option<PathBuf>, username: &str) {
 }
 
 pub async fn command(cli: &Cli, skynet: Skynet, user_cli: &UserCli) {
-    let skynet = init_skynet(cli, skynet).await;
+    let (skynet, db, redis) = init_skynet(cli, skynet).await;
 
     match &user_cli.command {
         // skynet user add
-        UserCommands::Add { avatar, username } => create(&skynet, avatar, username).await,
+        UserCommands::Add { avatar, username } => create(&skynet, &db, avatar, username).await,
         // skynet user reset
         UserCommands::Reset { username } => {
-            let tr = skynet.db.begin().await.unwrap();
+            let tr = db.begin().await.unwrap();
             let user = skynet.user.find_by_name(&tr, username).await.unwrap();
             if let Some(x) = user {
                 let x = skynet
                     .user
-                    .reset(&tr, &skynet, &x.id)
+                    .reset(&tr, &redis, &skynet, &x.id)
                     .await
                     .unwrap()
                     .unwrap();
@@ -58,6 +63,6 @@ pub async fn command(cli: &Cli, skynet: Skynet, user_cli: &UserCli) {
             };
             tr.commit().await.unwrap();
         }
-        UserCommands::Init { avatar } => create(&skynet, avatar, "root").await,
+        UserCommands::Init { avatar } => create(&skynet, &db, avatar, "root").await,
     }
 }

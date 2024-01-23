@@ -1,11 +1,14 @@
 pub use actix_web;
+pub use anyhow;
 pub use anyhow::Result;
 pub use async_trait::async_trait;
 pub use log;
-use permission::{PermEntry, PermissionItem};
+pub use redis;
 pub use sea_orm::*;
+pub use uuid;
 
 pub mod config;
+pub mod db;
 pub mod entity;
 pub mod handler;
 pub mod hyuuid;
@@ -18,15 +21,18 @@ pub use hyuuid::HyUuid;
 
 use chrono::{DateTime, Utc};
 use derivative::Derivative;
+use enum_map::EnumMap;
 use handler::{GroupHandler, NotificationHandler, PermHandler, SettingHandler, UserHandler};
 use log::debug;
 use logger::Logger;
 use parking_lot::RwLock;
+use permission::{IDTypes, PermEntry, PermissionItem};
 use plugin::PluginManager;
-use redis::aio::ConnectionManager;
 use request::{APIRoute, PaginationParam};
 use sea_query::{ConditionExpression, SimpleExpr};
 use serde_repr::{Deserialize_repr, Serialize_repr};
+use std::sync::atomic::Ordering;
+use std::sync::Arc;
 use std::{cmp, collections::HashMap, sync::atomic::AtomicU64};
 
 /// Make map creation easier.
@@ -82,9 +88,6 @@ pub enum NotifyLevel {
     Error,
 }
 
-/// Global unread notifications.
-pub static UNREAD_NOTIFICATIONS: AtomicU64 = AtomicU64::new(0);
-
 /// Main entrance providing skynet function.
 pub struct Skynet {
     pub user: Box<dyn UserHandler>,
@@ -94,20 +97,31 @@ pub struct Skynet {
     pub setting: Box<dyn SettingHandler>,
     pub logger: Logger,
 
+    pub default_id: EnumMap<IDTypes, HyUuid>,
     pub config: config::Config,
     pub locale: HashMap<String, String>,
-
-    pub db: DatabaseConnection,
-    pub redis: Option<ConnectionManager>,
 
     pub plugin: PluginManager,
     pub menu: Vec<MenuItem>,
 
+    pub unread_notification: Arc<AtomicU64>,
     pub running: RwLock<bool>,
     pub start_time: DateTime<Utc>,
 }
 
 impl Skynet {
+    pub fn set_unread(&self, num: u64) {
+        self.unread_notification.store(num, Ordering::SeqCst);
+    }
+
+    pub fn add_unread(&self, num: u64) {
+        self.unread_notification.fetch_add(num, Ordering::SeqCst);
+    }
+
+    pub fn get_unread(&self) -> u64 {
+        self.unread_notification.load(Ordering::Relaxed)
+    }
+
     /// Get merged user permission.
     ///
     /// # Panics

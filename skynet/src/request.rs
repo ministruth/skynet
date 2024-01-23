@@ -18,7 +18,7 @@ use enum_as_inner::EnumAsInner;
 use enum_map::Enum;
 use futures::Future;
 use qstring::QString;
-use sea_orm::{Order, TransactionTrait};
+use sea_orm::{DatabaseConnection, Order, TransactionTrait};
 use serde::{Deserialize, Serialize};
 use serde_inline_default::serde_inline_default;
 use serde_json::json;
@@ -242,6 +242,7 @@ impl FromRequest for Request {
                 return Ok(x);
             }
             let skynet = req.app_data::<Data<Skynet>>().unwrap();
+            let db = req.app_data::<Data<DatabaseConnection>>().unwrap();
             let query_str = req.query_string();
             let qs = QString::from(query_str);
             let lang = qs
@@ -266,7 +267,7 @@ impl FromRequest for Request {
                                     },
                                 )])
                             } else {
-                                let tx = skynet.db.begin().await.unwrap();
+                                let tx = db.begin().await.unwrap();
                                 let perm = skynet
                                     .get_user_perm(&tx, x)
                                     .await

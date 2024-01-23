@@ -1,7 +1,7 @@
-use std::{collections::HashMap, fmt, sync::OnceLock};
+use std::{collections::HashMap, fmt};
 
 use derivative::Derivative;
-use enum_map::{Enum, EnumMap};
+use enum_map::Enum;
 use sea_orm::FromQueryResult;
 
 use crate::HyUuid;
@@ -40,9 +40,6 @@ impl fmt::Display for IDTypes {
         fmt.write_str(name)
     }
 }
-
-/// default permission id.
-pub static DEFAULT_ID: OnceLock<EnumMap<IDTypes, HyUuid>> = OnceLock::new();
 
 pub type UserPerm = i32;
 /// revoke permission.

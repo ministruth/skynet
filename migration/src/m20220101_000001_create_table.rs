@@ -160,14 +160,14 @@ impl MigrationTrait for Migration {
                             .not_null(),
                     )
                     .foreign_key(
-                        sea_query::ForeignKey::create()
+                        ForeignKey::create()
                             .to(Users::Table, Users::ID)
                             .from_col(UserGroupLinks::Uid)
                             .on_update(ForeignKeyAction::Restrict)
                             .on_delete(ForeignKeyAction::Cascade),
                     )
                     .foreign_key(
-                        sea_query::ForeignKey::create()
+                        ForeignKey::create()
                             .to(Groups::Table, Groups::ID)
                             .from_col(UserGroupLinks::Gid)
                             .on_update(ForeignKeyAction::Restrict)
@@ -178,7 +178,7 @@ impl MigrationTrait for Migration {
             .await?;
         manager
             .create_index(
-                sea_query::Index::create()
+                Index::create()
                     .unique()
                     .name("idx_usergrouplinks_1")
                     .table(UserGroupLinks::Table)
@@ -249,21 +249,21 @@ impl MigrationTrait for Migration {
                             .not_null(),
                     )
                     .foreign_key(
-                        sea_query::ForeignKey::create()
+                        ForeignKey::create()
                             .to(Users::Table, Users::ID)
                             .from_col(PermissionLinks::Uid)
                             .on_update(ForeignKeyAction::Restrict)
                             .on_delete(ForeignKeyAction::Cascade),
                     )
                     .foreign_key(
-                        sea_query::ForeignKey::create()
+                        ForeignKey::create()
                             .to(Groups::Table, Groups::ID)
                             .from_col(PermissionLinks::Gid)
                             .on_update(ForeignKeyAction::Restrict)
                             .on_delete(ForeignKeyAction::Cascade),
                     )
                     .foreign_key(
-                        sea_query::ForeignKey::create()
+                        ForeignKey::create()
                             .to(Permissions::Table, Permissions::ID)
                             .from_col(PermissionLinks::Pid)
                             .on_update(ForeignKeyAction::Restrict)
@@ -274,7 +274,7 @@ impl MigrationTrait for Migration {
             .await?;
         manager
             .create_index(
-                sea_query::Index::create()
+                Index::create()
                     .unique()
                     .name("idx_permissionlinks_1")
                     .table(PermissionLinks::Table)

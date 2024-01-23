@@ -1,6 +1,6 @@
 use actix_web::{web::Data, Responder};
 use actix_web_validator::QsQuery;
-use sea_orm::{ColumnTrait, IntoSimpleExpr, TransactionTrait};
+use sea_orm::{ColumnTrait, DatabaseConnection, IntoSimpleExpr, TransactionTrait};
 use serde::Deserialize;
 use serde_json::json;
 use skynet::{
@@ -29,7 +29,11 @@ pub struct GetReq {
     time: TimeParam,
 }
 
-pub async fn get_all(param: QsQuery<GetReq>, skynet: Data<Skynet>) -> RspResult<impl Responder> {
+pub async fn get_all(
+    param: QsQuery<GetReq>,
+    db: Data<DatabaseConnection>,
+    skynet: Data<Skynet>,
+) -> RspResult<impl Responder> {
     let mut cond = param.common_cond();
     if let Some(level) = &param.level {
         cond = cond.add(Column::Level.is_in(level.iter().map(|x| *x as i32)));
@@ -43,15 +47,19 @@ pub async fn get_all(param: QsQuery<GetReq>, skynet: Data<Skynet>) -> RspResult<
                 .add(like_expr!(Column::Detail, text)),
         );
     }
-    let tx = skynet.db.begin().await?;
+    let tx = db.begin().await?;
     let data = skynet.notification.find(&tx, cond).await?;
     tx.commit().await?;
-    skynet.notification.set_unread(0);
+    skynet.set_unread(0);
     finish!(Response::data(PageData::new(data)));
 }
 
-pub async fn delete_all(req: Request, skynet: Data<Skynet>) -> RspResult<impl Responder> {
-    let tx = skynet.db.begin().await?;
+pub async fn delete_all(
+    req: Request,
+    db: Data<DatabaseConnection>,
+    skynet: Data<Skynet>,
+) -> RspResult<impl Responder> {
+    let tx = db.begin().await?;
     let cnt = skynet.notification.delete_all(&tx).await?;
     tx.commit().await?;
     success!(
@@ -64,5 +72,5 @@ pub async fn delete_all(req: Request, skynet: Data<Skynet>) -> RspResult<impl Re
 }
 
 pub async fn get_unread(skynet: Data<Skynet>) -> RspResult<impl Responder> {
-    finish!(Response::data(skynet.notification.get_unread()));
+    finish!(Response::data(skynet.get_unread()));
 }

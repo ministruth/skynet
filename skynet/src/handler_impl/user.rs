@@ -3,7 +3,7 @@ use std::time;
 use anyhow::Result;
 use async_trait::async_trait;
 use derivative::Derivative;
-use redis::AsyncCommands;
+use redis::{aio::ConnectionManager, AsyncCommands};
 use sea_orm::{
     ActiveModelTrait, ActiveValue::NotSet, ColumnTrait, DatabaseTransaction, EntityTrait,
     PaginatorTrait, QueryFilter, Set, Unchanged,
@@ -57,6 +57,7 @@ impl UserHandler for DefaultUserHandler {
     async fn update(
         &self,
         db: &DatabaseTransaction,
+        redis: &ConnectionManager,
         skynet: &Skynet,
         uid: &HyUuid,
         username: Option<&str>,
@@ -66,7 +67,7 @@ impl UserHandler for DefaultUserHandler {
         salt_suffix: &str,
     ) -> Result<users::Model> {
         if password.is_some() {
-            self.kick(skynet, uid).await?;
+            self.kick(redis, skynet, uid).await?;
         }
         users::ActiveModel {
             id: Unchanged(uid.to_owned()),
@@ -146,6 +147,7 @@ impl UserHandler for DefaultUserHandler {
     async fn reset(
         &self,
         db: &DatabaseTransaction,
+        redis: &ConnectionManager,
         skynet: &Skynet,
         uid: &HyUuid,
     ) -> Result<Option<users::Model>> {
@@ -153,7 +155,7 @@ impl UserHandler for DefaultUserHandler {
         let u = users::Entity::find_by_id(uid.to_owned()).one(db).await?;
         match u {
             Some(x) => {
-                self.kick(skynet, uid).await?;
+                self.kick(redis, skynet, uid).await?;
                 let mut x: users::ActiveModel = x.into();
                 x.password = Set(Self::hash_pass(
                     &password,
@@ -168,8 +170,8 @@ impl UserHandler for DefaultUserHandler {
         }
     }
 
-    async fn kick(&self, skynet: &Skynet, uid: &HyUuid) -> Result<()> {
-        let mut redis = skynet.redis.clone().unwrap();
+    async fn kick(&self, redis: &ConnectionManager, skynet: &Skynet, uid: &HyUuid) -> Result<()> {
+        let mut redis = redis.clone();
         let keys: Vec<String> = redis
             .keys(format!("{}*_{}", skynet.config.session_prefix.get(), uid))
             .await?;
@@ -183,8 +185,13 @@ impl UserHandler for DefaultUserHandler {
             .map_err(anyhow::Error::from)
     }
 
-    async fn delete_all(&self, db: &sea_orm::DatabaseTransaction, skynet: &Skynet) -> Result<u64> {
-        let mut redis = skynet.redis.clone().unwrap();
+    async fn delete_all(
+        &self,
+        db: &sea_orm::DatabaseTransaction,
+        redis: &ConnectionManager,
+        skynet: &Skynet,
+    ) -> Result<u64> {
+        let mut redis = redis.clone();
         let keys: Vec<String> = redis
             .keys(format!("{}*_", skynet.config.session_prefix.get()))
             .await?;
@@ -204,13 +211,14 @@ impl UserHandler for DefaultUserHandler {
     async fn delete(
         &self,
         db: &sea_orm::DatabaseTransaction,
+        redis: &ConnectionManager,
         skynet: &Skynet,
         uid: &[skynet::HyUuid],
     ) -> Result<u64> {
         if uid.is_empty() {
             return Ok(0);
         }
-        let mut redis = skynet.redis.clone().unwrap();
+        let mut redis = redis.clone();
         let mut keys: Vec<String> = Vec::new();
         for i in uid {
             keys.append(

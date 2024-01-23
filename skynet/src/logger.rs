@@ -1,27 +1,31 @@
 use std::{
     io,
-    sync::{atomic::Ordering, OnceLock},
+    sync::{
+        atomic::{AtomicU64, Ordering},
+        Arc, OnceLock,
+    },
     time,
 };
 
-use actix_web::rt::task;
+use actix_web::rt::{self, System};
 use anyhow::Result;
+use async_std::task;
 use derivative::Derivative;
 use fern::colors::{Color, ColoredLevelConfig};
-use futures::executor::block_on;
 use log::{Level, LevelFilter};
 use parking_lot::Mutex;
 use sea_orm::{ActiveModelTrait, DatabaseConnection, Set};
 use serde_json::json;
 
-use crate::{entity::notifications, NotifyLevel, UNREAD_NOTIFICATIONS};
+use crate::{entity::notifications, NotifyLevel};
 
-pub static DBLOGGER: OnceLock<DatabaseConnection> = OnceLock::new();
-static DBCACHE: OnceLock<Mutex<Vec<(NotifyLevel, String, String)>>> = OnceLock::new();
+type SyncCache = Mutex<Vec<(NotifyLevel, String, String)>>;
 
-#[must_use]
+static CACHE: OnceLock<SyncCache> = OnceLock::new();
+static DB: OnceLock<DatabaseConnection> = OnceLock::new();
+
 #[derive(Derivative)]
-#[derivative(Default(new = "true"), Debug)]
+#[derivative(Default(new = "true"))]
 pub struct Logger {
     pub verbose: bool,
     pub json: bool,
@@ -29,6 +33,10 @@ pub struct Logger {
 }
 
 impl Logger {
+    pub fn set_db(&self, db: DatabaseConnection) {
+        let _ = DB.set(db);
+    }
+
     /// Normalize target to skynet target.
     #[must_use]
     fn normalize_target(s: &str) -> String {
@@ -43,7 +51,13 @@ impl Logger {
         }
     }
 
-    fn write_notification(success: bool, level: log::Level, target: String, mut msg: String) {
+    fn write_notification(
+        unread: &Arc<AtomicU64>,
+        success: bool,
+        level: log::Level,
+        target: String,
+        mut msg: String,
+    ) {
         if level == Level::Warn || level == Level::Error || success {
             let level = if success {
                 NotifyLevel::Success
@@ -52,8 +66,7 @@ impl Logger {
             } else {
                 NotifyLevel::Warning
             };
-            if let Some(db) = DBLOGGER.get() {
-                // prevent deadlock
+            if let Some(db) = DB.get() {
                 let split = msg
                     .split_once('\n')
                     .map(|x| (x.0.to_owned(), x.1.to_owned()));
@@ -64,24 +77,27 @@ impl Logger {
                     }
                     None => String::new(),
                 };
-                task::spawn_blocking(move || {
-                    block_on(async {
-                        let _ = notifications::ActiveModel {
-                            level: Set(level as i32),
-                            target: Set(target),
-                            message: Set(msg),
-                            detail: Set(detail),
-                            ..Default::default()
-                        }
-                        .insert(db)
-                        .await
-                        .unwrap();
-                    });
-                });
+                // prevent deadlock for sqlite
+                let fut = async move {
+                    let _ = notifications::ActiveModel {
+                        level: Set(level as i32),
+                        target: Set(target),
+                        message: Set(msg),
+                        detail: Set(detail),
+                        ..Default::default()
+                    }
+                    .insert(db)
+                    .await;
+                };
+                if System::is_registered() {
+                    rt::spawn(fut);
+                } else {
+                    task::spawn(fut);
+                }
             } else {
-                DBCACHE.get().unwrap().lock().push((level, target, msg));
+                CACHE.get().unwrap().lock().push((level, target, msg));
             }
-            UNREAD_NOTIFICATIONS.fetch_add(1, Ordering::SeqCst);
+            unread.fetch_add(1, Ordering::SeqCst);
         }
     }
 
@@ -93,8 +109,8 @@ impl Logger {
     /// # Errors
     ///
     /// Will return `Err` if logger cannot be set.
-    pub fn reinit(&mut self) -> Result<()> {
-        self.init(self.enable, self.json, self.verbose)
+    pub fn reinit(&mut self, unread: Arc<AtomicU64>) -> Result<()> {
+        self.init(unread, self.enable, self.json, self.verbose)
     }
 
     /// Write pending warnings and errors to database.
@@ -103,8 +119,8 @@ impl Logger {
     /// # Panics
     ///
     /// Panics if the logger is not initialized.
-    pub async fn write_db_pending(db: &DatabaseConnection) {
-        let cached: Vec<(i32, String, String)> = DBCACHE
+    pub async fn write_pending(&self, db: &DatabaseConnection) {
+        let cached: Vec<(i32, String, String)> = CACHE
             .get()
             .unwrap()
             .lock()
@@ -136,9 +152,15 @@ impl Logger {
     ///
     /// Will return `Err` if logger cannot be set.
     #[allow(clippy::missing_panics_doc)]
-    pub fn init(&mut self, enable: bool, json: bool, verbose: bool) -> Result<()> {
+    pub fn init(
+        &mut self,
+        unread: Arc<AtomicU64>,
+        enable: bool,
+        json: bool,
+        verbose: bool,
+    ) -> Result<()> {
         if enable {
-            DBCACHE.set(Mutex::new(Vec::new())).unwrap();
+            CACHE.set(Mutex::new(Vec::new())).unwrap();
             let level_color = ColoredLevelConfig::new()
                 .debug(Color::BrightMagenta)
                 .info(Color::BrightBlue)
@@ -157,6 +179,7 @@ impl Logger {
                 let target = Self::normalize_target(record.target());
                 let message = message.to_string();
                 Self::write_notification(
+                    &unread,
                     record.target() == "_success",
                     record.level(),
                     target.clone(),

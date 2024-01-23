@@ -5,7 +5,7 @@ use actix_web::{
 use actix_web_validator::{Json, QsQuery};
 use lazy_static::lazy_static;
 use regex::Regex;
-use sea_orm::TransactionTrait;
+use sea_orm::{DatabaseConnection, TransactionTrait};
 use serde::Deserialize;
 use serde_json::json;
 use skynet::{
@@ -104,6 +104,7 @@ pub struct AddReq {
 
 pub async fn add(
     param: Json<AddReq>,
+    db: Data<DatabaseConnection>,
     req: Request,
     cli: Data<Cli>,
     skynet: Data<Skynet>,
@@ -122,7 +123,7 @@ pub async fn add(
     }
 
     utils::unzip(&file, &dst)?;
-    let tx = skynet.db.begin().await?;
+    let tx = db.begin().await?;
     match skynet.plugin.load(&tx, &skynet, &dst).await {
         Ok(x) => {
             if !x {
@@ -158,11 +159,12 @@ pub struct PutReq {
 
 pub async fn put(
     id: Path<HyUuid>,
+    db: Data<DatabaseConnection>,
     param: Json<PutReq>,
     req: Request,
     skynet: Data<Skynet>,
 ) -> RspResult<impl Responder> {
-    let tx = skynet.db.begin().await?;
+    let tx = db.begin().await?;
     if !skynet.plugin.set(&tx, &skynet, &id, param.enable).await? {
         finish!(Response::not_found());
     }
@@ -180,6 +182,7 @@ pub async fn put(
 
 pub async fn delete(
     id: Path<HyUuid>,
+    db: Data<DatabaseConnection>,
     req: Request,
     cli: Data<Cli>,
     skynet: Data<Skynet>,
@@ -188,7 +191,7 @@ pub async fn delete(
         if x.status != PluginStatus::Unload {
             finish!(Response::new(ResponseCode::CodePluginLoaded));
         }
-        let tx = skynet.db.begin().await?;
+        let tx = db.begin().await?;
         skynet.plugin.set(&tx, &skynet, &id, false).await?;
         tx.commit().await?;
         // Ignore error from this point.

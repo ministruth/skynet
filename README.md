@@ -1,6 +1,6 @@
 # skynet
 
-![status](https://img.shields.io/badge/status-dev-lightgrey) ![rustc](https://img.shields.io/badge/rustc-1.56+-red)
+![status](https://img.shields.io/badge/status-dev-lightgrey?style=flat-square) ![rustc](https://img.shields.io/badge/rustc-1.56+-red?style=flat-square)
 
 Skynet is a service integration and management system, specially optimized for personal and home-lab use. With plugin support, you can easily embed whatever software you want to satisfy your need.
 

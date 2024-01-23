@@ -5,6 +5,7 @@ use crate::{
 };
 use anyhow::Result;
 use async_trait::async_trait;
+use redis::aio::ConnectionManager;
 use sea_orm::DatabaseTransaction;
 use skynet_macro::default_handler;
 use std::collections::HashMap;
@@ -32,6 +33,7 @@ pub trait UserHandler: Send + Sync {
     async fn update(
         &self,
         db: &DatabaseTransaction,
+        redis: &ConnectionManager,
         skynet: &Skynet,
         uid: &HyUuid,
         username: Option<&str>,
@@ -77,20 +79,27 @@ pub trait UserHandler: Send + Sync {
     async fn reset(
         &self,
         db: &DatabaseTransaction,
+        redis: &ConnectionManager,
         skynet: &Skynet,
         uid: &HyUuid,
     ) -> Result<Option<users::Model>>;
 
     /// Kick all `uid` login sessions.
-    async fn kick(&self, skynet: &Skynet, uid: &HyUuid) -> Result<()>;
+    async fn kick(&self, redis: &ConnectionManager, skynet: &Skynet, uid: &HyUuid) -> Result<()>;
 
     /// Delete all users and kick them.
-    async fn delete_all(&self, db: &sea_orm::DatabaseTransaction, skynet: &Skynet) -> Result<u64>;
+    async fn delete_all(
+        &self,
+        db: &DatabaseTransaction,
+        redis: &ConnectionManager,
+        skynet: &Skynet,
+    ) -> Result<u64>;
 
     /// Delete `uid` users and kick them.
     async fn delete(
         &self,
-        db: &sea_orm::DatabaseTransaction,
+        db: &DatabaseTransaction,
+        redis: &ConnectionManager,
         skynet: &Skynet,
         uid: &[HyUuid],
     ) -> Result<u64>;
@@ -232,16 +241,7 @@ pub trait PermHandler: Send + Sync {
 /// Notification handler.
 #[default_handler(notifications)]
 #[async_trait]
-pub trait NotificationHandler: Send + Sync {
-    /// Set `num` to unread notification.
-    fn set_unread(&self, num: u64);
-
-    /// Add `num` to unread notification.
-    fn add_unread(&self, num: u64);
-
-    /// Get unread notification.
-    fn get_unread(&self) -> u64;
-}
+pub trait NotificationHandler: Send + Sync {}
 
 #[async_trait]
 pub trait SettingHandler: Send + Sync {
