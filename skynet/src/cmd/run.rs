@@ -38,7 +38,7 @@ pub async fn init_skynet(
 
     // init db
     let db = db::connect(skynet.config.database_dsn.get()).await.unwrap();
-    skynet.default_id = db::init(&db).await.unwrap();
+    skynet.default_id = db::init(&db, &skynet).await.unwrap();
     debug!("DB connected");
 
     // init redis
@@ -168,7 +168,7 @@ pub async fn command(cli: &Cli, skynet: Skynet, disable_csrf: bool) {
         let skynet = skynet.clone();
         move || {
             let mut route = api::new_api(&skynet);
-            route = skynet.plugin.parse_route(route);
+            route = skynet.plugin.parse_route(&skynet, route);
 
             App::new()
                 .service(

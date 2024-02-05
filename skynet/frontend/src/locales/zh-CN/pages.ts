@@ -32,7 +32,6 @@ export default {
   'pages.permission.table.note': '备注',
   'pages.permission.table.perm': '权限',
   'pages.permission.table.ban': '禁用',
-  'pages.permission.op.update': '更新',
   'pages.permission.table.origin': '来源',
   'pages.permission.table.self': 'self',
 
@@ -48,8 +47,6 @@ export default {
   'pages.group.op.update.title': '更新用户组',
   'pages.group.op.clone.title': '克隆用户组',
   'pages.group.op.clone.content': '克隆的用户组将和原用户组具有相同的权限。',
-  'pages.group.op.update.tip': '更新',
-  'pages.group.op.clone.tip': '克隆',
   'pages.group.op.perm.tip': '权限',
   'pages.group.op.user.tip': '管理用户',
   'pages.group.op.perm.title': '管理用户组权限',
@@ -68,13 +65,10 @@ export default {
   'pages.user.form.group.tip':
     '添加用户到用户组，这将授予用户相应用户组的所有权限。',
   'pages.user.form.username.tip': '用户名是唯一的',
-  'pages.user.form.avatar.upload': '上传',
   'pages.user.form.avatar.invalid': '{file} 不允许上传',
   'pages.user.form.baseuser': '原用户',
   'pages.user.form.clonegroup': '克隆所有用户组',
   'pages.user.form.password.placeholder': '留空不修改',
-  'pages.user.op.clone.tip': '克隆',
-  'pages.user.op.update.tip': '更新',
   'pages.user.op.kick.tip': '踢出',
   'pages.user.op.kick.title': '踢出用户 {username}，确认？',
   'pages.user.op.add.title': '添加新用户',
@@ -103,12 +97,10 @@ export default {
   'pages.plugin.table.disable.content': '重新启动 Skynet 生效。',
   'pages.plugin.form.path.tip': '路径相对于插件根目录',
   'pages.plugin.form.file': '文件',
-  'pages.plugin.form.file.upload': '上传',
   'pages.plugin.form.file.invalid': '插件文件无效',
   'pages.plugin.form.crc32': 'CRC32',
   'pages.plugin.op.upload.title': '上传新插件',
   'pages.plugin.op.upload.warning': '安全警告',
   'pages.plugin.op.upload.content':
     '插件包可能含有恶意内容，请只上传受信任的插件！',
-  'pages.plugin.op.upload': '上传',
 };

@@ -59,9 +59,7 @@ const AvatarUpload: React.FC<AvatarUploadProps> = (props) => {
         return false;
       }}
     >
-      <Button icon={<UploadOutlined />}>
-        {intl.get('pages.user.form.avatar.upload')}
-      </Button>
+      <Button icon={<UploadOutlined />}>{intl.get('app.op.upload')}</Button>
     </Upload>
   );
 };

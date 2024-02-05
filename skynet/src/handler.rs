@@ -173,6 +173,13 @@ pub trait GroupHandler: Send + Sync {
 #[default_handler(permissions)]
 #[async_trait]
 pub trait PermHandler: Send + Sync {
+    async fn find_or_init(
+        &self,
+        db: &DatabaseTransaction,
+        name: &str,
+        note: &str,
+    ) -> Result<permissions::Model>;
+
     /// Find user `uid` permission.
     /// Note that user group permission is not included.
     async fn find_user(

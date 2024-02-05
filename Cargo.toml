@@ -7,5 +7,7 @@ members = [
     "migration",
     "skynet",
     "plugin/monitor",
+    "plugin/_agent",
+    "plugin/task",
 ]
 resolver = "2"

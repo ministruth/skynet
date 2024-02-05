@@ -483,12 +483,14 @@ pub fn derive_iterable(input: TokenStream) -> TokenStream {
     let expanded = quote! {
         impl #struct_name {
 
+            #[allow(clippy::iter_without_into_iter)]
             pub fn iter<'a>(&'a self) -> std::vec::IntoIter<(&'static str, &'a dyn std::any::Any)> {
                 vec![
                     #(#fields_iter),*
                 ].into_iter()
             }
 
+            #[allow(clippy::iter_without_into_iter)]
             pub fn iter_mut<'a>(&'a mut self) -> std::vec::IntoIter<(&'static str, &'a mut dyn std::any::Any)> {
                 vec![
                     #(#fields_iter_mut),*

@@ -54,7 +54,7 @@ const GroupClone: React.FC<GroupBtnProps> = (props) => {
         <TableBtn
           key="clone"
           icon={PlusOutlined}
-          tip={intl.get('pages.group.op.clone.tip')}
+          tip={intl.get('app.op.clone')}
         />
       }
       schemaProps={{

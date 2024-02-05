@@ -320,10 +320,8 @@ pub async fn put(
     finish!(Response::ok());
 }
 
-type DeleteBatchReq = IDsReq;
-
 pub async fn delete_batch(
-    param: Json<DeleteBatchReq>,
+    param: Json<IDsReq>,
     db: Data<DatabaseConnection>,
     redis: Data<ConnectionManager>,
     req: Request,

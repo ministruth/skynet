@@ -213,10 +213,8 @@ pub async fn put(
     finish!(Response::ok());
 }
 
-type DeleteBatchReq = IDsReq;
-
 pub async fn delete_batch(
-    param: Json<DeleteBatchReq>,
+    param: Json<IDsReq>,
     db: Data<DatabaseConnection>,
     req: Request,
     skynet: Data<Skynet>,
@@ -258,10 +256,8 @@ pub async fn delete(
     finish!(Response::data(rows));
 }
 
-type AddUsersReq = IDsReq;
-
 pub async fn add_user(
-    param: Json<AddUsersReq>,
+    param: Json<IDsReq>,
     db: Data<DatabaseConnection>,
     req: Request,
     gid: Path<HyUuid>,
@@ -316,10 +312,8 @@ pub async fn add_user(
     finish!(Response::ok());
 }
 
-type DeleteUsersReq = IDsReq;
-
 pub async fn delete_user_batch(
-    param: Json<DeleteUsersReq>,
+    param: Json<IDsReq>,
     db: Data<DatabaseConnection>,
     req: Request,
     gid: Path<HyUuid>,

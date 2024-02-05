@@ -132,6 +132,8 @@ async fn main() -> io::Result<()> {
         unread_notification: Arc::new(AtomicU64::new(0)),
         running: RwLock::new(false),
         start_time: DateTime::default(),
+
+        shared_api: HashMap::new(),
     };
     // init logger first
     skynet

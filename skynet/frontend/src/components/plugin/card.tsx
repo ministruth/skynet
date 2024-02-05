@@ -236,7 +236,7 @@ const PluginCard = () => {
                 type="primary"
                 icon={<UploadOutlined style={{ marginRight: '8px' }} />}
               >
-                <FormattedMessage id="pages.plugin.op.upload" />
+                <FormattedMessage id="app.op.upload" />
               </Button>
             }
             rollback={
@@ -246,7 +246,7 @@ const PluginCard = () => {
                 icon={<UploadOutlined style={{ marginRight: '8px' }} />}
                 disabled
               >
-                <FormattedMessage id="pages.plugin.op.upload" />
+                <FormattedMessage id="aoo.op.upload" />
               </Button>
             }
           />,

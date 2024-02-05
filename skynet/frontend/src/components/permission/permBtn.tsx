@@ -268,7 +268,7 @@ const Permission: React.FC<PermProps> = (props) => {
                   }
                   onClick={handleUpdate}
                 >
-                  {intl.get('pages.permission.op.update')}
+                  {intl.get('app.op.update')}
                 </LoadBtn>,
               ],
             }}

@@ -3,8 +3,8 @@ use async_trait::async_trait;
 use derivative::Derivative;
 use migration::JoinType;
 use sea_orm::{
-    ActiveModelBehavior, ColumnTrait, DatabaseTransaction, EntityTrait, PaginatorTrait,
-    QueryFilter, QuerySelect, RelationTrait, Set,
+    ActiveModelBehavior, ActiveModelTrait, ColumnTrait, DatabaseTransaction, EntityTrait,
+    PaginatorTrait, QueryFilter, QuerySelect, RelationTrait, Set,
 };
 use skynet::{
     entity::{groups, permission_links, permissions, users},
@@ -21,6 +21,28 @@ pub struct DefaultPermHandler;
 #[default_handler_impl(permissions)]
 #[async_trait]
 impl PermHandler for DefaultPermHandler {
+    async fn find_or_init(
+        &self,
+        db: &DatabaseTransaction,
+        name: &str,
+        note: &str,
+    ) -> Result<permissions::Model> {
+        match permissions::Entity::find()
+            .filter(permissions::Column::Name.eq(name))
+            .one(db)
+            .await?
+        {
+            Some(x) => Ok(x),
+            None => Ok(permissions::ActiveModel {
+                name: Set(name.to_owned()),
+                note: Set(note.to_owned()),
+                ..Default::default()
+            }
+            .insert(db)
+            .await?),
+        }
+    }
+
     async fn find_user(
         &self,
         db: &DatabaseTransaction,

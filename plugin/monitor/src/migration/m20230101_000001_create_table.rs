@@ -1,8 +1,11 @@
-use sea_orm_migration::{
-    sea_query::{self, ColumnDef, ForeignKey, ForeignKeyAction, Iden, Index, Table},
-    DbErr, MigrationTrait, SchemaManager,
+use sea_orm_migration::{MigrationTrait, SchemaManager};
+use skynet::{
+    async_trait,
+    sea_orm::{
+        sea_query::{self, ColumnDef, ForeignKey, ForeignKeyAction, Iden, Index, Table},
+        DbErr, DeriveMigrationName,
+    },
 };
-use skynet::{async_trait, DeriveMigrationName};
 
 #[derive(Iden)]
 enum Agents {
@@ -12,7 +15,7 @@ enum Agents {
     Name,
     OS,
     Hostname,
-    LastIP,
+    IP,
     System,
     Machine,
     LastLogin,
@@ -57,10 +60,10 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Agents::Name).string_len(32).not_null())
                     .col(ColumnDef::new(Agents::OS).string_len(32))
                     .col(ColumnDef::new(Agents::Hostname).string_len(256))
-                    .col(ColumnDef::new(Agents::LastIP).string_len(64))
+                    .col(ColumnDef::new(Agents::IP).string_len(64).not_null())
                     .col(ColumnDef::new(Agents::System).string_len(128))
                     .col(ColumnDef::new(Agents::Machine).string_len(32))
-                    .col(ColumnDef::new(Agents::LastLogin).big_integer())
+                    .col(ColumnDef::new(Agents::LastLogin).big_integer().not_null())
                     .col(ColumnDef::new(Agents::CreatedAt).big_integer().not_null())
                     .col(ColumnDef::new(Agents::UpdatedAt).big_integer().not_null())
                     .to_owned(),

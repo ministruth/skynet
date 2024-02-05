@@ -40,9 +40,7 @@ const PluginUpload: React.FC<PluginUploadProps> = (props) => {
         return false;
       }}
     >
-      <Button icon={<UploadOutlined />}>
-        {intl.get('pages.plugin.form.file.upload')}
-      </Button>
+      <Button icon={<UploadOutlined />}>{intl.get('app.op.upload')}</Button>
     </Upload>
   );
 };

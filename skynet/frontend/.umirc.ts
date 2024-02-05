@@ -1,7 +1,7 @@
 import { defineConfig } from 'umi';
 
 export default defineConfig({
-  mfsu: false,
+  //   mfsu: false,
   access: {
     strictMode: true,
   },

@@ -55,7 +55,7 @@ const UserClone: React.FC<UserBtnProps> = (props) => {
         <TableBtn
           key="clone"
           icon={PlusOutlined}
-          tip={intl.get('pages.user.op.clone.tip')}
+          tip={intl.get('app.op.clone')}
         />
       }
       schemaProps={{

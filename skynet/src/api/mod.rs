@@ -13,7 +13,7 @@ use redis::{aio::ConnectionManager, AsyncCommands};
 use serde_json::json;
 use skynet::{
     permission::{IDTypes::*, PermEntry, PERM_EXECUTE, PERM_READ, PERM_WRITE},
-    request::{APIRoute, Request, RspError},
+    request::{APIRoute, PermType, Request, RspError},
     utils, HyUuid, MenuItem, Skynet,
 };
 use std::rc::Rc;
@@ -132,328 +132,328 @@ pub fn new_api(skynet: &Skynet) -> Vec<APIRoute> {
             path: "/settings/public".to_owned(),
             method: Method::GET,
             route: get().to(setting::get_public),
-            permission: PermEntry::new_guest(),
+            permission: PermType::Entry(PermEntry::new_guest()),
         },
         APIRoute {
             path: "/signin".to_owned(),
             method: Method::POST,
             route: post().to(auth::signin),
-            permission: PermEntry::new_guest(),
+            permission: PermType::Entry(PermEntry::new_guest()),
         },
         APIRoute {
             path: "/signout".to_owned(),
             method: Method::POST,
             route: post().to(auth::signout),
-            permission: PermEntry::new_user(),
+            permission: PermType::Entry(PermEntry::new_user()),
         },
         APIRoute {
             path: "/ping".to_owned(),
             method: Method::GET,
             route: get().to(misc::ping),
-            permission: PermEntry::new_guest(),
+            permission: PermType::Entry(PermEntry::new_guest()),
         },
         APIRoute {
             path: "/access".to_owned(),
             method: Method::GET,
             route: get().to(auth::get_access),
-            permission: PermEntry::new_guest(),
+            permission: PermType::Entry(PermEntry::new_guest()),
         },
         APIRoute {
             path: "/token".to_owned(),
             method: Method::GET,
             route: get().to(auth::get_token),
-            permission: PermEntry::new_guest(),
+            permission: PermType::Entry(PermEntry::new_guest()),
         },
         APIRoute {
             path: "/shutdown".to_owned(),
             method: Method::POST,
             route: post().to(misc::shutdown),
-            permission: PermEntry {
+            permission: PermType::Entry(PermEntry {
                 pid: skynet.default_id[PermManageSystemID],
                 perm: PERM_EXECUTE,
-            },
+            }),
         },
         APIRoute {
             path: "/menus".to_owned(),
             method: Method::GET,
             route: get().to(misc::get_menus),
-            permission: PermEntry::new_user(),
+            permission: PermType::Entry(PermEntry::new_user()),
         },
         APIRoute {
             path: "/users".to_owned(),
             method: Method::GET,
             route: get().to(user::get_all),
-            permission: PermEntry {
+            permission: PermType::Entry(PermEntry {
                 pid: skynet.default_id[PermManageUserID],
                 perm: PERM_READ,
-            },
+            }),
         },
         APIRoute {
             path: "/users".to_owned(),
             method: Method::POST,
             route: post().to(user::add),
-            permission: PermEntry {
+            permission: PermType::Entry(PermEntry {
                 pid: skynet.default_id[PermManageUserID],
                 perm: PERM_WRITE,
-            },
+            }),
         },
         APIRoute {
             path: "/users".to_owned(),
             method: Method::DELETE,
             route: delete().to(user::delete_batch),
-            permission: PermEntry {
+            permission: PermType::Entry(PermEntry {
                 pid: skynet.default_id[PermManageUserID],
                 perm: PERM_WRITE,
-            },
+            }),
         },
         APIRoute {
             path: "/users/{uid}".to_owned(),
             method: Method::GET,
             route: get().to(user::get),
-            permission: PermEntry {
+            permission: PermType::Entry(PermEntry {
                 pid: skynet.default_id[PermManageUserID],
                 perm: PERM_READ,
-            },
+            }),
         },
         APIRoute {
             path: "/users/{uid}".to_owned(),
             method: Method::PUT,
             route: put().to(user::put),
-            permission: PermEntry {
+            permission: PermType::Entry(PermEntry {
                 pid: skynet.default_id[PermManageUserID],
                 perm: PERM_WRITE,
-            },
+            }),
         },
         APIRoute {
             path: "/users/{uid}".to_owned(),
             method: Method::DELETE,
             route: delete().to(user::delete),
-            permission: PermEntry {
+            permission: PermType::Entry(PermEntry {
                 pid: skynet.default_id[PermManageUserID],
                 perm: PERM_WRITE,
-            },
+            }),
         },
         APIRoute {
             path: "/users/{uid}/kick".to_owned(),
             method: Method::POST,
             route: post().to(user::kick),
-            permission: PermEntry {
+            permission: PermType::Entry(PermEntry {
                 pid: skynet.default_id[PermManageUserID],
                 perm: PERM_EXECUTE,
-            },
+            }),
         },
         APIRoute {
             path: "/users/{uid}/groups".to_owned(),
             method: Method::GET,
             route: get().to(user::get_group),
-            permission: PermEntry {
+            permission: PermType::Entry(PermEntry {
                 pid: skynet.default_id[PermManageUserID],
                 perm: PERM_READ,
-            },
+            }),
         },
         APIRoute {
             path: "/users/{uid}/permissions".to_owned(),
             method: Method::GET,
             route: get().to(permission::get_user),
-            permission: PermEntry {
+            permission: PermType::Entry(PermEntry {
                 pid: skynet.default_id[PermManageUserID],
                 perm: PERM_READ,
-            },
+            }),
         },
         APIRoute {
             path: "/users/{uid}/permissions".to_owned(),
             method: Method::PUT,
             route: put().to(permission::put_user),
-            permission: PermEntry {
+            permission: PermType::Entry(PermEntry {
                 pid: skynet.default_id[PermManageUserID],
                 perm: PERM_WRITE,
-            },
+            }),
         },
         APIRoute {
             path: "/groups".to_owned(),
             method: Method::GET,
             route: get().to(group::get_all),
-            permission: PermEntry {
+            permission: PermType::Entry(PermEntry {
                 pid: skynet.default_id[PermManageUserID],
                 perm: PERM_READ,
-            },
+            }),
         },
         APIRoute {
             path: "/groups".to_owned(),
             method: Method::POST,
             route: post().to(group::add),
-            permission: PermEntry {
+            permission: PermType::Entry(PermEntry {
                 pid: skynet.default_id[PermManageUserID],
                 perm: PERM_WRITE,
-            },
+            }),
         },
         APIRoute {
             path: "/groups".to_owned(),
             method: Method::DELETE,
             route: delete().to(group::delete_batch),
-            permission: PermEntry {
+            permission: PermType::Entry(PermEntry {
                 pid: skynet.default_id[PermManageUserID],
                 perm: PERM_WRITE,
-            },
+            }),
         },
         APIRoute {
             path: "/groups/{gid}".to_owned(),
             method: Method::GET,
             route: get().to(group::get),
-            permission: PermEntry {
+            permission: PermType::Entry(PermEntry {
                 pid: skynet.default_id[PermManageUserID],
                 perm: PERM_READ,
-            },
+            }),
         },
         APIRoute {
             path: "/groups/{gid}".to_owned(),
             method: Method::PUT,
             route: put().to(group::put),
-            permission: PermEntry {
+            permission: PermType::Entry(PermEntry {
                 pid: skynet.default_id[PermManageUserID],
                 perm: PERM_WRITE,
-            },
+            }),
         },
         APIRoute {
             path: "/groups/{gid}".to_owned(),
             method: Method::DELETE,
             route: delete().to(group::delete),
-            permission: PermEntry {
+            permission: PermType::Entry(PermEntry {
                 pid: skynet.default_id[PermManageUserID],
                 perm: PERM_WRITE,
-            },
+            }),
         },
         APIRoute {
             path: "/groups/{gid}/users".to_owned(),
             method: Method::GET,
             route: get().to(group::get_user),
-            permission: PermEntry {
+            permission: PermType::Entry(PermEntry {
                 pid: skynet.default_id[PermManageUserID],
                 perm: PERM_READ,
-            },
+            }),
         },
         APIRoute {
             path: "/groups/{gid}/users".to_owned(),
             method: Method::POST,
             route: post().to(group::add_user),
-            permission: PermEntry {
+            permission: PermType::Entry(PermEntry {
                 pid: skynet.default_id[PermManageUserID],
                 perm: PERM_WRITE,
-            },
+            }),
         },
         APIRoute {
             path: "/groups/{gid}/users".to_owned(),
             method: Method::DELETE,
             route: delete().to(group::delete_user_batch),
-            permission: PermEntry {
+            permission: PermType::Entry(PermEntry {
                 pid: skynet.default_id[PermManageUserID],
                 perm: PERM_WRITE,
-            },
+            }),
         },
         APIRoute {
             path: "/groups/{gid}/users/{uid}".to_owned(),
             method: Method::DELETE,
             route: delete().to(group::delete_user),
-            permission: PermEntry {
+            permission: PermType::Entry(PermEntry {
                 pid: skynet.default_id[PermManageUserID],
                 perm: PERM_WRITE,
-            },
+            }),
         },
         APIRoute {
             path: "/groups/{gid}/permissions".to_owned(),
             method: Method::GET,
             route: get().to(permission::get_group),
-            permission: PermEntry {
+            permission: PermType::Entry(PermEntry {
                 pid: skynet.default_id[PermManageUserID],
                 perm: PERM_READ,
-            },
+            }),
         },
         APIRoute {
             path: "/groups/{gid}/permissions".to_owned(),
             method: Method::PUT,
             route: put().to(permission::put_group),
-            permission: PermEntry {
+            permission: PermType::Entry(PermEntry {
                 pid: skynet.default_id[PermManageUserID],
                 perm: PERM_WRITE,
-            },
+            }),
         },
         APIRoute {
             path: "/permissions".to_owned(),
             method: Method::GET,
             route: get().to(permission::get),
-            permission: PermEntry {
+            permission: PermType::Entry(PermEntry {
                 pid: skynet.default_id[PermManageUserID],
                 perm: PERM_READ,
-            },
+            }),
         },
         APIRoute {
             path: "/notifications".to_owned(),
             method: Method::GET,
             route: get().to(notifications::get_all),
-            permission: PermEntry {
+            permission: PermType::Entry(PermEntry {
                 pid: skynet.default_id[PermManageNotificationID],
                 perm: PERM_READ,
-            },
+            }),
         },
         APIRoute {
             path: "/notifications".to_owned(),
             method: Method::DELETE,
             route: delete().to(notifications::delete_all),
-            permission: PermEntry {
+            permission: PermType::Entry(PermEntry {
                 pid: skynet.default_id[PermManageNotificationID],
                 perm: PERM_WRITE,
-            },
+            }),
         },
         APIRoute {
             path: "/notifications/unread".to_owned(),
             method: Method::GET,
             route: get().to(notifications::get_unread),
-            permission: PermEntry {
+            permission: PermType::Entry(PermEntry {
                 pid: skynet.default_id[PermManageNotificationID],
                 perm: PERM_READ,
-            },
+            }),
         },
         APIRoute {
             path: "/plugins".to_owned(),
             method: Method::GET,
             route: get().to(plugin::get),
-            permission: PermEntry {
+            permission: PermType::Entry(PermEntry {
                 pid: skynet.default_id[PermManagePluginID],
                 perm: PERM_READ,
-            },
+            }),
         },
         APIRoute {
             path: "/plugins".to_owned(),
             method: Method::POST,
             route: post().to(plugin::add),
-            permission: PermEntry {
+            permission: PermType::Entry(PermEntry {
                 pid: skynet.default_id[PermManagePluginID],
                 perm: PERM_WRITE,
-            },
+            }),
         },
         APIRoute {
             path: "/plugins/{id}".to_owned(),
             method: Method::PUT,
             route: put().to(plugin::put),
-            permission: PermEntry {
+            permission: PermType::Entry(PermEntry {
                 pid: skynet.default_id[PermManagePluginID],
                 perm: PERM_WRITE,
-            },
+            }),
         },
         APIRoute {
             path: "/plugins/{id}".to_owned(),
             method: Method::DELETE,
             route: delete().to(plugin::delete),
-            permission: PermEntry {
+            permission: PermType::Entry(PermEntry {
                 pid: skynet.default_id[PermManagePluginID],
                 perm: PERM_WRITE,
-            },
+            }),
         },
         APIRoute {
             path: "/plugins/entries".to_owned(),
             method: Method::GET,
             route: get().to(plugin::get_entries),
-            permission: PermEntry::new_guest(),
+            permission: PermType::Entry(PermEntry::new_guest()),
         },
     ]
 }
@@ -464,7 +464,7 @@ pub fn router(api: Vec<APIRoute>, disable_csrf: bool) -> Box<dyn FnOnce(&mut web
             cfg.route(
                 &i.path,
                 i.route.wrap(SkynetGuard {
-                    permission: i.permission,
+                    permission: Rc::new(i.permission),
                     disable_csrf,
                 }),
             );
@@ -480,7 +480,7 @@ pub enum APIError {
 }
 
 pub struct SkynetGuard {
-    permission: PermEntry,
+    permission: Rc<PermType>,
     disable_csrf: bool,
 }
 
@@ -507,7 +507,7 @@ where
 
 pub struct SkynetGuardMiddleware<S> {
     service: Rc<S>,
-    permission: PermEntry,
+    permission: Rc<PermType>,
     disable_csrf: bool,
 }
 
@@ -573,7 +573,10 @@ where
                 );
             }
             let r = req.extract::<Request>().await?;
-            let result = permission.check(&r.perm);
+            let result = match &*permission {
+                PermType::Entry(x) => x.check(&r.perm),
+                PermType::Custom(x) => x(&r.perm),
+            };
             req.extensions_mut().insert(r); // cache existing value
             if result {
                 let request = req.request().clone();

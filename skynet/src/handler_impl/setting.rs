@@ -24,7 +24,6 @@ impl SettingHandler for DefaultSettingHandler {
         for i in res {
             cache.insert(i.name, i.value);
         }
-        drop(cache);
         Ok(())
     }
 

@@ -71,7 +71,7 @@ const UserUpdate: React.FC<UserBtnProps> = (props) => {
         <TableBtn
           key="update"
           icon={EditOutlined}
-          tip={intl.get('pages.user.op.update.tip')}
+          tip={intl.get('app.op.update.tip')}
         />
       }
       schemaProps={{

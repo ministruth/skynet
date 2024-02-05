@@ -4,7 +4,7 @@ pub use anyhow::Result;
 pub use async_trait::async_trait;
 pub use log;
 pub use redis;
-pub use sea_orm::*;
+pub use sea_orm;
 pub use uuid;
 
 pub mod config;
@@ -29,8 +29,12 @@ use parking_lot::RwLock;
 use permission::{IDTypes, PermEntry, PermissionItem};
 use plugin::PluginManager;
 use request::{APIRoute, PaginationParam};
-use sea_query::{ConditionExpression, SimpleExpr};
+use sea_orm::{
+    sea_query::{ConditionExpression, SimpleExpr},
+    DatabaseTransaction, EntityTrait, Order, QueryFilter, QueryOrder, Select,
+};
 use serde_repr::{Deserialize_repr, Serialize_repr};
+use std::any::Any;
 use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::{cmp, collections::HashMap, sync::atomic::AtomicU64};
@@ -107,6 +111,8 @@ pub struct Skynet {
     pub unread_notification: Arc<AtomicU64>,
     pub running: RwLock<bool>,
     pub start_time: DateTime<Utc>,
+
+    pub shared_api: HashMap<HyUuid, Box<dyn Any + Send + Sync>>,
 }
 
 impl Skynet {
@@ -120,6 +126,24 @@ impl Skynet {
 
     pub fn get_unread(&self) -> u64 {
         self.unread_notification.load(Ordering::Relaxed)
+    }
+
+    #[allow(clippy::missing_panics_doc)]
+    pub fn insert_menu(&mut self, item: MenuItem, pos: usize, parent: Option<HyUuid>) -> bool {
+        if let Some(parent) = parent {
+            let mut parent: Vec<&mut MenuItem> =
+                self.menu.iter_mut().filter(|x| x.id == parent).collect();
+            if parent.len() != 1 {
+                return false;
+            }
+            let parent = parent.pop().unwrap();
+            let pos = cmp::min(pos, parent.children.len());
+            parent.children.insert(pos, item);
+        } else {
+            let pos = cmp::min(pos, self.menu.len()); // prevent panic
+            self.menu.insert(pos, item);
+        }
+        true
     }
 
     /// Get merged user permission.

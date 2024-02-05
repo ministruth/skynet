@@ -32,7 +32,6 @@ export default {
   'pages.permission.table.note': 'Note',
   'pages.permission.table.perm': 'Permission',
   'pages.permission.table.ban': 'Ban',
-  'pages.permission.op.update': 'Update',
   'pages.permission.table.origin': 'Origin',
   'pages.permission.table.self': 'self',
 
@@ -49,8 +48,6 @@ export default {
   'pages.group.op.clone.title': 'Clone Group',
   'pages.group.op.clone.content':
     'Cloned group will have the same permission as the base group.',
-  'pages.group.op.update.tip': 'Update',
-  'pages.group.op.clone.tip': 'Clone',
   'pages.group.op.perm.tip': 'Permission',
   'pages.group.op.user.tip': 'Manage Users',
   'pages.group.op.perm.title': 'Manage Group Permission',
@@ -69,13 +66,10 @@ export default {
   'pages.user.form.group.tip':
     'Add user to group, this will grant all group permission to user',
   'pages.user.form.username.tip': 'Username is unique',
-  'pages.user.form.avatar.upload': 'Upload',
   'pages.user.form.avatar.invalid': '{file} is not allowed',
   'pages.user.form.baseuser': 'Base user',
   'pages.user.form.clonegroup': 'Clone all group',
   'pages.user.form.password.placeholder': 'Left empty for unchange',
-  'pages.user.op.clone.tip': 'Clone',
-  'pages.user.op.update.tip': 'Update',
   'pages.user.op.kick.tip': 'Kick',
   'pages.user.op.kick.title': 'Kick user {username}, confirm?',
   'pages.user.op.add.title': 'Add New User',
@@ -105,12 +99,10 @@ export default {
   'pages.plugin.table.disable.content': 'Restart Skynet to take effect.',
   'pages.plugin.form.path.tip': 'Path is related to plugin root',
   'pages.plugin.form.file': 'File',
-  'pages.plugin.form.file.upload': 'Upload',
   'pages.plugin.form.file.invalid': 'Invalid plugin file',
   'pages.plugin.form.crc32': 'CRC32',
   'pages.plugin.op.upload.title': 'Upload New Plugin',
   'pages.plugin.op.upload.warning': 'SECURITY WARNING',
   'pages.plugin.op.upload.content':
     'Plugin package may include malicious contents. Please only upload trusted plugins!',
-  'pages.plugin.op.upload': 'Upload',
 };

@@ -50,7 +50,7 @@ const TableDelete: React.FC<TableDeleteProps> = (props) => {
   return (
     <TableBtn
       icon={DeleteOutlined}
-      tip={intl.get('app.op.delete.tip')}
+      tip={intl.get('app.op.delete')}
       color="#ff4d4f"
       disabled={props.disabled}
       perm={props.perm}

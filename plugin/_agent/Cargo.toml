@@ -1,0 +1,27 @@
+[package]
+name = "agent"
+version = "0.1.0"
+edition = "2021"
+authors = ["MXWXZ <matrixwxz@gmail.com>"]
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+clap = { version = "4", features = ["derive"] }
+derivative = "2.2"
+log = "0.4"
+fern = { version = "0.6", features = ["colored"] }
+serde_json = { version = "1.0" }
+chrono = "0.4"
+sysinfo = "0.30"
+byte-unit = "5.1"
+tokio-tungstenite = { version = "*", features = ["rustls-tls-webpki-roots"] }
+tokio = { version = "1.35", features = ["full"] }
+url = "2.5"
+futures-util = "0.3"
+anyhow = "1.0"
+machine-uid = "0.5"
+sha3 = "0.10"
+hex = "0.4"
+
+monitor = { path = "../monitor" }

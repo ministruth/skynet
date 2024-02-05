@@ -15,7 +15,6 @@ use actix_web::{
 };
 use derivative::Derivative;
 use enum_as_inner::EnumAsInner;
-use enum_map::Enum;
 use futures::Future;
 use qstring::QString;
 use sea_orm::{DatabaseConnection, Order, TransactionTrait};
@@ -33,7 +32,7 @@ use crate::{
 
 #[macro_export]
 macro_rules! success {
-    ($($arg:tt)+) => (log::info!(target: "_success", $($arg)+))
+    ($($arg:tt)+) => (skynet::log::info!(target: "_success", $($arg)+))
 }
 
 #[macro_export]
@@ -56,9 +55,12 @@ pub fn unique_validator<T: Eq + Hash>(x: &Vec<T>) -> Result<(), ValidationError>
 #[macro_export]
 macro_rules! like_expr {
     ($col:expr, $txt:expr) => {
-        skynet::prelude::Expr::col(($col.entity_name(), $col)).like(
-            skynet::sea_query::LikeExpr::new(format!("%{}%", skynet::utils::like_escape($txt)))
-                .escape('\\'),
+        skynet::sea_orm::prelude::Expr::col(($col.entity_name(), $col)).like(
+            skynet::sea_orm::sea_query::LikeExpr::new(format!(
+                "%{}%",
+                skynet::utils::like_escape($txt)
+            ))
+            .escape('\\'),
         )
     };
 }
@@ -200,11 +202,18 @@ macro_rules! build_time_cond {
     }};
 }
 
+pub type PermChecker = dyn Fn(&HashMap<HyUuid, PermissionItem>) -> bool;
+
+pub enum PermType {
+    Entry(PermEntry),
+    Custom(Box<PermChecker>),
+}
+
 pub struct APIRoute {
     pub path: String,
     pub method: Method,
     pub route: Route,
-    pub permission: PermEntry,
+    pub permission: PermType,
 }
 
 #[derive(Derivative)]
@@ -335,7 +344,13 @@ impl FromRequest for Request {
     }
 }
 
-#[derive(Debug, Enum)]
+pub trait ResponseCodeTrait {
+    fn code(&self) -> u32;
+    fn translate(&self, skynet: &Skynet, locale: &str) -> String;
+}
+
+#[derive(Debug, Clone, Copy)]
+#[repr(u32)]
 pub enum ResponseCode {
     CodeOK,
     CodeNotReady,
@@ -352,17 +367,13 @@ pub enum ResponseCode {
     CodePluginExist,
     CodePluginInvalid,
     CodePluginInvalidHash,
-
-    /// DO NOT USE, will panic.
-    CodeMax,
 }
 
-impl ResponseCode {
+impl ResponseCodeTrait for ResponseCode {
     fn translate(&self, skynet: &Skynet, locale: &str) -> String {
         t!(
             skynet,
             match self {
-                Self::CodeMax => unreachable!(),
                 Self::CodeOK => "response.success",
                 Self::CodeNotReady => "response.not_ready",
                 Self::CodeRecaptchaInvalid => "response.recaptcha.invalid",
@@ -381,6 +392,10 @@ impl ResponseCode {
             },
             locale
         )
+    }
+
+    fn code(&self) -> u32 {
+        *self as u32
     }
 }
 
@@ -402,13 +417,16 @@ pub struct ResponseCookie {
 
 #[must_use]
 #[derive(Serialize, Derivative)]
-#[derivative(Debug, Default)]
+#[derivative(Default)]
 pub struct Response<'a> {
+    #[serde(skip)]
+    #[derivative(Default(value = "Some(Box::new(ResponseCode::CodeOK))"))]
+    inner: Option<Box<dyn ResponseCodeTrait>>,
+
     #[serde(skip)]
     #[derivative(Default(value = "200"))]
     pub http_code: u16,
-    #[derivative(Default(value = "0"))]
-    pub code: usize,
+    pub code: u32,
     pub msg: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     pub data: Option<serde_json::Value>,
@@ -422,9 +440,12 @@ impl<'a> Response<'a> {
         Self::default()
     }
 
-    pub fn new(code: ResponseCode) -> Self {
+    pub fn new<C>(code: C) -> Self
+    where
+        C: ResponseCodeTrait + 'static,
+    {
         Self {
-            code: code.into_usize(),
+            inner: Some(Box::new(code)),
             ..Default::default()
         }
     }
@@ -432,7 +453,7 @@ impl<'a> Response<'a> {
     pub fn bad_request<S: AsRef<str>>(s: S) -> Self {
         Self {
             http_code: 400,
-            code: ResponseCode::CodeMax.into_usize(),
+            inner: None,
             msg: s.as_ref().to_owned(),
             ..Default::default()
         }
@@ -441,7 +462,6 @@ impl<'a> Response<'a> {
     pub fn not_found() -> Self {
         Self {
             http_code: 404,
-            code: ResponseCode::CodeMax.into_usize(),
             ..Default::default()
         }
     }
@@ -461,11 +481,8 @@ impl<'a> Response<'a> {
 
     pub fn data<T: Serialize>(data: T) -> Self {
         Self {
-            http_code: 200,
-            code: ResponseCode::CodeOK.into_usize(),
-            msg: String::new(),
             data: Some(json!(data)),
-            add_cookies: Vec::new(),
+            ..Default::default()
         }
     }
 }
@@ -475,13 +492,9 @@ impl<'a> Responder for Response<'a> {
 
     fn respond_to(mut self, req: &HttpRequest) -> HttpResponse<Self::Body> {
         let skynet = req.app_data::<Data<Skynet>>().unwrap();
-        if self.msg.is_empty() {
-            self.msg = if self.code < ResponseCode::CodeMax.into_usize() {
-                ResponseCode::from_usize(self.code)
-                    .translate(skynet, &req.extensions().get::<LangExtension>().unwrap().0)
-            } else {
-                String::new()
-            }
+        if let Some(x) = &self.inner {
+            self.msg = x.translate(skynet, &req.extensions().get::<LangExtension>().unwrap().0);
+            self.code = x.code();
         }
         let mut rsp = if self.http_code == 200 {
             let body = serde_json::to_string(&self).unwrap();

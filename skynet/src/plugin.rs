@@ -54,17 +54,17 @@ pub trait Plugin: Send + Sync {
     /// # Errors
     ///
     /// Will return `Err` if context cannot be set.
-    fn _init(&self, s: &mut Skynet) -> Result<()> {
-        s.logger.reinit(s.unread_notification.clone())
+    fn _init(&self, skynet: &mut Skynet) -> Result<()> {
+        skynet.logger.reinit(skynet.unread_notification.clone())
     }
 
     /// Fired when the plugin is loaded.
-    fn on_load(&self, s: Skynet) -> (Skynet, Result<()>) {
-        (s, Ok(()))
+    fn on_load(&self, skynet: Skynet) -> (Skynet, Result<()>) {
+        (skynet, Ok(()))
     }
 
     /// Fired when applying routes.
-    fn on_route(&self, r: Vec<APIRoute>) -> Vec<APIRoute> {
+    fn on_route(&self, _: &Skynet, r: Vec<APIRoute>) -> Vec<APIRoute> {
         r
     }
 
@@ -204,7 +204,6 @@ impl PluginManager {
     /// # Errors
     ///
     /// Will return `Err` when db error.
-    #[allow(clippy::significant_drop_tightening)]
     pub async fn set(
         &self,
         db: &DatabaseTransaction,
@@ -269,7 +268,6 @@ impl PluginManager {
     /// # Errors
     ///
     /// Will return `Err` when db error.
-    #[allow(clippy::significant_drop_tightening)]
     pub async fn load<P: AsRef<Path>>(
         &self,
         db: &DatabaseTransaction,
@@ -425,11 +423,11 @@ impl PluginManager {
 
     /// Parse route.
     #[must_use]
-    pub fn parse_route(&self, route: Vec<APIRoute>) -> Vec<APIRoute> {
+    pub fn parse_route(&self, skynet: &Skynet, route: Vec<APIRoute>) -> Vec<APIRoute> {
         let mut route = route;
         for i in self.plugin.read().iter() {
             if let Some(x) = &i.instance {
-                route = x.on_route(route);
+                route = x.on_route(skynet, route);
             }
         }
         route
