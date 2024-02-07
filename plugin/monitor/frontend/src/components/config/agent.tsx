@@ -89,7 +89,7 @@ const AgentCard = () => {
     SearchColumn(intl),
     IDColumn(intl),
     {
-      title: intl.get('pages.config.agent.table.name'),
+      title: intl.get('pages.agent.table.name'),
       dataIndex: 'name',
       align: 'center',
       hideInSearch: true,
@@ -103,25 +103,25 @@ const AgentCard = () => {
       },
     },
     {
-      title: intl.get('pages.config.agent.table.ip'),
+      title: intl.get('pages.agent.table.ip'),
       dataIndex: 'ip',
       align: 'center',
       hideInSearch: true,
     },
     {
-      title: intl.get('pages.config.agent.table.os'),
+      title: intl.get('pages.agent.table.os'),
       dataIndex: 'os',
       align: 'center',
       hideInSearch: true,
     },
     {
-      title: intl.get('pages.config.agent.table.machine'),
-      dataIndex: 'machine',
+      title: intl.get('pages.agent.table.arch'),
+      dataIndex: 'arch',
       align: 'center',
       hideInSearch: true,
     },
     {
-      title: intl.get('pages.config.agent.table.status'),
+      title: intl.get('pages.agent.table.status'),
       dataIndex: 'status',
       align: 'center',
       valueType: 'select',
@@ -151,7 +151,7 @@ const AgentCard = () => {
       ),
     },
     {
-      title: intl.get('pages.config.agent.table.lastlogin'),
+      title: intl.get('pages.agent.table.lastlogin'),
       dataIndex: 'last_login',
       align: 'center',
       valueType: 'dateTime',
@@ -227,12 +227,12 @@ const AgentCard = () => {
                 dataSource={record}
                 columns={[
                   {
-                    title: intl.get('pages.config.agent.table.hostname'),
+                    title: intl.get('pages.agent.table.hostname'),
                     dataIndex: 'hostname',
                     style: { paddingBottom: 0 },
                   },
                   {
-                    title: intl.get('pages.config.agent.table.system'),
+                    title: intl.get('pages.agent.table.system'),
                     dataIndex: 'system',
                     style: { paddingBottom: 0 },
                   },

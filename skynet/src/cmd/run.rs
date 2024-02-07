@@ -19,8 +19,8 @@ use chrono::Utc;
 use log::{debug, warn};
 use parking_lot::Mutex;
 use redis::aio::ConnectionManager;
-use rustls::{Certificate, PrivateKey, ServerConfig};
-use rustls_pemfile::{certs, pkcs8_private_keys};
+use rustls::ServerConfig;
+use rustls_pemfile::{certs, private_key};
 use sea_orm::{DatabaseConnection, TransactionTrait};
 use skynet::{config, db, plugin::PluginManager, Skynet};
 use skynet_i18n::i18n;
@@ -67,23 +67,14 @@ pub async fn init_skynet(
 }
 
 fn load_rustls_config<P: AsRef<Path>>(cert: P, key: P) -> ServerConfig {
-    let config = ServerConfig::builder()
-        .with_safe_defaults()
-        .with_no_client_auth();
+    let config = ServerConfig::builder().with_no_client_auth();
     let cert_chain = certs(&mut BufReader::new(File::open(cert).unwrap()))
-        .unwrap()
-        .into_iter()
-        .map(Certificate)
+        .map(|x| x.unwrap())
         .collect();
-    let mut keys: Vec<PrivateKey> =
-        pkcs8_private_keys(&mut BufReader::new(File::open(key).unwrap()))
-            .unwrap()
-            .into_iter()
-            .map(PrivateKey)
-            .collect();
-
-    assert!(!keys.is_empty(), "Could not locate PKCS 8 private keys");
-    config.with_single_cert(cert_chain, keys.remove(0)).unwrap()
+    let key = private_key(&mut BufReader::new(File::open(key).unwrap()))
+        .unwrap()
+        .unwrap();
+    config.with_single_cert(cert_chain, key).unwrap()
 }
 
 fn get_security_header(ssl: bool, csp: String) -> middleware::DefaultHeaders {
@@ -207,7 +198,7 @@ pub async fn command(cli: &Cli, skynet: Skynet, disable_csrf: bool) {
     let address = skynet.config.listen_address.get();
     let server = if skynet.config.listen_ssl.get() {
         server
-            .bind_rustls_021(
+            .bind_rustls_0_22(
                 address,
                 load_rustls_config(
                     skynet.config.listen_ssl_cert.get(),

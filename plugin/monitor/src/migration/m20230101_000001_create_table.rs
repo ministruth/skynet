@@ -17,7 +17,7 @@ enum Agents {
     Hostname,
     IP,
     System,
-    Machine,
+    Arch,
     LastLogin,
     CreatedAt,
     UpdatedAt,
@@ -62,7 +62,7 @@ impl MigrationTrait for Migration {
                     .col(ColumnDef::new(Agents::Hostname).string_len(256))
                     .col(ColumnDef::new(Agents::IP).string_len(64).not_null())
                     .col(ColumnDef::new(Agents::System).string_len(128))
-                    .col(ColumnDef::new(Agents::Machine).string_len(32))
+                    .col(ColumnDef::new(Agents::Arch).string_len(32))
                     .col(ColumnDef::new(Agents::LastLogin).big_integer().not_null())
                     .col(ColumnDef::new(Agents::CreatedAt).big_integer().not_null())
                     .col(ColumnDef::new(Agents::UpdatedAt).big_integer().not_null())

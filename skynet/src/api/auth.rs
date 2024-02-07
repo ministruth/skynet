@@ -6,7 +6,8 @@ use std::{
 use actix_session::Session;
 use actix_web::{cookie::time::Duration, web::Data, Responder};
 use actix_web_validator::Json;
-use anyhow::{bail, Result};
+use anyhow::{anyhow, bail, Result};
+use awc::Client;
 use log::warn;
 use redis::aio::ConnectionManager;
 use sea_orm::{DatabaseConnection, TransactionTrait};
@@ -117,19 +118,19 @@ async fn verify_recaptcha(response: String, ip: String, option: RecaptchaOption)
         #[serde(rename = "error-codes")]
         error_codes: Vec<String>,
     }
-
-    let client = reqwest::Client::new();
-    let mut req = client
-        .post(option.url + "/recaptcha/api/siteverify")
-        .json(&HashMap::from([
-            ("secret", option.secret),
-            ("remoteip", ip),
-            ("response", response),
-        ]));
+    let client = Client::default();
+    let mut req = client.post(option.url + "/recaptcha/api/siteverify");
     if let Some(x) = option.timeout {
         req = req.timeout(x);
     }
-    let rsp = req.send().await?;
+    let mut rsp = req
+        .send_json(&json!({
+            "secret": option.secret,
+            "remoteip": ip,
+            "response": response,
+        }))
+        .await
+        .map_err(|e| anyhow!(e.to_string()))?;
     let rsp = rsp.json::<Response>().await?;
     if !rsp.error_codes.is_empty() {
         bail!("remote error codes: {:?}", rsp.error_codes)

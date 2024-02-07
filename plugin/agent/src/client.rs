@@ -1,23 +1,41 @@
-use std::{cmp::min, process::exit, time::Duration};
+use std::{
+    cmp::min,
+    env::{self, consts},
+    fs,
+    os::unix::process::CommandExt,
+    process::Command,
+    time::Duration,
+};
 
 use anyhow::{bail, Result};
+use base64::{engine::general_purpose::STANDARD, Engine};
 use futures_util::{SinkExt, StreamExt};
 use log::{debug, error, info, warn};
-use monitor::msg::{client, server};
+use miniz_oxide::inflate::decompress_to_vec;
+use monitor_service::{client, server};
 use sysinfo::System;
 use tokio::time::sleep;
-use tokio_tungstenite::{connect_async, tungstenite::Message};
+use tokio_tungstenite::{
+    connect_async_with_config,
+    tungstenite::{protocol::WebSocketConfig, Message},
+};
 use url::Url;
 
 use crate::get_uid;
 
 async fn connect(addr: &str, token: &str, wait_time: &mut u32) -> Result<()> {
-    let url = Url::parse(&format!(
-        "{addr}/api/plugins/2eb2e1a5-66b4-45f9-ad24-3c4f05c858aa/ws"
-    ))
-    .unwrap();
+    let url = Url::parse(&format!("{addr}/api/plugins/{}/ws", monitor_service::ID)).unwrap();
     info!("Connecting to {url}");
-    let (mut ws, _) = connect_async(url).await?;
+    let (mut ws, _) = connect_async_with_config(
+        url,
+        Some(WebSocketConfig {
+            max_frame_size: Some(1024 * 1024 * 512),
+            max_message_size: Some(1024 * 1024 * 512),
+            ..Default::default()
+        }),
+        false,
+    )
+    .await?;
     info!("Connected");
 
     let mut is_login = false;
@@ -46,9 +64,10 @@ async fn connect(addr: &str, token: &str, wait_time: &mut u32) -> Result<()> {
                                 info!("Login success");
                                 ws.send(Message::Text(
                                     server::Message::new(server::DataType::Info(server::Info {
+                                        version: env!("CARGO_PKG_VERSION").to_owned(),
                                         os: System::name(),
                                         system: System::long_os_version(),
-                                        machine: System::cpu_arch(),
+                                        arch: consts::ARCH.to_owned(),
                                         hostname: System::host_name(),
                                     }))
                                     .into(),
@@ -57,9 +76,30 @@ async fn connect(addr: &str, token: &str, wait_time: &mut u32) -> Result<()> {
                                 .unwrap_or_else(|e| debug!("Send info error: {e}"));
                             }
                         }
+                        client::DataType::Update(data) => {
+                            let exe = env::current_exe()?;
+                            let file = STANDARD.decode(data.data)?;
+                            let file = decompress_to_vec(&file)
+                                .map_err(|e| anyhow::anyhow!(e.to_string()))?;
+                            let crc = crc32fast::hash(&file);
+                            if crc == data.crc32 {
+                                let new_path = format!("_agent_update{}", consts::EXE_SUFFIX);
+                                fs::write(&new_path, file)?;
+                                self_replace::self_replace(&new_path)?;
+                                fs::remove_file(new_path)?;
+                                let _ = ws.close(None).await;
+                                info!("Trigger update, crc32: {}", crc);
+                                return Err(Command::new(exe)
+                                    .args(env::args().skip(1))
+                                    .exec()
+                                    .into());
+                            } else {
+                                bail!("Update: CRC32 mismatch");
+                            }
+                        }
                         client::DataType::Quit => {
                             info!("Receive quit signal from server");
-                            exit(0);
+                            return Ok(());
                         }
                     },
                     Err(e) => debug!("Parse message error: {e}"),

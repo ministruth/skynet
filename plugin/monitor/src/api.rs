@@ -1,4 +1,5 @@
 use actix_web_validator::{Json, QsQuery};
+use monitor_service::{AgentStatus, PluginSrv, ID};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use skynet::{
@@ -13,7 +14,7 @@ use skynet::{
 };
 use validator::Validate;
 
-use crate::{request::ResponseCode, service::AgentStatus, TokenSrv, ID, SERVICE};
+use crate::{request::ResponseCode, session, ADDRESS, DB, SERVICE};
 
 pub async fn get_settings(skynet: Data<Skynet>) -> RspResult<impl Responder> {
     #[derive(Serialize)]
@@ -22,7 +23,7 @@ pub async fn get_settings(skynet: Data<Skynet>) -> RspResult<impl Responder> {
     }
 
     finish!(Response::data(Rsp {
-        token: TokenSrv::get(&skynet).unwrap_or_default(),
+        token: PluginSrv::get_setting(&skynet).unwrap_or_default(),
     }));
 }
 
@@ -37,9 +38,8 @@ pub async fn put_settings(
     req: Request,
     skynet: Data<Skynet>,
 ) -> RspResult<impl Responder> {
-    let srv = SERVICE.get().unwrap();
-    let tx = srv.db.begin().await?;
-    TokenSrv::set(&tx, &skynet, &param.token).await?;
+    let tx = DB.get().unwrap().begin().await?;
+    PluginSrv::set_setting(&tx, &skynet, &param.token).await?;
     tx.commit().await?;
 
     success!(
@@ -66,7 +66,6 @@ pub struct GetAgentsReq {
 pub async fn get_agents(param: QsQuery<GetAgentsReq>) -> RspResult<impl Responder> {
     let srv = SERVICE.get().unwrap();
     let data: Vec<serde_json::Value> = srv
-        .agent
         .agent
         .read()
         .iter()
@@ -100,15 +99,15 @@ pub async fn put_agent(
     req: Request,
 ) -> RspResult<impl Responder> {
     let srv = SERVICE.get().unwrap();
-    let tx = srv.db.begin().await?;
-    if srv.agent.find_by_id(&tx, &aid).await?.is_none() {
+    let tx = DB.get().unwrap().begin().await?;
+    if srv.find_by_id(&tx, &aid).await?.is_none() {
         finish!(Response::not_found());
     }
-    if srv.agent.find_by_name(&tx, &param.name).await?.is_some() {
+    if srv.find_by_name(&tx, &param.name).await?.is_some() {
         finish!(Response::new(ResponseCode::CodeAgentExist));
     }
 
-    srv.agent.rename(&tx, &aid, &param.name).await?;
+    srv.rename(&tx, &aid, &param.name).await?;
     tx.commit().await?;
 
     success!(
@@ -125,12 +124,18 @@ pub async fn put_agent(
 
 pub async fn delete_agent(aid: Path<HyUuid>, req: Request) -> RspResult<impl Responder> {
     let srv = SERVICE.get().unwrap();
-    let tx = srv.db.begin().await?;
-    if srv.agent.find_by_id(&tx, &aid).await?.is_none() {
+    let tx = DB.get().unwrap().begin().await?;
+    if srv.find_by_id(&tx, &aid).await?.is_none() {
         finish!(Response::not_found());
     }
 
-    let rows = srv.agent.delete(&tx, &aid).await?;
+    let rows = srv.delete(&tx, &aid).await?;
+    ADDRESS
+        .get()
+        .unwrap()
+        .read()
+        .get(&aid)
+        .and_then(|x| Some(x.do_send(session::CloseConnection)));
     tx.commit().await?;
 
     success!(
@@ -146,10 +151,16 @@ pub async fn delete_agent(aid: Path<HyUuid>, req: Request) -> RspResult<impl Res
 
 pub async fn delete_agents(param: Json<IDsReq>, req: Request) -> RspResult<impl Responder> {
     let srv = SERVICE.get().unwrap();
-    let tx = srv.db.begin().await?;
+    let tx = DB.get().unwrap().begin().await?;
     let mut rows = 0;
     for i in &param.id {
-        rows += srv.agent.delete(&tx, i).await?;
+        rows += srv.delete(&tx, i).await?;
+        ADDRESS
+            .get()
+            .unwrap()
+            .read()
+            .get(i)
+            .and_then(|x| Some(x.do_send(session::CloseConnection)));
     }
     tx.commit().await?;
 

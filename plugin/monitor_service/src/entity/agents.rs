@@ -15,7 +15,7 @@ pub struct Model {
     pub hostname: Option<String>,
     pub ip: String,
     pub system: Option<String>,
-    pub machine: Option<String>,
+    pub arch: Option<String>,
     pub last_login: i64,
     pub created_at: i64,
     pub updated_at: i64,

@@ -1,7 +1,9 @@
 use std::{
     collections::HashMap,
-    io,
+    env, io,
+    os::unix::process::CommandExt,
     path::PathBuf,
+    process::Command,
     sync::{atomic::AtomicU64, Arc},
 };
 
@@ -72,6 +74,10 @@ enum Commands {
         /// Disable CSRF protection, for debugging purpose only.
         #[arg(long)]
         disable_csrf: bool,
+
+        /// Use daemon mode, auto restart on shutdown.
+        #[arg(short, long)]
+        daemon: bool,
     },
     /// User management
     User(UserCli),
@@ -146,10 +152,22 @@ async fn main() -> io::Result<()> {
         )
         .unwrap();
 
+    let mut restart = false;
     match &cli.command {
-        Commands::Run { disable_csrf } => Box::pin(run::command(&cli, skynet, *disable_csrf)).await,
+        Commands::Run {
+            disable_csrf,
+            daemon,
+        } => {
+            restart = *daemon;
+            Box::pin(run::command(&cli, skynet, *disable_csrf)).await
+        }
         Commands::User(user_cli) => Box::pin(user::command(&cli, skynet, user_cli)).await,
         Commands::Check => check::command(&cli),
+    }
+    if restart {
+        return Err(Command::new(env::current_exe().unwrap())
+            .args(env::args().skip(1))
+            .exec());
     }
     Ok(())
 }

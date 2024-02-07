@@ -6,8 +6,10 @@ members = [
     "skynet_i18n",
     "migration",
     "skynet",
+    "plugin/monitor_service",
     "plugin/monitor",
-    "plugin/_agent",
+    "plugin/agent_service",
+    "plugin/agent",
     "plugin/task",
 ]
 resolver = "2"

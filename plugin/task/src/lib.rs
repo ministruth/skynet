@@ -1,3 +1,5 @@
+use std::path::PathBuf;
+
 use skynet::{async_trait, create_plugin, plugin::Plugin, request::APIRoute, Result, Skynet};
 
 #[derive(Debug, Default)]
@@ -5,7 +7,7 @@ struct Task;
 
 #[async_trait]
 impl Plugin for Task {
-    fn on_load(&self, skynet: Skynet) -> (Skynet, Result<()>) {
+    fn on_load(&self, _: PathBuf, skynet: Skynet) -> (Skynet, Result<()>) {
         (skynet, Ok(()))
     }
 

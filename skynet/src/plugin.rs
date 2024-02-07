@@ -3,6 +3,7 @@ use std::{
     collections::HashMap,
     env,
     ffi::{OsStr, OsString},
+    fs::canonicalize,
     ops::{Index, IndexMut},
     path::{Path, PathBuf},
     result,
@@ -25,7 +26,7 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 use serde_with::{serde_as, DisplayFromStr};
 use walkdir::WalkDir;
 
-use crate::{db, APIRoute, HyUuid, Skynet};
+use crate::{db, utils::osstring_lossy, APIRoute, HyUuid, Skynet};
 
 const PLUGIN_SETTING_PREFIX: &str = "plugin_";
 const PLUGIN_CREATE: &[u8] = b"_plugin_create";
@@ -59,7 +60,7 @@ pub trait Plugin: Send + Sync {
     }
 
     /// Fired when the plugin is loaded.
-    fn on_load(&self, skynet: Skynet) -> (Skynet, Result<()>) {
+    fn on_load(&self, _: PathBuf, skynet: Skynet) -> (Skynet, Result<()>) {
         (skynet, Ok(()))
     }
 
@@ -144,7 +145,8 @@ pub struct PluginInstance {
     pub version: Version,
     pub priority: i32,
     pub status: PluginStatus,
-    pub path: String,
+    #[serde(serialize_with = "osstring_lossy")]
+    pub path: OsString,
 
     #[serde(skip)]
     #[derivative(Debug = "ignore")]
@@ -313,7 +315,7 @@ impl PluginManager {
     pub fn load_all<P: AsRef<Path>>(&mut self, skynet: Skynet, dir: P) -> Skynet {
         let mut instance = Vec::new();
         let mut conflict_id: HashMap<HyUuid, String> = HashMap::new();
-        for entry in WalkDir::new(dir)
+        for entry in WalkDir::new(dir.as_ref())
             .follow_links(true)
             .min_depth(2)
             .max_depth(2)
@@ -366,7 +368,8 @@ impl PluginManager {
                         i.id, i.name, e,
                     );
                 } else {
-                    let load_res = inst.on_load(skynet);
+                    let load_res =
+                        inst.on_load(canonicalize(dir.as_ref().join(&i.path)).unwrap(), skynet);
                     skynet = load_res.0;
                     match load_res.1 {
                         Ok(()) => info!("Plugin loaded: {}({})", i.id, i.name),
@@ -413,7 +416,7 @@ impl PluginManager {
                 name: settings.get_string("name")?,
                 version: Version::parse(&settings.get_string("version")?)?,
                 priority: settings.get_int("priority")?.try_into()?,
-                path: path.file_name().unwrap().to_string_lossy().to_string(),
+                path: path.file_name().unwrap().to_owned(),
                 status: PluginStatus::Unload,
                 instance: Some(plugin),
                 library: Some(lib),

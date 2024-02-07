@@ -19,6 +19,11 @@ impl Message {
     }
 
     #[must_use]
+    pub fn new_rsp(id: &HyUuid, data: DataType) -> Self {
+        Self { id: *id, data }
+    }
+
+    #[must_use]
     pub fn json(&self) -> String {
         json!(self).to_string()
     }
@@ -40,23 +45,18 @@ impl From<Message> for ByteString {
 #[serde(tag = "type")]
 pub enum DataType {
     Login(Login),
-    Info(Info),
+    Update(Update),
+    Quit,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Update {
+    pub data: String,
+    pub crc32: u32,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct Login {
-    pub uid: String,
-    pub token: String,
-}
-
-#[derive(Serialize, Deserialize, Debug)]
-pub struct Info {
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub os: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub system: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub machine: Option<String>,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub hostname: Option<String>,
+    pub code: i32,
+    pub msg: String,
 }

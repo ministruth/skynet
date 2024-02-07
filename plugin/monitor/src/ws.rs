@@ -1,28 +1,31 @@
+use std::sync::Arc;
+
 use actix::{Actor, ActorContext, Addr, AsyncContext, StreamHandler};
 use actix_web_actors::ws::{start, Message, ProtocolError, WebsocketContext};
+use base64::{engine::general_purpose::STANDARD, Engine};
 use derivative::Derivative;
 use futures::executor::block_on;
+use miniz_oxide::deflate::compress_to_vec;
+use monitor_service::{client, server, PluginSrv, ID};
 use sea_orm_migration::sea_orm::TransactionTrait;
+use serde_json::json;
 use skynet::{
     actix_web::{
         web::{Bytes, Data, Payload},
         Error, HttpRequest, HttpResponse,
     },
     anyhow::{self, bail, Result},
-    log::{debug, info},
+    log::{debug, info, warn},
     request::Request,
     HyUuid, Skynet,
 };
 
-use crate::{
-    msg::{client, server},
-    TokenSrv, SERVICE,
-};
+use crate::{ADDRESS, DB, SERVICE};
 
 pub type WSAddr = Addr<WSHandler>;
 
 #[derive(Derivative)]
-pub(crate) struct WSHandler {
+pub struct WSHandler {
     id: Option<HyUuid>,
     skynet: Data<Skynet>,
     request: Request,
@@ -33,7 +36,8 @@ impl Actor for WSHandler {
 
     fn stopped(&mut self, _: &mut Self::Context) {
         if let Some(x) = self.id {
-            SERVICE.get().unwrap().agent.logout(&x);
+            SERVICE.get().unwrap().logout(&x);
+            ADDRESS.get().unwrap().write().remove(&x);
             info!("Agent `{}` logout", x);
         }
     }
@@ -54,22 +58,17 @@ impl WSHandler {
         msg_id: &HyUuid,
         msg: server::Login,
     ) -> Result<()> {
-        if TokenSrv::get(&self.skynet).unwrap() == msg.token {
+        if PluginSrv::get_setting(&self.skynet).is_some_and(|x| x == msg.token) {
             block_on(async {
-                let tx = SERVICE.get().unwrap().db.begin().await?;
+                let tx = DB.get().unwrap().begin().await?;
                 self.id = Some(
                     if let Some(x) = SERVICE
                         .get()
                         .unwrap()
-                        .agent
-                        .login(
-                            &tx,
-                            ctx.address(),
-                            msg.uid,
-                            self.request.ip.ip().to_string(),
-                        )
+                        .login(&tx, msg.uid, self.request.ip.ip().to_string())
                         .await?
                     {
+                        ADDRESS.get().unwrap().write().insert(x, ctx.address());
                         x
                     } else {
                         ctx.text(client::Message::new_rsp(
@@ -109,24 +108,88 @@ impl WSHandler {
         Ok(())
     }
 
-    fn info_msg(id: &HyUuid, msg: server::Info) -> Result<()> {
+    fn info_msg(
+        &self,
+        ctx: &mut <Self as Actor>::Context,
+        msg_id: &HyUuid,
+        msg: server::Info,
+    ) -> Result<()> {
         block_on(async {
-            let tx = SERVICE.get().unwrap().db.begin().await?;
+            let tx = DB.get().unwrap().begin().await?;
             SERVICE
                 .get()
                 .unwrap()
-                .agent
-                .update(&tx, id, msg.os, msg.system, msg.machine, msg.hostname)
+                .update(
+                    &tx,
+                    &self.id.unwrap(),
+                    msg.os.clone(),
+                    msg.system,
+                    Some(msg.arch.clone()),
+                    msg.hostname,
+                )
                 .await?;
             tx.commit().await?;
             Ok::<(), anyhow::Error>(())
         })?;
+        if let Some(x) = self
+            .skynet
+            .shared_api
+            .get(&agent_service::ID)
+            .and_then(|x| x.downcast_ref::<Arc<agent_service::PluginSrv>>())
+        {
+            if agent_service::PluginSrv::check_version(&msg.version) {
+                if let Some(sys) = agent_service::System::parse(&msg.os.clone().unwrap_or_default())
+                {
+                    if let Some(arch) = agent_service::Arch::parse(&msg.arch) {
+                        if let Some(data) = x.get_binary(sys.clone(), arch.clone()) {
+                            SERVICE.get().unwrap().update_state(&self.id.unwrap());
+                            let crc = crc32fast::hash(&data);
+                            let data = STANDARD.encode(compress_to_vec(&data, 6));
+                            ctx.text(client::Message::new_rsp(
+                                msg_id,
+                                client::DataType::Update(client::Update {
+                                    data: data,
+                                    crc32: crc,
+                                }),
+                            ));
+                        } else {
+                            warn!(
+                                "Agent not update, file not found\n{}",
+                                json!({
+                                    "plugin": ID,
+                                    "aid": self.id.unwrap(),
+                                    "file": x.get_binary_name(sys, arch),
+                                })
+                            )
+                        }
+                    } else {
+                        warn!(
+                            "Agent not update, arch invalid\n{}",
+                            json!({
+                                "plugin": ID,
+                                "aid": self.id.unwrap(),
+                                "arch": msg.arch,
+                            })
+                        )
+                    }
+                } else {
+                    warn!(
+                        "Agent not update, system invalid\n{}",
+                        json!({
+                            "plugin": ID,
+                            "aid": self.id.unwrap(),
+                            "system": msg.os.unwrap_or_default(),
+                        })
+                    )
+                }
+            }
+        }
         Ok(())
     }
 
     fn recv(&mut self, text: &Bytes, ctx: &mut <Self as Actor>::Context) -> Result<()> {
         let msg: server::Message = serde_json::from_slice(text)?;
-        if let Some(id) = self.id {
+        if self.id.is_some() {
             match msg.data {
                 server::DataType::Login(_) => {
                     ctx.text(client::Message::new_rsp(
@@ -137,7 +200,7 @@ impl WSHandler {
                         }),
                     ));
                 }
-                server::DataType::Info(x) => Self::info_msg(&id, x)?,
+                server::DataType::Info(x) => self.info_msg(ctx, &msg.id, x)?,
             }
         } else {
             match msg.data {

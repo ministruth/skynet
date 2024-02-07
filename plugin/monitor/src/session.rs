@@ -1,8 +1,7 @@
 use actix::{ActorContext, Handler, Message};
+use monitor_service::client;
 
 use crate::ws::WSHandler;
-
-use super::client;
 
 #[derive(Message)]
 #[rtype(result = "()")]

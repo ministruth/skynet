@@ -23,5 +23,14 @@ anyhow = "1.0"
 machine-uid = "0.5"
 sha3 = "0.10"
 hex = "0.4"
+base64 = "0.21"
+crc32fast = "1.3"
+self-replace = "1.3"
+miniz_oxide = "0.7"
 
-monitor = { path = "../monitor" }
+agent_service = { path = "../agent_service" }
+monitor_service = { path = "../monitor_service" }
+skynet = { path = "../../skynet" }
+
+[lib]
+crate-type = ["cdylib"]

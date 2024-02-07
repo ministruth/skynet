@@ -49,12 +49,18 @@ build:
 	@cp default.webp $(OUTPUTDIR)
 	@cp ./target/debug/skynet $(OUTPUTDIR)
 	@mkdir -p $(OUTPUTDIR)/plugin
-	@for d in `ls ./plugin | grep "^[^_]"`;do	\
-		if [ -d ./plugin/$$d ];then				\
-			mkdir -p $(OUTPUTDIR)/plugin/$$d; 	\
+	@for d in `ls ./plugin`;do	\
+		if [ -f ./plugin/$$d/config.yml ];then		\
+			mkdir -p $(OUTPUTDIR)/plugin/$$d; 		\
 			cp ./target/debug/lib$$d$(PLUGIN_SUFFIX) $(OUTPUTDIR)/plugin/$$d; \
 			cp ./plugin/$$d/config.yml $(OUTPUTDIR)/plugin/$$d;	\
-		fi										\
+			if [ -f ./plugin/$$d/Makefile ];then	\
+				pushd . > /dev/null;				\
+				cd ./plugin/$$d;					\
+				make --no-print-directory build; 	\
+				popd > /dev/null;					\
+			fi										\
+		fi											\
 	done
 	@echo Success
 
@@ -71,7 +77,17 @@ static:
 	@cd ./skynet/frontend && yarn && yarn build
 	@mkdir -p $(OUTPUTDIR)
 	@rm -rf $(OUTPUTDIR)/assets
-	@cp -r ./skynet/frontend/dist $(OUTPUTDIR)/assets && mkdir $(OUTPUTDIR)/assets/_plugin									\
+	@cp -r ./skynet/frontend/dist $(OUTPUTDIR)/assets && mkdir $(OUTPUTDIR)/assets/_plugin
+	@for d in `ls ./plugin`;do	\
+		if [ -d ./plugin/$$d/frontend ];then								\
+		    id=`cat ./plugin/$$d/config.yml | head -n 1 | cut -d \" -f 2`;	\
+		    mkdir -p $(OUTPUTDIR)/assets/_plugin/$$id;	\
+			pushd . > /dev/null;						\
+			cd ./plugin/$$d/frontend;					\
+			yarn build; 								\
+			popd > /dev/null;							\
+			cp -r ./plugin/$$d/frontend/dist $(OUTPUTDIR)/assets/_plugin/$$id; \
+		fi												\
 	done
 
 ## clean: clean all build files

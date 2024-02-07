@@ -1,4 +1,4 @@
-use std::{io, time};
+use std::{env::consts, io, time};
 
 use byte_unit::{Byte, UnitType};
 use clap::{command, Parser, Subcommand};
@@ -118,10 +118,7 @@ fn list() {
         "OS:       {}",
         System::name().unwrap_or_else(|| "N/A".to_owned())
     );
-    println!(
-        "Machine:  {}",
-        System::cpu_arch().unwrap_or_else(|| "N/A".to_owned())
-    );
+    println!("Arch:     {}", consts::ARCH);
     println!(
         "System:   {}",
         System::long_os_version().unwrap_or_else(|| "N/A".to_owned())

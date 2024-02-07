@@ -1,40 +1,32 @@
-use std::{collections::HashMap, time};
-
-use crate::{entity::agents, msg::session, ws::WSAddr, ID};
 use derivative::Derivative;
+use entity::agents;
 use enum_as_inner::EnumAsInner;
 use parking_lot::RwLock;
-use sea_orm_migration::sea_orm::{
-    ActiveModelTrait, ColumnTrait, EntityTrait, QueryFilter, Unchanged,
-};
 use serde::Serialize;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use skynet::{
     anyhow::{self, Result},
-    sea_orm::{DatabaseTransaction, Set},
+    sea_orm::{
+        ActiveModelTrait, ColumnTrait, DatabaseTransaction, EntityTrait, QueryFilter, Set,
+        Unchanged,
+    },
+    uuid::uuid,
     HyUuid, Skynet,
 };
+use std::{collections::HashMap, time};
+
+pub mod client;
+pub mod entity;
+pub mod server;
+
+pub static ID: HyUuid = HyUuid(uuid!("2eb2e1a5-66b4-45f9-ad24-3c4f05c858aa"));
 
 #[derive(Derivative)]
 #[derivative(Default(new = "true"))]
-pub struct TokenSrv;
-
-impl TokenSrv {
-    #[must_use]
-    pub fn setting_name() -> String {
-        format!("plugin_{ID}_token")
-    }
-
-    pub fn get(skynet: &Skynet) -> Option<String> {
-        skynet.setting.get(&Self::setting_name())
-    }
-
-    /// # Errors
-    ///
-    /// Will raise `Err` for db errors.
-    pub async fn set(db: &DatabaseTransaction, skynet: &Skynet, token: &str) -> Result<()> {
-        skynet.setting.set(db, &Self::setting_name(), token).await
-    }
+pub struct PluginSrv {
+    pub view_id: HyUuid,
+    pub manage_id: HyUuid,
+    pub agent: RwLock<HashMap<HyUuid, Agent>>,
 }
 
 #[derive(
@@ -62,12 +54,9 @@ pub struct Agent {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub system: Option<String>,
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub machine: Option<String>,
+    pub arch: Option<String>,
     pub last_login: i64,
     pub status: AgentStatus,
-
-    #[serde(skip)]
-    addr: Option<WSAddr>,
 
     #[serde(skip_serializing_if = "Option::is_none")]
     pub last_rsp: Option<i64>,
@@ -103,20 +92,30 @@ impl From<agents::Model> for Agent {
             hostname: v.hostname,
             ip: v.ip,
             system: v.system,
-            machine: v.machine,
+            arch: v.arch,
             last_login: v.last_login,
             ..Default::default()
         }
     }
 }
 
-#[derive(Derivative)]
-#[derivative(Default(new = "true"))]
-pub struct AgentSrv {
-    pub agent: RwLock<HashMap<HyUuid, Agent>>,
-}
+impl PluginSrv {
+    #[must_use]
+    pub fn setting_name() -> String {
+        format!("plugin_{ID}_token")
+    }
 
-impl AgentSrv {
+    pub fn get_setting(skynet: &Skynet) -> Option<String> {
+        skynet.setting.get(&Self::setting_name())
+    }
+
+    /// # Errors
+    ///
+    /// Will raise `Err` for db errors.
+    pub async fn set_setting(db: &DatabaseTransaction, skynet: &Skynet, token: &str) -> Result<()> {
+        skynet.setting.set(db, &Self::setting_name(), token).await
+    }
+
     #[allow(clippy::needless_collect)]
     pub async fn init(&self, db: &DatabaseTransaction) -> Result<()> {
         let agents: Vec<Agent> = agents::Entity::find()
@@ -138,14 +137,14 @@ impl AgentSrv {
         id: &HyUuid,
         os: Option<String>,
         system: Option<String>,
-        machine: Option<String>,
+        arch: Option<String>,
         hostname: Option<String>,
     ) -> Result<()> {
         agents::ActiveModel {
             id: Unchanged(*id),
             os: Set(os.clone()),
             system: Set(system.clone()),
-            machine: Set(machine.clone()),
+            arch: Set(arch.clone()),
             hostname: Set(hostname.clone()),
             ..Default::default()
         }
@@ -155,7 +154,7 @@ impl AgentSrv {
         if let Some(item) = wlock.get_mut(id) {
             item.os = os;
             item.system = system;
-            item.machine = machine;
+            item.arch = arch;
             item.hostname = hostname;
         }
         Ok(())
@@ -166,13 +165,7 @@ impl AgentSrv {
             .exec(db)
             .await?
             .rows_affected;
-        let mut wlock = self.agent.write();
-        if let Some(item) = wlock.get_mut(id) {
-            if let Some(x) = &item.addr {
-                x.do_send(session::CloseConnection);
-            }
-        }
-        wlock.remove(id);
+        self.agent.write().remove(id);
         Ok(num)
     }
 
@@ -226,18 +219,23 @@ impl AgentSrv {
             .map_err(anyhow::Error::from)
     }
 
-    pub(crate) fn logout(&self, id: &HyUuid) {
+    pub fn update_state(&self, id: &HyUuid) {
         let mut wlock = self.agent.write();
         if let Some(item) = wlock.get_mut(id) {
-            item.status = AgentStatus::Offline;
-            item.addr = None;
+            item.status = AgentStatus::Updating;
         }
     }
 
-    pub(crate) async fn login(
+    pub fn logout(&self, id: &HyUuid) {
+        let mut wlock = self.agent.write();
+        if let Some(item) = wlock.get_mut(id) {
+            item.status = AgentStatus::Offline;
+        }
+    }
+
+    pub async fn login(
         &self,
         db: &DatabaseTransaction,
-        addr: WSAddr,
         uid: String,
         ip: String,
     ) -> Result<Option<HyUuid>> {
@@ -274,7 +272,6 @@ impl AgentSrv {
                 item.ip = ip;
                 item.last_login = now;
                 item.status = AgentStatus::Online;
-                item.addr = Some(addr);
                 Ok(Some(agent.id))
             } else {
                 Ok(None)
@@ -282,7 +279,6 @@ impl AgentSrv {
         } else {
             let mut agent: Agent = agent.into();
             agent.status = AgentStatus::Online;
-            agent.addr = Some(addr);
             let id = agent.id;
             self.agent.write().insert(id, agent);
             Ok(Some(id))
