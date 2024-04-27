@@ -1,8 +1,6 @@
 SHELL = /bin/bash
 .SHELLFLAGS = -
 OUTPUTDIR = ./bin
-PACKAGE_NAME = skynet
-PLATFORM = ("aarch64-apple-darwin" "x86_64-pc-windows-msvc" "x86_64-unknown-linux-gnu" "i686-unknown-linux-gnu")
 PLUGIN_SUFFIX =
 
 ifeq ($(OS),Windows_NT)
@@ -37,7 +35,8 @@ check:
 	-A clippy::partial_pub_fields -A clippy::missing_docs_in_private_items -A clippy::pub_use -A clippy::expect_used \
 	-A clippy::print_stdout -A clippy::blanket_clippy_restriction_lints -A clippy::should_implement_trait -A clippy::similar_names \
 	-A clippy::as_conversions -A clippy::significant_drop_in_scrutinee -A clippy::use_debug -A clippy::match_wildcard_for_single_variants \
-	-A clippy::separated_literal_suffix -A clippy::significant_drop_tightening
+	-A clippy::separated_literal_suffix -A clippy::significant_drop_tightening -A clippy::too-many-arguments \
+	-A clippy::iter-over-hash-type -A clippy::no-effect-underscore-binding -A clippy::redundant-else
 
 ## build: Build skynet(dev).
 build:
@@ -77,7 +76,7 @@ static:
 	@cd ./skynet/frontend && yarn && yarn build
 	@mkdir -p $(OUTPUTDIR)
 	@rm -rf $(OUTPUTDIR)/assets
-	@cp -r ./skynet/frontend/dist $(OUTPUTDIR)/assets && mkdir $(OUTPUTDIR)/assets/_plugin
+	@cp -r ./skynet/frontend/dist/. $(OUTPUTDIR)/assets && mkdir $(OUTPUTDIR)/assets/_plugin
 	@for d in `ls ./plugin`;do	\
 		if [ -d ./plugin/$$d/frontend ];then								\
 		    id=`cat ./plugin/$$d/config.yml | head -n 1 | cut -d \" -f 2`;	\
@@ -86,7 +85,7 @@ static:
 			cd ./plugin/$$d/frontend;					\
 			yarn build; 								\
 			popd > /dev/null;							\
-			cp -r ./plugin/$$d/frontend/dist $(OUTPUTDIR)/assets/_plugin/$$id; \
+			cp -r ./plugin/$$d/frontend/dist/. $(OUTPUTDIR)/assets/_plugin/$$id; \
 		fi												\
 	done
 

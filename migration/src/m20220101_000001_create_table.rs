@@ -6,8 +6,6 @@ enum Users {
     ID,
     Username,
     Password,
-    SaltPrefix,
-    SaltSuffix,
     Avatar,
     LastLogin,
     LastIP,
@@ -103,8 +101,6 @@ impl MigrationTrait for Migration {
                             .not_null(),
                     )
                     .col(ColumnDef::new(Users::Password).char_len(128).not_null())
-                    .col(ColumnDef::new(Users::SaltPrefix).string_len(32).not_null())
-                    .col(ColumnDef::new(Users::SaltSuffix).string_len(32).not_null())
                     .col(ColumnDef::new(Users::Avatar).binary())
                     .col(ColumnDef::new(Users::LastLogin).big_integer())
                     .col(ColumnDef::new(Users::LastIP).string_len(64))

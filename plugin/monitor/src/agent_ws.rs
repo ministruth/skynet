@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use actix::{Actor, ActorContext, Addr, AsyncContext, StreamHandler};
 use actix_web_actors::ws::{start, Message, ProtocolError, WebsocketContext};
@@ -17,8 +17,9 @@ use skynet::{
     anyhow::{self, bail, Result},
     log::{debug, info, warn},
     request::Request,
-    HyUuid, Skynet,
+    utils, HyUuid, Skynet,
 };
+use tokio::runtime::Runtime;
 
 use crate::{ADDRESS, DB, SERVICE};
 
@@ -29,6 +30,8 @@ pub struct WSHandler {
     id: Option<HyUuid>,
     skynet: Data<Skynet>,
     request: Request,
+
+    rt: Runtime,
 }
 
 impl Actor for WSHandler {
@@ -47,9 +50,19 @@ impl WSHandler {
     fn new(skynet: Data<Skynet>, request: Request) -> Self {
         Self {
             id: None,
+            rt: Runtime::new().unwrap(),
             skynet,
             request,
         }
+    }
+
+    #[allow(clippy::unused_self)]
+    fn send_status(&mut self, ctx: &mut <Self as Actor>::Context) {
+        ctx.text(client::Message::new(client::DataType::Status(
+            client::Status {
+                time: utils::millis_time(),
+            },
+        )));
     }
 
     fn login(
@@ -58,7 +71,7 @@ impl WSHandler {
         msg_id: &HyUuid,
         msg: server::Login,
     ) -> Result<()> {
-        if PluginSrv::get_setting(&self.skynet).is_some_and(|x| x == msg.token) {
+        if PluginSrv::get_token(&self.skynet).is_some_and(|x| x == msg.token) {
             block_on(async {
                 let tx = DB.get().unwrap().begin().await?;
                 self.id = Some(
@@ -85,16 +98,17 @@ impl WSHandler {
                 Ok::<(), anyhow::Error>(())
             })?;
 
-            ctx.text(
-                client::Message::new_rsp(
-                    msg_id,
-                    client::DataType::Login(client::Login {
-                        code: 0,
-                        msg: "Login success".to_owned(),
-                    }),
-                )
-                .json(),
-            );
+            // enter tokio runtime.
+            self.rt.block_on(async {
+                ctx.run_interval(Duration::from_secs(1), Self::send_status);
+            });
+            ctx.text(client::Message::new_rsp(
+                msg_id,
+                client::DataType::Login(client::Login {
+                    code: 0,
+                    msg: "Login success".to_owned(),
+                }),
+            ));
             info!("Agent `{}` login", self.id.unwrap());
         } else {
             ctx.text(client::Message::new_rsp(
@@ -141,16 +155,13 @@ impl WSHandler {
                 if let Some(sys) = agent_service::System::parse(&msg.os.clone().unwrap_or_default())
                 {
                     if let Some(arch) = agent_service::Arch::parse(&msg.arch) {
-                        if let Some(data) = x.get_binary(sys.clone(), arch.clone()) {
+                        if let Some(data) = x.get_binary(sys, arch) {
                             SERVICE.get().unwrap().update_state(&self.id.unwrap());
                             let crc = crc32fast::hash(&data);
                             let data = STANDARD.encode(compress_to_vec(&data, 6));
                             ctx.text(client::Message::new_rsp(
                                 msg_id,
-                                client::DataType::Update(client::Update {
-                                    data: data,
-                                    crc32: crc,
-                                }),
+                                client::DataType::Update(client::Update { crc32: crc, data }),
                             ));
                         } else {
                             warn!(
@@ -160,7 +171,7 @@ impl WSHandler {
                                     "aid": self.id.unwrap(),
                                     "file": x.get_binary_name(sys, arch),
                                 })
-                            )
+                            );
                         }
                     } else {
                         warn!(
@@ -170,7 +181,7 @@ impl WSHandler {
                                 "aid": self.id.unwrap(),
                                 "arch": msg.arch,
                             })
-                        )
+                        );
                     }
                 } else {
                     warn!(
@@ -180,11 +191,25 @@ impl WSHandler {
                             "aid": self.id.unwrap(),
                             "system": msg.os.unwrap_or_default(),
                         })
-                    )
+                    );
                 }
             }
         }
         Ok(())
+    }
+
+    fn status_msg(&self, msg: &server::Status) {
+        SERVICE.get().unwrap().update_status(
+            &self.id.unwrap(),
+            msg.time,
+            msg.cpu,
+            msg.memory,
+            msg.total_memory,
+            msg.disk,
+            msg.total_disk,
+            msg.band_up,
+            msg.band_down,
+        );
     }
 
     fn recv(&mut self, text: &Bytes, ctx: &mut <Self as Actor>::Context) -> Result<()> {
@@ -201,6 +226,8 @@ impl WSHandler {
                     ));
                 }
                 server::DataType::Info(x) => self.info_msg(ctx, &msg.id, x)?,
+                server::DataType::Status(x) => self.status_msg(&x),
+                _ => bail!("Invalid message"),
             }
         } else {
             match msg.data {
@@ -230,7 +257,7 @@ impl StreamHandler<Result<Message, ProtocolError>> for WSHandler {
     }
 }
 
-pub async fn get(
+pub async fn service(
     req: HttpRequest,
     r: Request,
     skynet: Data<Skynet>,

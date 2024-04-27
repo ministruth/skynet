@@ -14,6 +14,7 @@ export default defineConfig({
   qiankun: {
     master: {},
   },
+  exportStatic: {},
   hash: true,
   antd: {},
   locale: {

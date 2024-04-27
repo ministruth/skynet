@@ -16,17 +16,19 @@ chrono = "0.4"
 sysinfo = "0.30"
 byte-unit = "5.1"
 tokio-tungstenite = { version = "*", features = ["rustls-tls-webpki-roots"] }
-tokio = { version = "1.35", features = ["full"] }
+tokio = { version = "1.36", features = ["full"] }
 url = "2.5"
 futures-util = "0.3"
 anyhow = "1.0"
 machine-uid = "0.5"
 sha3 = "0.10"
 hex = "0.4"
-base64 = "0.21"
-crc32fast = "1.3"
+base64 = "0.22"
+crc32fast = "1.4"
 self-replace = "1.3"
 miniz_oxide = "0.7"
+portable-pty = "0.8"
+thiserror = "1.0"
 
 agent_service = { path = "../agent_service" }
 monitor_service = { path = "../monitor_service" }

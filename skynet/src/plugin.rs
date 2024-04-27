@@ -26,7 +26,7 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 use serde_with::{serde_as, DisplayFromStr};
 use walkdir::WalkDir;
 
-use crate::{db, utils::osstring_lossy, APIRoute, HyUuid, Skynet};
+use crate::{db, APIRoute, HyUuid, Skynet};
 
 const PLUGIN_SETTING_PREFIX: &str = "plugin_";
 const PLUGIN_CREATE: &[u8] = b"_plugin_create";
@@ -141,11 +141,12 @@ pub enum PluginStatus {
 pub struct PluginInstance {
     pub id: HyUuid,
     pub name: String,
+    pub description: String,
     #[serde_as(as = "DisplayFromStr")]
     pub version: Version,
     pub priority: i32,
     pub status: PluginStatus,
-    #[serde(serialize_with = "osstring_lossy")]
+    #[serde(skip)]
     pub path: OsString,
 
     #[serde(skip)]
@@ -414,6 +415,7 @@ impl PluginManager {
             Ok(PluginInstance {
                 id: HyUuid::parse(&settings.get_string("id")?)?,
                 name: settings.get_string("name")?,
+                description: settings.get_string("description")?,
                 version: Version::parse(&settings.get_string("version")?)?,
                 priority: settings.get_int("priority")?.try_into()?,
                 path: path.file_name().unwrap().to_owned(),

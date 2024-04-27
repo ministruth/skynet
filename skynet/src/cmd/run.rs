@@ -14,9 +14,8 @@ use actix_web::{
     web::{scope, Data},
     App, HttpServer,
 };
-use actix_web_validator::JsonConfig;
 use chrono::Utc;
-use log::{debug, warn};
+use log::{debug, info, warn};
 use parking_lot::Mutex;
 use redis::aio::ConnectionManager;
 use rustls::ServerConfig;
@@ -69,7 +68,7 @@ pub async fn init_skynet(
 fn load_rustls_config<P: AsRef<Path>>(cert: P, key: P) -> ServerConfig {
     let config = ServerConfig::builder().with_no_client_auth();
     let cert_chain = certs(&mut BufReader::new(File::open(cert).unwrap()))
-        .map(|x| x.unwrap())
+        .map(Result::unwrap)
         .collect();
     let key = private_key(&mut BufReader::new(File::open(key).unwrap()))
         .unwrap()
@@ -134,7 +133,19 @@ impl StopHandle {
     }
 }
 
-pub async fn command(cli: &Cli, skynet: Skynet, disable_csrf: bool) {
+fn print_cover() {
+    println!("            __                         __   ");
+    println!("      _____|  | _____.__. ____   _____/  |_ ");
+    println!("     /  ___/  |/ <   |  |/    \\_/ __ \\   __\\");
+    println!("     \\___ \\|    < \\___  |   |  \\  ___/|  |  ");
+    println!("    /____  >__|_ \\/ ____|___|  /\\___  >__|  ");
+    println!("         \\/     \\/\\/         \\/     \\/      \n");
+}
+
+pub async fn command(cli: &Cli, skynet: Skynet, skip_cover: bool, disable_csrf: bool) {
+    if !skip_cover {
+        print_cover();
+    }
     let (mut skynet, db, mut redis) = init_skynet(cli, skynet).await;
     if disable_csrf {
         warn!("CSRF protection is disabled, for debugging purpose only");
@@ -187,9 +198,6 @@ pub async fn command(cli: &Cli, skynet: Skynet, disable_csrf: bool) {
                 .app_data(cli_data.clone())
                 .app_data(db.clone())
                 .app_data(redis.clone())
-                .app_data(
-                    JsonConfig::default().limit(skynet.config.max_body.get().try_into().unwrap()),
-                )
                 .app_data(stop_handle.clone())
         }
     })
@@ -212,5 +220,6 @@ pub async fn command(cli: &Cli, skynet: Skynet, disable_csrf: bool) {
     };
     stop_handle.register(server.handle());
     *skynet.running.write() = true;
+    info!("Listening on {address}");
     server.await.unwrap();
 }

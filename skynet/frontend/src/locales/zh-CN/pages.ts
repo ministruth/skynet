@@ -86,7 +86,7 @@ export default {
   'pages.plugin.table.status': '状态',
   'pages.plugin.table.version': '版本',
   'pages.plugin.table.priority': '优先级',
-  'pages.plugin.table.path': '路径',
+  'pages.plugin.table.description': '简介',
   'pages.plugin.table.delete.title': '删除插件 {name}，确认？',
   'pages.plugin.table.disabletip': '禁用',
   'pages.plugin.table.enabletip': '启用',
@@ -95,12 +95,4 @@ export default {
     '在重新启动 Skynet 之前你将无法卸载插件。',
   'pages.plugin.table.disable.title': '禁用插件 {name}，确认？',
   'pages.plugin.table.disable.content': '重新启动 Skynet 生效。',
-  'pages.plugin.form.path.tip': '路径相对于插件根目录',
-  'pages.plugin.form.file': '文件',
-  'pages.plugin.form.file.invalid': '插件文件无效',
-  'pages.plugin.form.crc32': 'CRC32',
-  'pages.plugin.op.upload.title': '上传新插件',
-  'pages.plugin.op.upload.warning': '安全警告',
-  'pages.plugin.op.upload.content':
-    '插件包可能含有恶意内容，请只上传受信任的插件！',
 };

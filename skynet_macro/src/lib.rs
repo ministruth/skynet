@@ -19,14 +19,8 @@ pub fn entity_timestamp(_: TokenStream, input: TokenStream) -> TokenStream {
     let mut entity = parse_macro_input!(input as ItemImpl);
     entity.items.push(parse_quote!(
         fn entity_timestamp(&self, e: &mut Self, insert: bool) {
-            let tm: sea_orm::ActiveValue<i64> = sea_orm::ActiveValue::set(
-                std::time::SystemTime::now()
-                    .duration_since(std::time::UNIX_EPOCH)
-                    .unwrap()
-                    .as_millis()
-                    .try_into()
-                    .unwrap(),
-            );
+            let tm: sea_orm::ActiveValue<i64> =
+                sea_orm::ActiveValue::set(crate::utils::millis_time());
             if insert {
                 e.created_at = tm.clone();
                 e.updated_at = tm.clone();

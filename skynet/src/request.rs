@@ -5,7 +5,7 @@ use std::{
     pin::Pin,
 };
 
-use actix_http::{body::EitherBody, HttpMessage, Method, Payload, StatusCode};
+use actix_http::{body::EitherBody, HttpMessage, Payload, StatusCode};
 use actix_session::Session;
 use actix_web::{
     cookie::{time::Duration, Cookie, SameSite},
@@ -26,7 +26,7 @@ use std::hash::Hash;
 use validator::{Validate, ValidationError};
 
 use crate::{
-    permission::{PermEntry, PermissionItem, GUEST_ID, ROOT_ID, USER_ID},
+    permission::{PermEntry, PermissionItem, GUEST_ID, PERM_ALL, ROOT_ID, USER_ID},
     t, utils, HyUuid, Skynet,
 };
 
@@ -211,9 +211,20 @@ pub enum PermType {
 
 pub struct APIRoute {
     pub path: String,
-    pub method: Method,
     pub route: Route,
     pub permission: PermType,
+    pub ws_csrf: bool,
+}
+
+impl Default for APIRoute {
+    fn default() -> Self {
+        Self {
+            path: String::new(),
+            route: Route::new(),
+            permission: PermType::Entry(PermEntry::new_root()), // default pemission is root
+            ws_csrf: false,
+        }
+    }
 }
 
 #[derive(Derivative)]
@@ -271,7 +282,7 @@ impl FromRequest for Request {
                                     PermissionItem {
                                         name: "root".to_owned(),
                                         pid: ROOT_ID,
-                                        perm: 7,
+                                        perm: PERM_ALL,
                                         ..Default::default()
                                     },
                                 )])
@@ -292,7 +303,7 @@ impl FromRequest for Request {
                                 PermissionItem {
                                     name: "user".to_owned(),
                                     pid: USER_ID,
-                                    perm: 7,
+                                    perm: PERM_ALL,
                                     ..Default::default()
                                 },
                             );
@@ -305,7 +316,7 @@ impl FromRequest for Request {
                         PermissionItem {
                             name: "guest".to_owned(),
                             pid: GUEST_ID,
-                            perm: 7,
+                            perm: PERM_ALL,
                             ..Default::default()
                         },
                     );

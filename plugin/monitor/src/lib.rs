@@ -1,12 +1,10 @@
+use agent_ws::WSAddr;
 use futures::executor::block_on;
 use migration::migrator::Migrator;
 use monitor_service::{PluginSrv, ID};
 use parking_lot::RwLock;
 use skynet::{
-    actix_web::{
-        http::Method,
-        web::{delete, get, put},
-    },
+    actix_web::web::{delete, get, post, put},
     anyhow, async_trait, create_plugin,
     log::{info, warn},
     permission::{IDTypes::PermManagePluginID, PermEntry, PERM_READ, PERM_WRITE},
@@ -23,13 +21,13 @@ use std::{
     path::PathBuf,
     sync::{Arc, OnceLock},
 };
-use ws::WSAddr;
 
+mod agent_session;
+mod agent_ws;
 mod api;
 mod migration;
 mod request;
-mod session;
-mod ws;
+mod web_ws;
 
 static SERVICE: OnceLock<Arc<PluginSrv>> = OnceLock::new();
 static DB: OnceLock<DatabaseConnection> = OnceLock::new();
@@ -56,9 +54,9 @@ impl Plugin for Monitor {
         };
         if let Err(e) = block_on(async {
             let tx = DB.get().unwrap().begin().await?;
-            if PluginSrv::get_setting(&skynet).is_none() {
+            if PluginSrv::get_token(&skynet).is_none() {
                 info!("Token not found, generating new one");
-                PluginSrv::set_setting(&tx, &skynet, &utils::rand_string(32)).await?;
+                PluginSrv::set_token(&tx, &skynet, &utils::rand_string(32)).await?;
             }
             srv.view_id = skynet
                 .perm
@@ -86,6 +84,20 @@ impl Plugin for Monitor {
             1,
             Some(HyUuid(uuid!("cca5b3b0-40a3-465c-8b08-91f3e8d3b14d"))),
         );
+        skynet.insert_menu(
+            MenuItem {
+                id: HyUuid(uuid!("d2231000-53be-46ac-87ae-73fb3f76f18f")),
+                name: format!("{ID}.menu.monitor"),
+                path: format!("/plugin/{ID}/view"),
+                perm: Some(PermEntry {
+                    pid: srv.view_id,
+                    perm: PERM_READ,
+                }),
+                ..Default::default()
+            },
+            0,
+            Some(HyUuid(uuid!("d00d36d0-6068-4447-ab04-f82ce893c04e"))),
+        );
         skynet.add_locale(i18n!("locales"));
         let _ = SERVICE.set(Arc::new(srv));
         let _ = ADDRESS.set(RwLock::new(HashMap::new()));
@@ -99,13 +111,21 @@ impl Plugin for Monitor {
         r.extend(vec![
             APIRoute {
                 path: format!("/plugins/{ID}/ws"),
-                method: Method::GET,
-                route: get().to(ws::get),
+                route: get().to(web_ws::service),
+                permission: PermType::Entry(PermEntry {
+                    pid: SERVICE.get().unwrap().view_id,
+                    perm: PERM_WRITE,
+                }),
+                ws_csrf: true,
+            },
+            APIRoute {
+                path: format!("/plugins/{ID}/agents/ws"),
+                route: get().to(agent_ws::service),
                 permission: PermType::Entry(PermEntry::new_guest()),
+                ..Default::default()
             },
             APIRoute {
                 path: format!("/plugins/{ID}/agents"),
-                method: Method::GET,
                 route: get().to(api::get_agents),
                 permission: PermType::Custom(Box::new(|x| {
                     PermEntry {
@@ -119,51 +139,61 @@ impl Plugin for Monitor {
                         }
                         .check(x)
                 })),
+                ..Default::default()
             },
             APIRoute {
                 path: format!("/plugins/{ID}/agents"),
-                method: Method::DELETE,
                 route: delete().to(api::delete_agents),
                 permission: PermType::Entry(PermEntry {
                     pid: skynet.default_id[PermManagePluginID],
                     perm: PERM_WRITE,
                 }),
+                ..Default::default()
             },
             APIRoute {
                 path: format!("/plugins/{ID}/agents/{{aid}}"),
-                method: Method::PUT,
                 route: put().to(api::put_agent),
                 permission: PermType::Entry(PermEntry {
                     pid: skynet.default_id[PermManagePluginID],
                     perm: PERM_WRITE,
                 }),
+                ..Default::default()
             },
             APIRoute {
                 path: format!("/plugins/{ID}/agents/{{aid}}"),
-                method: Method::DELETE,
                 route: delete().to(api::delete_agent),
                 permission: PermType::Entry(PermEntry {
                     pid: skynet.default_id[PermManagePluginID],
                     perm: PERM_WRITE,
                 }),
+                ..Default::default()
+            },
+            APIRoute {
+                path: format!("/plugins/{ID}/agents/{{aid}}/reconnect"),
+                route: post().to(api::reconnect_agent),
+                permission: PermType::Entry(PermEntry {
+                    pid: skynet.default_id[PermManagePluginID],
+                    perm: PERM_WRITE,
+                }),
+                ..Default::default()
             },
             APIRoute {
                 path: format!("/plugins/{ID}/settings"),
-                method: Method::GET,
                 route: get().to(api::get_settings),
                 permission: PermType::Entry(PermEntry {
                     pid: skynet.default_id[PermManagePluginID],
                     perm: PERM_READ,
                 }),
+                ..Default::default()
             },
             APIRoute {
                 path: format!("/plugins/{ID}/settings"),
-                method: Method::PUT,
                 route: put().to(api::put_settings),
                 permission: PermType::Entry(PermEntry {
                     pid: skynet.default_id[PermManagePluginID],
                     perm: PERM_WRITE,
                 }),
+                ..Default::default()
             },
         ]);
         r

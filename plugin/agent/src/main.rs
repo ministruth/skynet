@@ -12,6 +12,7 @@ use sysinfo::{
 };
 
 mod client;
+mod shell;
 
 #[derive(Parser, Clone)]
 #[command(author, version, about, long_about = None)]
@@ -45,6 +46,14 @@ enum Commands {
         /// Max wait time when retrying
         #[arg(long, default_value = "16")]
         max_time: u32,
+
+        /// Disk name, match first, sum all specified.
+        #[arg(short, long, required = true)]
+        disk: Vec<String>,
+
+        /// Interface name, sum all specified.
+        #[arg(short, long, required = true)]
+        interface: Vec<String>,
     },
     /// List interface in agent
     List,
@@ -179,7 +188,26 @@ async fn main() {
             addr,
             token,
             max_time,
-        } => run(addr, token, max_time).await,
+            disk,
+            interface,
+        } => {
+            let disks: Vec<String> = Disks::new_with_refreshed_list()
+                .into_iter()
+                .map(|x| x.name().to_string_lossy().to_string())
+                .collect();
+            for i in &disk {
+                assert!(disks.contains(i), "Disk name `{i}` not found");
+            }
+            let interfaces: Vec<String> = Networks::new_with_refreshed_list()
+                .into_iter()
+                .filter(|x| !x.1.mac_address().is_unspecified())
+                .map(|x| x.0.to_owned())
+                .collect();
+            for i in &interface {
+                assert!(interfaces.contains(i), "Interface name `{i}` not found");
+            }
+            run(addr, token, max_time, disk, interface).await;
+        }
         Commands::List => list(),
     }
 }

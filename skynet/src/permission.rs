@@ -48,14 +48,12 @@ pub const PERM_REVOKE: UserPerm = -1;
 pub const PERM_FORBIDDEN: UserPerm = 0;
 /// default, no permission.
 pub const PERM_NONE: UserPerm = 0;
-/// execute operation.
-pub const PERM_EXECUTE: UserPerm = 1;
 /// write data.
-pub const PERM_WRITE: UserPerm = 1 << 1;
+pub const PERM_WRITE: UserPerm = 1;
 /// read data.
-pub const PERM_READ: UserPerm = 1 << 2;
+pub const PERM_READ: UserPerm = 1 << 1;
 /// all permission.
-pub const PERM_ALL: UserPerm = (1 << 3) - 1;
+pub const PERM_ALL: UserPerm = (1 << 2) - 1;
 
 /// root permission name.
 pub const ROOT_NAME: &str = "root";
@@ -87,7 +85,7 @@ impl PermEntry {
             return true;
         }
         p.get(&self.pid)
-            .map_or(false, |x| x.perm & self.perm == self.perm)
+            .map_or(false, |x| (x.perm & self.perm) == self.perm)
     }
 
     #[must_use]
@@ -108,21 +106,21 @@ impl PermEntry {
     pub const fn new_guest() -> Self {
         Self {
             pid: GUEST_ID,
-            perm: 7,
+            perm: PERM_ALL,
         }
     }
 
     pub const fn new_user() -> Self {
         Self {
             pid: USER_ID,
-            perm: 7,
+            perm: PERM_ALL,
         }
     }
 
     pub const fn new_root() -> Self {
         Self {
             pid: ROOT_ID,
-            perm: 7,
+            perm: PERM_ALL,
         }
     }
 }

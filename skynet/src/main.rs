@@ -1,7 +1,6 @@
 use std::{
     collections::HashMap,
     env, io,
-    os::unix::process::CommandExt,
     path::PathBuf,
     process::Command,
     sync::{atomic::AtomicU64, Arc},
@@ -71,6 +70,10 @@ struct Cli {
 enum Commands {
     /// Run skynet
     Run {
+        /// Do not print the cover (ascii picture) when start.
+        #[arg(long)]
+        skip_cover: bool,
+
         /// Disable CSRF protection, for debugging purpose only.
         #[arg(long)]
         disable_csrf: bool,
@@ -155,19 +158,22 @@ async fn main() -> io::Result<()> {
     let mut restart = false;
     match &cli.command {
         Commands::Run {
+            skip_cover,
             disable_csrf,
             daemon,
         } => {
             restart = *daemon;
-            Box::pin(run::command(&cli, skynet, *disable_csrf)).await
+            Box::pin(run::command(&cli, skynet, *skip_cover, *disable_csrf)).await;
         }
         Commands::User(user_cli) => Box::pin(user::command(&cli, skynet, user_cli)).await,
         Commands::Check => check::command(&cli),
     }
     if restart {
-        return Err(Command::new(env::current_exe().unwrap())
+        return Command::new(env::current_exe().unwrap())
             .args(env::args().skip(1))
-            .exec());
+            .spawn()
+            .map_err(Into::into)
+            .and(Ok(()));
     }
     Ok(())
 }

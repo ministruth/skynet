@@ -299,7 +299,7 @@ const UserCard = () => {
             icon={LogoutOutlined}
             tip={intl.get('pages.user.op.kick.tip')}
             color="#faad14"
-            perm={UserPerm.PermExecute}
+            perm={UserPerm.PermWrite}
             permName="manage.user"
             onClick={() =>
               handleKick(

@@ -1,9 +1,9 @@
 use std::ffi::OsString;
 use std::fs::{self, File};
 use std::hash::Hash;
-use std::io;
 use std::path::PathBuf;
 use std::{collections::HashSet, io::Cursor};
+use std::{io, time};
 
 use anyhow::{bail, Result};
 use base64::engine::general_purpose::STANDARD;
@@ -118,7 +118,7 @@ pub fn unzip(data: &[u8], path: &PathBuf) -> Result<()> {
         for i in 0..archive.len() {
             let mut file = archive.by_index(i)?;
             let outpath = path.join(match file.enclosed_name() {
-                Some(path) => path.to_owned(),
+                Some(path) => path.clone(),
                 None => continue,
             });
 
@@ -140,4 +140,19 @@ pub fn unzip(data: &[u8], path: &PathBuf) -> Result<()> {
         let _ = fs::remove_dir_all(path);
         e
     })
+}
+
+/// Get millisecond UNIX timestamp.
+///
+/// # Panics
+///
+/// Panics if clock go backwards.
+#[must_use]
+pub fn millis_time() -> i64 {
+    time::SystemTime::now()
+        .duration_since(time::UNIX_EPOCH)
+        .unwrap()
+        .as_millis()
+        .try_into()
+        .unwrap()
 }

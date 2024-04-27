@@ -19,7 +19,6 @@ pub trait UserHandler: Send + Sync {
     async fn create(
         &self,
         db: &DatabaseTransaction,
-        skynet: &Skynet,
         username: &str,
         password: Option<&str>,
         avatar: Option<Vec<u8>>,
@@ -29,7 +28,6 @@ pub trait UserHandler: Send + Sync {
     /// Password will be automatically hashed.
     ///
     /// User will be kicked if password is updated.
-    #[allow(clippy::too_many_arguments)]
     async fn update(
         &self,
         db: &DatabaseTransaction,
@@ -39,8 +37,6 @@ pub trait UserHandler: Send + Sync {
         username: Option<&str>,
         password: Option<&str>,
         avatar: Option<Vec<u8>>,
-        salt_prefix: &str,
-        salt_suffix: &str,
     ) -> Result<users::Model>;
 
     /// Update login `uid` and `ip`.

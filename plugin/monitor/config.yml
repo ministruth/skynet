@@ -1,4 +1,5 @@
 id: "2eb2e1a5-66b4-45f9-ad24-3c4f05c858aa"
 name: "monitor"
+description: "Server monitor"
 version: "0.1.0"
 priority: 100

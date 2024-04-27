@@ -1,8 +1,6 @@
 # yaml-language-server: $schema=conf.schema.json
 database:
   dsn: "sqlite://../data.db?mode=rwc" # database dsn, support sqlite, mysql, postgresql
-  salt_prefix: 8 # password salt prefix length
-  salt_suffix: 8 # password salt suffix length
 
 redis:
   dsn: "redis://127.0.0.1:6379/0" # redis dsn
@@ -22,7 +20,7 @@ listen:
   ssl_key: "" # ssl key path(.key)
 
 header:
-  csp: "default-src 'none'; script-src 'self' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; base-uri 'self'" # Content Security Policy, https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP
+  csp: "default-src 'none'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; base-uri 'self'" # Content Security Policy, https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP
 
 proxy:
   enable: false # if skynet is behind proxy, enable to get correct ip
@@ -40,6 +38,5 @@ csrf:
   prefix: "csrf_" # redis prefix
   timeout: 10 # timeout second
 
-max_body: 536870912 # max body size
 avatar: "default.webp" # default avatar
 lang: "en-US" # default language

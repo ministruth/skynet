@@ -1,16 +1,27 @@
 [package]
 name = "actix-session"
-version = "0.8.0"
+version = "0.9.0"
 authors = [
     "Nikolay Kim <fafhrd91@gmail.com>",
     "Luca Palmieri <rust@lpalmieri.com>",
 ]
-description = "Session management for Actix We"
+description = "Session management for Actix Web"
 keywords = ["http", "web", "framework", "async", "session"]
+repository = "https://github.com/actix/actix-extras/tree/master/actix-session"
 homepage = "https://actix.rs"
-repository = "https://github.com/actix/actix-extras.git"
 license = "MIT OR Apache-2.0"
-edition = "2018"
+edition = "2021"
+rust-version = "1.75"
+
+[package.metadata.docs.rs]
+rustdoc-args = ["--cfg", "docsrs"]
+all-features = true
+
+[features]
+default = []
+cookie-session = []
+redis-rs-session = ["redis", "rand"]
+redis-rs-tls-session = ["redis-rs-session", "redis/tokio-rustls-comp"]
 
 [dependencies]
 actix-service = "2"
@@ -21,13 +32,12 @@ actix-web = { version = "4", default-features = false, features = [
 ] }
 
 anyhow = "1"
-async-trait = "0.1"
 derive_more = "0.99.7"
-rand = "0.8"
+rand = { version = "0.8", optional = true }
 serde = { version = "1" }
 serde_json = { version = "1" }
 tracing = { version = "0.1.30", default-features = false, features = ["log"] }
-redis = { version = "0.24", default-features = false, features = [
+redis = { version = "0.25", default-features = false, features = [
     "tokio-comp",
     "connection-manager",
-] }
+], optional = true }

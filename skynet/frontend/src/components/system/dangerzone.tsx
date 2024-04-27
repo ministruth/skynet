@@ -39,7 +39,7 @@ const DangerZoneCard = () => {
           <Button
             danger
             onClick={() => handleShutdown(intl)}
-            disabled={!checkPerm(access, 'manage.system', UserPerm.PermExecute)}
+            disabled={!checkPerm(access, 'manage.system', UserPerm.PermWrite)}
           >
             {intl.get('pages.system.dangerzone.shutdown.button')}
           </Button>

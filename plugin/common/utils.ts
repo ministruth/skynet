@@ -1,27 +1,26 @@
-import { getLocale, request, useIntl } from '@umijs/max';
-import { message } from 'antd';
-import { SortOrder } from 'antd/es/table/interface';
-import { PrimitiveType } from 'intl-messageformat';
-import Cookies from 'js-cookie';
-import moment from 'moment';
-import { IntlShape } from 'react-intl';
+import { getLocale, request, useIntl } from "@umijs/max";
+import { message } from "antd";
+import { SortOrder } from "antd/es/table/interface";
+import { PrimitiveType } from "intl-messageformat";
+import Cookies from "js-cookie";
+import moment from "moment";
+import { IntlShape } from "react-intl";
 
 export enum UserPerm {
   PermBan = -1,
   PermInherit = -1,
   PermNone = 0,
-  PermExecute = 1,
-  PermWrite = 1 << 1,
-  PermRead = 1 << 2,
-  PermAll = (1 << 3) - 1,
+  PermWrite = 1,
+  PermRead = 1 << 1,
+  PermAll = (1 << 2) - 1,
 }
 
 export function checkPerm(
   access: { [Key: string]: UserPerm },
   name: string,
-  perm: UserPerm,
+  perm: UserPerm
 ) {
-  if (access['root'] !== undefined) return true;
+  if (access["root"] !== undefined) return true;
   if (access[name] !== undefined) return (access[name] & perm) === perm;
   return false;
 }
@@ -36,7 +35,7 @@ export class StringIntl {
       {
         id: id,
       },
-      values,
+      values
     );
   }
 }
@@ -51,7 +50,7 @@ export function api(
   params?: object,
   data?: any,
   headers?: any,
-  showmsg: boolean = false,
+  showmsg: boolean = false
 ) {
   let obj = {
     lang: getLocale(),
@@ -79,10 +78,10 @@ export function withToken(
   url: string,
   params?: object,
   data?: any,
-  showmsg: boolean = false,
+  showmsg: boolean = false
 ) {
-  return request('/token', {
-    method: 'get',
+  return request("/token", {
+    method: "get",
   }).then((rsp) => {
     if (rsp)
       return api(
@@ -91,27 +90,27 @@ export function withToken(
         params,
         data,
         {
-          'X-CSRF-Token': Cookies.get('CSRF_TOKEN'),
+          "X-CSRF-Token": Cookies.get("CSRF_TOKEN"),
         },
-        showmsg,
+        showmsg
       );
   });
 }
 
 export function getAPI(url: string, params?: object, showmsg: boolean = false) {
-  return api('get', url, params, undefined, undefined, showmsg);
+  return api("get", url, params, undefined, undefined, showmsg);
 }
 
 export function postAPI(url: string, data: any, showmsg: boolean = true) {
-  return withToken('post', url, undefined, data, showmsg);
+  return withToken("post", url, undefined, data, showmsg);
 }
 
 export function putAPI(url: string, data: any, showmsg: boolean = true) {
-  return withToken('put', url, undefined, data, showmsg);
+  return withToken("put", url, undefined, data, showmsg);
 }
 
 export function deleleAPI(url: string, data: any, showmsg: boolean = true) {
-  return withToken('delete', url, undefined, data, showmsg);
+  return withToken("delete", url, undefined, data, showmsg);
 }
 
 export async function checkAPI(ret: Promise<any>) {
@@ -121,8 +120,8 @@ export async function checkAPI(ret: Promise<any>) {
 }
 
 export function paramSort(v?: SortOrder) {
-  if (v === 'ascend') return 'asc';
-  else if (v === 'descend') return 'desc';
+  if (v === "ascend") return "asc";
+  else if (v === "descend") return "desc";
   return undefined;
 }
 
@@ -133,7 +132,7 @@ export function paramTime(v?: string, end?: boolean) {
 export const fileToBase64 = (file: File | undefined) =>
   new Promise((resolve: (value: string) => void, reject) => {
     if (file === undefined) {
-      resolve('');
+      resolve("");
     } else {
       const reader = new FileReader();
       reader.readAsDataURL(file);

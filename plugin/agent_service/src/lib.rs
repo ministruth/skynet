@@ -1,12 +1,17 @@
 use enum_as_inner::EnumAsInner;
 use skynet::{uuid::uuid, HyUuid};
-use std::{fmt::Display, fs, path::PathBuf};
+use std::{
+    fmt::{self, Display},
+    fs,
+    path::PathBuf,
+};
 use version_compare::{compare, Cmp};
 
 const VERSION: &str = "0.1.0";
 pub static ID: HyUuid = HyUuid(uuid!("ce96ae04-6801-4ca4-b09d-a087e05f3783"));
 
-#[derive(EnumAsInner, Clone)]
+#[derive(EnumAsInner, Clone, Copy)]
+#[repr(u8)]
 pub enum System {
     Windows,
     Linux,
@@ -14,6 +19,7 @@ pub enum System {
 }
 
 impl System {
+    #[must_use]
     pub fn parse(str: &str) -> Option<Self> {
         let str = str.to_lowercase();
         if str.contains("windows") {
@@ -29,7 +35,7 @@ impl System {
 }
 
 impl Display for System {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Windows => write!(f, "windows"),
             Self::Linux => write!(f, "linux"),
@@ -38,7 +44,8 @@ impl Display for System {
     }
 }
 
-#[derive(EnumAsInner, Clone)]
+#[derive(EnumAsInner, Clone, Copy)]
+#[repr(u8)]
 pub enum Arch {
     X86,
     X64,
@@ -47,6 +54,7 @@ pub enum Arch {
 }
 
 impl Arch {
+    #[must_use]
     pub fn parse(str: &str) -> Option<Self> {
         let str = str.to_lowercase();
         if str.contains("x86_64") {
@@ -64,7 +72,7 @@ impl Arch {
 }
 
 impl Display for Arch {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::X86 => write!(f, "x86"),
             Self::X64 => write!(f, "x64"),
@@ -79,27 +87,31 @@ pub struct PluginSrv {
 }
 
 impl PluginSrv {
-    pub fn new(path: PathBuf) -> Self {
+    #[must_use]
+    pub const fn new(path: PathBuf) -> Self {
         Self { path }
     }
 
+    #[must_use]
     pub fn check_version(v: &str) -> bool {
         compare(VERSION, v) == Ok(Cmp::Gt)
     }
 
+    #[must_use]
     pub fn get_binary_name(&self, sys: System, arch: Arch) -> PathBuf {
         let suffix = if sys.is_windows() { ".exe" } else { "" };
         self.path
             .join("bin")
-            .join(format!("agent_{}_{}{suffix}", sys, arch))
+            .join(format!("agent_{sys}_{arch}{suffix}"))
     }
 
+    #[must_use]
     pub fn get_binary(&self, sys: System, arch: Arch) -> Option<Vec<u8>> {
         let suffix = if sys.is_windows() { ".exe" } else { "" };
         fs::read(
             self.path
                 .join("bin")
-                .join(format!("agent_{}_{}{suffix}", sys, arch)),
+                .join(format!("agent_{sys}_{arch}{suffix}")),
         )
         .ok()
     }

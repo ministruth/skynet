@@ -176,7 +176,7 @@ pub async fn add(
 
     let user = skynet
         .user
-        .create(&tx, &skynet, &param.username, Some(&param.password), avatar)
+        .create(&tx, &param.username, Some(&param.password), avatar)
         .await?;
     if let Some(base) = &param.base {
         let perm: Vec<PermEntry> = skynet
@@ -295,8 +295,6 @@ pub async fn put(
                 param.username.as_deref(),
                 param.password.as_deref(),
                 avatar,
-                &user.salt_prefix,
-                &user.salt_suffix,
             )
             .await?;
 

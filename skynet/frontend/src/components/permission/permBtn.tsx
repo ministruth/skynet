@@ -51,8 +51,7 @@ const Permission: React.FC<PermProps> = (props) => {
             let permstr = '';
             if (e.perm & UserPerm.PermRead) permstr += 'R';
             if (e.perm & UserPerm.PermWrite) permstr += 'W';
-            if (e.perm & UserPerm.PermExecute) permstr += 'X';
-            if (permstr === 'RWX') permstr = 'A';
+            if (permstr === 'RW') permstr = 'A';
             else if (permstr === '') permstr = 'N';
             return {
               id: e.id,
@@ -173,7 +172,7 @@ const Permission: React.FC<PermProps> = (props) => {
       title: intl.get('pages.permission.table.perm'),
       valueType: 'checkbox',
       align: 'center',
-      width: 200,
+      width: 180,
       render: (_, row) => {
         return (
           <PermItem

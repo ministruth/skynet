@@ -9,7 +9,7 @@ authors = ["MXWXZ <matrixwxz@gmail.com>"]
 [dependencies]
 syn = "2.0"
 quote = "1.0"
-rust-i18n-support = "2"
+rust-i18n-support = "3"
 proc-macro2 = "1.0"
 
 [lib]

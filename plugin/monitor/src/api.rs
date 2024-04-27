@@ -14,7 +14,7 @@ use skynet::{
 };
 use validator::Validate;
 
-use crate::{request::ResponseCode, session, ADDRESS, DB, SERVICE};
+use crate::{agent_session, request::ResponseCode, ADDRESS, DB, SERVICE};
 
 pub async fn get_settings(skynet: Data<Skynet>) -> RspResult<impl Responder> {
     #[derive(Serialize)]
@@ -23,7 +23,7 @@ pub async fn get_settings(skynet: Data<Skynet>) -> RspResult<impl Responder> {
     }
 
     finish!(Response::data(Rsp {
-        token: PluginSrv::get_setting(&skynet).unwrap_or_default(),
+        token: PluginSrv::get_token(&skynet).unwrap_or_default(),
     }));
 }
 
@@ -39,7 +39,7 @@ pub async fn put_settings(
     skynet: Data<Skynet>,
 ) -> RspResult<impl Responder> {
     let tx = DB.get().unwrap().begin().await?;
-    PluginSrv::set_setting(&tx, &skynet, &param.token).await?;
+    PluginSrv::set_token(&tx, &skynet, &param.token).await?;
     tx.commit().await?;
 
     success!(
@@ -76,7 +76,12 @@ pub async fn get_agents(param: QsQuery<GetAgentsReq>) -> RspResult<impl Responde
                 }
             }
             if let Some(x) = &param.text {
-                if !v.id.to_string().contains(x) && !v.name.contains(x) && !v.ip.contains(x) {
+                if !v.id.to_string().contains(x)
+                    && !v.name.contains(x)
+                    && !v.ip.contains(x)
+                    && !v.os.as_ref().is_some_and(|v| v.contains(x))
+                    && !v.arch.as_ref().is_some_and(|v| v.contains(x))
+                {
                     return false;
                 }
             }
@@ -122,6 +127,20 @@ pub async fn put_agent(
     finish!(Response::ok())
 }
 
+pub async fn reconnect_agent(aid: Path<HyUuid>) -> RspResult<impl Responder> {
+    let srv = SERVICE.get().unwrap();
+    let tx = DB.get().unwrap().begin().await?;
+    if srv.find_by_id(&tx, &aid).await?.is_none() {
+        finish!(Response::not_found());
+    }
+
+    if let Some(x) = ADDRESS.get().unwrap().read().get(&aid) {
+        x.do_send(agent_session::Reconnect);
+    }
+    tx.commit().await?;
+    finish!(Response::ok())
+}
+
 pub async fn delete_agent(aid: Path<HyUuid>, req: Request) -> RspResult<impl Responder> {
     let srv = SERVICE.get().unwrap();
     let tx = DB.get().unwrap().begin().await?;
@@ -130,12 +149,9 @@ pub async fn delete_agent(aid: Path<HyUuid>, req: Request) -> RspResult<impl Res
     }
 
     let rows = srv.delete(&tx, &aid).await?;
-    ADDRESS
-        .get()
-        .unwrap()
-        .read()
-        .get(&aid)
-        .and_then(|x| Some(x.do_send(session::CloseConnection)));
+    if let Some(x) = ADDRESS.get().unwrap().read().get(&aid) {
+        x.do_send(agent_session::CloseConnection);
+    }
     tx.commit().await?;
 
     success!(
@@ -155,12 +171,9 @@ pub async fn delete_agents(param: Json<IDsReq>, req: Request) -> RspResult<impl 
     let mut rows = 0;
     for i in &param.id {
         rows += srv.delete(&tx, i).await?;
-        ADDRESS
-            .get()
-            .unwrap()
-            .read()
-            .get(i)
-            .and_then(|x| Some(x.do_send(session::CloseConnection)));
+        if let Some(x) = ADDRESS.get().unwrap().read().get(i) {
+            x.do_send(agent_session::CloseConnection);
+        }
     }
     tx.commit().await?;
 

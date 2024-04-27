@@ -90,6 +90,7 @@ pub async fn signin(
         "name":&user.username,
         "ip":&user.last_ip,
     });
+    session.renew();
     session.insert("id", user.id)?;
     session.insert("name", user.username.clone())?;
     session.insert("time", user.last_login.unwrap())?;

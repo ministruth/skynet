@@ -31,7 +31,7 @@ async fn create(
     } else {
         let user = skynet
             .user
-            .create(&tx, skynet, username, None, avatar_file)
+            .create(&tx, username, None, avatar_file)
             .await
             .unwrap();
         info!("New pass: {}", user.password);

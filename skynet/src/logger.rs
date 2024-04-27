@@ -40,14 +40,14 @@ impl Logger {
     /// Normalize target to skynet target.
     #[must_use]
     fn normalize_target(s: &str) -> String {
-        if s.starts_with("skynet::") || s == "_success" {
+        if s == "_success" {
             String::from("skynet")
         } else if s.starts_with("actix_") {
             String::from("skynet-web")
         } else if s.starts_with("sea_orm::") || s.starts_with("sea_orm_migration::") {
             String::from("skynet-db")
         } else {
-            s.to_owned()
+            s.split("::").next().unwrap_or("unknown").to_owned()
         }
     }
 

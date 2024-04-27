@@ -88,7 +88,7 @@ export default {
   'pages.plugin.table.status': 'Status',
   'pages.plugin.table.version': 'Version',
   'pages.plugin.table.priority': 'Priority',
-  'pages.plugin.table.path': 'Path',
+  'pages.plugin.table.description': 'Description',
   'pages.plugin.table.delete.title': 'Delete plugin {name}, confirm?',
   'pages.plugin.table.disabletip': 'Disable',
   'pages.plugin.table.enabletip': 'Enable',
@@ -97,12 +97,4 @@ export default {
     'You cannot unload the plugin unless restart the Skynet.',
   'pages.plugin.table.disable.title': 'Disable plugin {name}, confirm?',
   'pages.plugin.table.disable.content': 'Restart Skynet to take effect.',
-  'pages.plugin.form.path.tip': 'Path is related to plugin root',
-  'pages.plugin.form.file': 'File',
-  'pages.plugin.form.file.invalid': 'Invalid plugin file',
-  'pages.plugin.form.crc32': 'CRC32',
-  'pages.plugin.op.upload.title': 'Upload New Plugin',
-  'pages.plugin.op.upload.warning': 'SECURITY WARNING',
-  'pages.plugin.op.upload.content':
-    'Plugin package may include malicious contents. Please only upload trusted plugins!',
 };

@@ -6,6 +6,7 @@ import {
 } from '@/common_components/layout/table/column';
 import TableDelete from '@/common_components/layout/table/deleteBtn';
 import styles from '@/common_components/layout/table/style.less';
+import TableBtn from '@/common_components/layout/table/tableBtn';
 import { API_PREFIX } from '@/config';
 import {
   StringIntl,
@@ -14,7 +15,9 @@ import {
   deleleAPI,
   getAPI,
   getIntl,
+  postAPI,
 } from '@/utils';
+import { ReloadOutlined } from '@ant-design/icons';
 import ProCard from '@ant-design/pro-card';
 import {
   ActionType,
@@ -41,6 +44,33 @@ const request = async (params?: ParamsType, _?: Record<string, SortOrder>) => {
     success: true,
     total: msg.data.total,
   };
+};
+
+const handleReconnect = (
+  intl: StringIntl,
+  ref: React.MutableRefObject<ActionType | undefined>,
+  id: string,
+  name: string,
+) => {
+  confirm({
+    title: intl.get('pages.config.agent.op.reconnect.title', {
+      name: name,
+    }),
+    content: intl.get('app.confirm'),
+    onOk() {
+      return new Promise((resolve, reject) => {
+        postAPI(`${API_PREFIX}/agents/${id}/reconnect`, {}).then((rsp) => {
+          if (rsp && rsp.code === 0) {
+            ref.current?.reloadAndRest?.();
+            resolve(rsp);
+          } else {
+            reject(rsp);
+          }
+        });
+      });
+    },
+    intl: intl,
+  });
 };
 
 const handleDeleteSelected = async (
@@ -173,6 +203,17 @@ const AgentCard = () => {
             }}
           />,
 
+          <TableBtn
+            key="reconnect"
+            icon={ReloadOutlined}
+            tip={intl.get('pages.config.agent.op.reconnect.tip')}
+            color="#faad14"
+            perm={UserPerm.PermWrite}
+            permName="manage.plugin"
+            onClick={() => handleReconnect(intl, ref, row.id, row.name)}
+            disabled={row.status != 1}
+          />,
+
           <TableDelete
             key="delete"
             permName="manage.plugin"
@@ -223,9 +264,15 @@ const AgentCard = () => {
           expandedRowRender: (record: any) => {
             return (
               <ProDescriptions
-                column={2}
+                column={3}
                 dataSource={record}
                 columns={[
+                  {
+                    title: intl.get('pages.agent.table.uid'),
+                    dataIndex: 'uid',
+                    style: { paddingBottom: 0 },
+                    copyable: true,
+                  },
                   {
                     title: intl.get('pages.agent.table.hostname'),
                     dataIndex: 'hostname',

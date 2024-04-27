@@ -8,6 +8,11 @@ pub use self::{
     session_key::SessionKey,
 };
 
+#[cfg(feature = "redis-rs-session")]
 mod redis_rs;
+
+#[cfg(feature = "redis-rs-session")]
 mod utils;
+
+#[cfg(feature = "redis-rs-session")]
 pub use redis_rs::{RedisSessionStore, RedisSessionStoreBuilder};

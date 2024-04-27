@@ -104,8 +104,8 @@ impl RedisSessionStore {
 /// [`RedisSessionStore`]: crate::storage::RedisSessionStore
 #[must_use]
 pub struct RedisSessionStoreBuilder {
-    configuration: CacheConfiguration,
     client: ConnectionManager,
+    configuration: CacheConfiguration,
 }
 
 impl RedisSessionStoreBuilder {
@@ -118,9 +118,7 @@ impl RedisSessionStoreBuilder {
         self
     }
 
-    /// Finalise the builder and return a [`RedisActorSessionStore`] instance.
-    ///
-    /// [`RedisActorSessionStore`]: crate::storage::RedisActorSessionStore
+    /// Finalise the builder and return a [`RedisSessionStore`] instance.
     pub fn build(self) -> Result<RedisSessionStore, anyhow::Error> {
         Ok(RedisSessionStore {
             configuration: self.configuration,
@@ -129,7 +127,6 @@ impl RedisSessionStoreBuilder {
     }
 }
 
-#[async_trait::async_trait(?Send)]
 impl SessionStore for RedisSessionStore {
     async fn load(&self, session_key: &SessionKey) -> Result<Option<SessionState>, LoadError> {
         let mut cache_key = (self.configuration.cache_keygen)(session_key.as_ref());

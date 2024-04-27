@@ -14,10 +14,6 @@ pub struct Model {
     pub username: String,
     #[serde(skip)]
     pub password: String,
-    #[serde(skip)]
-    pub salt_prefix: String,
-    #[serde(skip)]
-    pub salt_suffix: String,
     #[serde(serialize_with = "vec_string_option")]
     pub avatar: Option<Vec<u8>>,
     pub last_login: Option<i64>,

@@ -3,21 +3,17 @@ use actix_web::{
     Responder,
 };
 use actix_web_validator::{Json, QsQuery};
-use lazy_static::lazy_static;
-use regex::Regex;
 use sea_orm::{DatabaseConnection, TransactionTrait};
 use serde::Deserialize;
 use serde_json::json;
 use skynet::{
     finish,
     permission::PermissionItem,
-    plugin::{PluginError, PluginStatus},
+    plugin::PluginStatus,
     request::{
         unique_validator, PaginationParam, Request, Response, ResponseCode, RspResult, SortType,
     },
-    success,
-    utils::{self, parse_dataurl},
-    HyUuid, MenuItem, Skynet,
+    success, HyUuid, MenuItem, Skynet,
 };
 use std::{collections::HashMap, fs::remove_dir_all, path};
 use validator::Validate;
@@ -88,68 +84,6 @@ pub async fn get(param: QsQuery<GetReq>, skynet: Data<Skynet>) -> RspResult<impl
         data.reverse();
     }
     finish!(Response::data(param.page.split(data)));
-}
-
-lazy_static! {
-    static ref RE_PATH_VALIDATOR: Regex = Regex::new(r"^[a-zA-Z0-9\-_]+$").unwrap();
-}
-
-#[derive(Debug, Validate, Deserialize)]
-pub struct AddReq {
-    #[validate(length(max = 32), regex = "RE_PATH_VALIDATOR")]
-    path: String,
-    file: String,
-    crc32: u32,
-}
-
-pub async fn add(
-    param: Json<AddReq>,
-    db: Data<DatabaseConnection>,
-    req: Request,
-    cli: Data<Cli>,
-    skynet: Data<Skynet>,
-) -> RspResult<impl Responder> {
-    let (file, mime) = parse_dataurl(&param.file);
-    if mime.is_none() || mime.unwrap().mime_type() != "application/zip" {
-        finish!(Response::new(ResponseCode::CodePluginInvalid));
-    }
-    if crc32fast::hash(&file) != param.crc32 {
-        finish!(Response::new(ResponseCode::CodePluginInvalidHash));
-    }
-
-    let dst = path::Path::new(&cli.plugin).join(&param.path);
-    if dst.try_exists()? {
-        finish!(Response::new(ResponseCode::CodePluginExist));
-    }
-
-    utils::unzip(&file, &dst)?;
-    let tx = db.begin().await?;
-    match skynet.plugin.load(&tx, &skynet, &dst).await {
-        Ok(x) => {
-            if !x {
-                remove_dir_all(dst)?;
-                finish!(Response::new(ResponseCode::CodePluginInvalid));
-            }
-        }
-        Err(e) => {
-            remove_dir_all(dst)?;
-            if e.root_cause().is::<PluginError>() {
-                finish!(Response::new(ResponseCode::CodePluginExist));
-            }
-            return Err(e.into());
-        }
-    }
-    tx.commit().await?;
-    success!(
-        "Add plugin\n{}",
-        json!({
-            "id": "1",
-            "path": param.path,
-            "crc32": param.crc32,
-            "ip": req.ip.ip(),
-        })
-    );
-    finish!(Response::ok());
 }
 
 #[derive(Debug, Validate, Deserialize)]

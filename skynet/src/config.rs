@@ -31,6 +31,7 @@ macro_rules! checker_ge {
     };
 }
 
+#[allow(unused_macros)]
 macro_rules! checker_range {
     ($n1:literal, $n2:literal) => {
         Some(Box::new(|n, v, _| {
@@ -52,8 +53,6 @@ macro_rules! checker_str_ge {
 #[derivative(Debug)]
 pub struct Config {
     pub database_dsn: ConfigItem<String>,
-    pub database_salt_prefix: ConfigItem<i64>,
-    pub database_salt_suffix: ConfigItem<i64>,
 
     pub redis_dsn: ConfigItem<String>,
 
@@ -84,7 +83,6 @@ pub struct Config {
     pub csrf_prefix: ConfigItem<String>,
     pub csrf_timeout: ConfigItem<i64>,
 
-    pub max_body: ConfigItem<i64>,
     pub avatar: ConfigItem<String>,
     pub lang: ConfigItem<String>,
 }
@@ -104,18 +102,6 @@ impl Config {
                 name: "database.dsn".to_owned(),
                 default: String::new(),
                 required: true,
-                ..Default::default()
-            },
-            database_salt_prefix: ConfigItem {
-                name: "database.salt_prefix".to_owned(),
-                default: 8,
-                checker: checker_range!(4, 32),
-                ..Default::default()
-            },
-            database_salt_suffix: ConfigItem {
-                name: "database.salt_suffix".to_owned(),
-                default: 8,
-                checker: checker_range!(4, 32),
                 ..Default::default()
             },
 
@@ -272,12 +258,6 @@ impl Config {
                 ..Default::default()
             },
 
-            max_body: ConfigItem {
-                name: "max_body".to_owned(),
-                default: 512*1024*1024,
-                checker: checker_ge!(1),
-                ..Default::default()
-            },
             avatar: ConfigItem {
                 name: "avatar".to_owned(),
                 default: "default.webp".to_owned(),

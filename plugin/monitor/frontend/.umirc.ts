@@ -18,6 +18,7 @@ export default defineConfig({
   qiankun: {
     slave: {},
   },
+  exportStatic: {},
   // qiankun dependency
   model: {},
   hash: true,
@@ -34,6 +35,7 @@ export default defineConfig({
   fastRefresh: true,
   proxy: {
     '/api/': {
+      ws: true,
       target: 'http://localhost:8080/',
       changeOrigin: true,
     },

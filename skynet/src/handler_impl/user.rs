@@ -1,14 +1,13 @@
-use std::time;
-
-use anyhow::Result;
+use anyhow::{anyhow, Result};
+use argon2::{password_hash::SaltString, Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
 use async_trait::async_trait;
 use derivative::Derivative;
+use rand::rngs::OsRng;
 use redis::{aio::ConnectionManager, AsyncCommands};
 use sea_orm::{
     ActiveModelTrait, ActiveValue::NotSet, ColumnTrait, DatabaseTransaction, EntityTrait,
     PaginatorTrait, QueryFilter, Set, Unchanged,
 };
-use sha3::{digest::Digest, Sha3_512};
 use skynet::{entity::users, handler::UserHandler, hyuuid::uuid2string, utils, HyUuid, Skynet};
 use skynet_macro::default_handler_impl;
 
@@ -17,8 +16,13 @@ use skynet_macro::default_handler_impl;
 pub struct DefaultUserHandler;
 
 impl DefaultUserHandler {
-    fn hash_pass(pass: &str, prefix: &str, suffix: &str) -> String {
-        format!("{:x}", Sha3_512::digest(format!("{prefix}{pass}{suffix}")))
+    fn hash_pass(pass: &str) -> Result<String> {
+        let argon2 = Argon2::default();
+        let salt = SaltString::generate(&mut OsRng);
+        Ok(argon2
+            .hash_password(pass.as_bytes(), &salt)
+            .map_err(|e| anyhow!(e))?
+            .to_string())
     }
 }
 
@@ -28,21 +32,14 @@ impl UserHandler for DefaultUserHandler {
     async fn create(
         &self,
         db: &DatabaseTransaction,
-        skynet: &Skynet,
         username: &str,
         password: Option<&str>,
         avatar: Option<Vec<u8>>,
     ) -> Result<users::Model> {
-        let password = password.map_or_else(|| utils::rand_string(16), ToOwned::to_owned);
-        let prefix =
-            utils::rand_string_all(skynet.config.database_salt_prefix.get().try_into().unwrap());
-        let suffix =
-            utils::rand_string_all(skynet.config.database_salt_suffix.get().try_into().unwrap());
+        let password = password.map_or_else(|| utils::rand_string(32), ToOwned::to_owned);
         let mut user = users::ActiveModel {
             username: Set(username.to_owned()),
-            password: Set(Self::hash_pass(&password, &prefix, &suffix)),
-            salt_prefix: Set(prefix),
-            salt_suffix: Set(suffix),
+            password: Set(Self::hash_pass(&password)?),
             avatar: Set(avatar),
             ..Default::default()
         };
@@ -63,18 +60,17 @@ impl UserHandler for DefaultUserHandler {
         username: Option<&str>,
         password: Option<&str>,
         avatar: Option<Vec<u8>>,
-        salt_prefix: &str,
-        salt_suffix: &str,
     ) -> Result<users::Model> {
-        if password.is_some() {
-            self.kick(redis, skynet, uid).await?;
-        }
+        let password = match password {
+            Some(x) => {
+                self.kick(redis, skynet, uid).await?;
+                Set(Self::hash_pass(x)?)
+            }
+            None => NotSet,
+        };
         users::ActiveModel {
             id: Unchanged(uid.to_owned()),
             username: username.map_or(NotSet, |x| Set(x.to_owned())),
-            password: password.map_or(NotSet, |x| {
-                Set(Self::hash_pass(x, salt_prefix, salt_suffix))
-            }),
             avatar: avatar.map_or(NotSet, |x| {
                 if x.is_empty() {
                     Set(None)
@@ -82,6 +78,7 @@ impl UserHandler for DefaultUserHandler {
                     Set(Some(x))
                 }
             }),
+            password,
             ..Default::default()
         }
         .update(db)
@@ -95,16 +92,10 @@ impl UserHandler for DefaultUserHandler {
         uid: &HyUuid,
         ip: &str,
     ) -> Result<users::Model> {
-        let now: i64 = time::SystemTime::now()
-            .duration_since(time::UNIX_EPOCH)
-            .unwrap()
-            .as_millis()
-            .try_into()
-            .unwrap();
         users::ActiveModel {
             id: Unchanged(uid.to_owned()),
             last_ip: Set(Some(ip.to_owned())),
-            last_login: Set(Some(now)),
+            last_login: Set(Some(utils::millis_time())),
             ..Default::default()
         }
         .update(db)
@@ -121,7 +112,10 @@ impl UserHandler for DefaultUserHandler {
         let user = self.find_by_name(db, username).await?;
         match user {
             Some(user) => {
-                if user.password == Self::hash_pass(password, &user.salt_prefix, &user.salt_suffix)
+                let hash = PasswordHash::new(&user.password).map_err(|e| anyhow!(e))?;
+                if Argon2::default()
+                    .verify_password(password.as_bytes(), &hash)
+                    .is_ok()
                 {
                     Ok((true, Some(user)))
                 } else {
@@ -151,17 +145,13 @@ impl UserHandler for DefaultUserHandler {
         skynet: &Skynet,
         uid: &HyUuid,
     ) -> Result<Option<users::Model>> {
-        let password = utils::rand_string(16);
+        let password = utils::rand_string(32);
         let u = users::Entity::find_by_id(uid.to_owned()).one(db).await?;
         match u {
             Some(x) => {
                 self.kick(redis, skynet, uid).await?;
                 let mut x: users::ActiveModel = x.into();
-                x.password = Set(Self::hash_pass(
-                    &password,
-                    x.salt_prefix.as_ref(),
-                    x.salt_suffix.as_ref(),
-                ));
+                x.password = Set(Self::hash_pass(&password)?);
                 let mut x = x.update(db).await?;
                 x.password = password;
                 Ok(Some(x))

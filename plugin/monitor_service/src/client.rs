@@ -19,7 +19,7 @@ impl Message {
     }
 
     #[must_use]
-    pub fn new_rsp(id: &HyUuid, data: DataType) -> Self {
+    pub const fn new_rsp(id: &HyUuid, data: DataType) -> Self {
         Self { id: *id, data }
     }
 
@@ -46,7 +46,37 @@ impl From<Message> for ByteString {
 pub enum DataType {
     Login(Login),
     Update(Update),
+    Status(Status),
+    ShellConnect(ShellConnect),
+    ShellResize(ShellResize),
+    ShellInput(ShellInput),
+    Reconnect,
     Quit,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ShellConnect {
+    pub cmd: String,
+    pub rows: u16,
+    pub cols: u16,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ShellResize {
+    pub token: String,
+    pub rows: u16,
+    pub cols: u16,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ShellInput {
+    pub token: String,
+    pub data: String,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct Status {
+    pub time: i64,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

@@ -10,10 +10,9 @@ export enum UserPerm {
   PermBan = -1,
   PermInherit = -1,
   PermNone = 0,
-  PermExecute = 1,
-  PermWrite = 1 << 1,
-  PermRead = 1 << 2,
-  PermAll = (1 << 3) - 1,
+  PermWrite = 1,
+  PermRead = 1 << 1,
+  PermAll = (1 << 2) - 1,
 }
 
 export function checkPerm(

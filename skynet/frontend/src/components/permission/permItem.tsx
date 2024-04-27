@@ -12,23 +12,19 @@ export interface PermItemProps {
 
 const PermItem: React.FC<PermItemProps> = (props) => {
   let checkR = false,
-    checkW = false,
-    checkX = false;
+    checkW = false;
   let baseR = false,
-    baseW = false,
-    baseX = false;
+    baseW = false;
   if (props.perm != UserPerm.PermBan) {
     checkR = (props.perm & UserPerm.PermRead) > 0;
     checkW = (props.perm & UserPerm.PermWrite) > 0;
-    checkX = (props.perm & UserPerm.PermExecute) > 0;
   }
   if (props.basePerm != UserPerm.PermBan) {
     baseR = (props.basePerm & UserPerm.PermRead) > 0;
     baseW = (props.basePerm & UserPerm.PermWrite) > 0;
-    baseX = (props.basePerm & UserPerm.PermExecute) > 0;
   }
-  let sum = +checkR + +checkW + +checkX;
-  let baseSum = +baseR + +baseW + +baseX;
+  let sum = +checkR + +checkW;
+  let baseSum = +baseR + +baseW;
 
   const change = (checked: boolean, ok: UserPerm, cancel: UserPerm) => {
     if (props.onChange) props.onChange(checked ? ok : cancel);
@@ -42,15 +38,15 @@ const PermItem: React.FC<PermItemProps> = (props) => {
   return (
     <>
       <Checkbox
-        indeterminate={sum > 0 && sum < 3}
-        checked={sum === 3}
+        indeterminate={sum > 0 && sum < 2}
+        checked={sum === 2}
         onChange={(e: CheckboxChangeEvent) => {
           change(e.target.checked, UserPerm.PermAll, UserPerm.PermNone);
         }}
         style={
           !banChanged &&
           (sum === baseSum ||
-            (sum > 0 && sum < 3 && baseSum > 0 && baseSum < 3))
+            (sum > 0 && sum < 2 && baseSum > 0 && baseSum < 2))
             ? {}
             : changedStyle
         }
@@ -87,21 +83,6 @@ const PermItem: React.FC<PermItemProps> = (props) => {
         disabled={props.disabled || props.perm === UserPerm.PermBan}
       >
         W
-      </Checkbox>
-      <Checkbox
-        className={styles['perm-item']}
-        checked={checkX}
-        onChange={(e: CheckboxChangeEvent) =>
-          change(
-            e.target.checked,
-            props.perm | UserPerm.PermExecute,
-            props.perm & ~UserPerm.PermExecute,
-          )
-        }
-        style={checkX !== baseX || banChanged ? changedStyle : {}}
-        disabled={props.disabled || props.perm === UserPerm.PermBan}
-      >
-        X
       </Checkbox>
     </>
   );
