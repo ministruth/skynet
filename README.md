@@ -45,3 +45,13 @@ You can find plugins in our [official support plugin](https://github.com/MXWXZ/s
 ## Develop
 
 See [develop note](develop.md).
+
+## FAQ
+
+### How to trace logs?
+
+Skynet provides pretty formatted or JSON formatted logs. You can get `WARN` and `ERROR` logs from `stderr` and others from `stdout`. Execute `skynet run -h` for more details. We only guarantee the order of printed logs. Please do not rely on notifications in database (see below).
+
+### Why do timestamps of notifications in database differ from those in console?
+
+To avoid database deadlock and performance issues, notifications are written to database asynchronously. We do not guarantee the order and success of notifications.

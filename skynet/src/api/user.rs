@@ -8,7 +8,6 @@ use actix_web_validator::{Json, QsQuery};
 use redis::aio::ConnectionManager;
 use sea_orm::{ColumnTrait, DatabaseConnection, IntoSimpleExpr, TransactionTrait};
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 use skynet::{
     entity::{groups, users::Column},
     finish, like_expr,
@@ -17,11 +16,11 @@ use skynet::{
         unique_validator, IDsReq, PageData, PaginationParam, Request, Response, ResponseCode,
         RspResult, SortType, TimeParam,
     },
-    success,
     utils::{get_dataurl, parse_dataurl},
     HyUuid, Skynet,
 };
 use skynet_macro::{common_req, partial_entity};
+use tracing::info;
 use validator::Validate;
 
 #[common_req(Column)]
@@ -123,7 +122,6 @@ pub struct AddReq {
 pub async fn add(
     param: Json<AddReq>,
     db: Data<DatabaseConnection>,
-    req: Request,
     skynet: Data<Skynet>,
 ) -> RspResult<impl Responder> {
     if param.clone_group.is_some() && param.base.is_none() {
@@ -205,16 +203,14 @@ pub async fn add(
         skynet.group.link(&tx, &[user.id], &group).await?;
     }
     tx.commit().await?;
-    success!(
-        "Add user\n{}",
-        json!({
-            "username": param.username,
-            "uid": user.id,
-            "gid": param.group,
-            "base": param.base,
-            "clone_group": param.clone_group,
-            "ip": req.ip.ip(),
-        })
+    info!(
+        success = true,
+        username = param.username,
+        uid = %user.id,
+        gid = ?param.group,
+        base = ?param.base,
+        clone_group = param.clone_group,
+        "Add user",
     );
     finish!(Response::data(user.id));
 }
@@ -306,14 +302,12 @@ pub async fn put(
         finish!(Response::not_found());
     }
     tx.commit().await?;
-    success!(
-        "Put user\n{}",
-        json!({
-            "username": param.username,
-            "uid": uid.as_ref(),
-            "gid": param.group,
-            "ip": req.ip.ip(),
-        })
+    info!(
+        success = true,
+        username = param.username,
+        uid = %uid,
+        gid = ?param.group,
+        "Put user",
     );
     finish!(Response::ok());
 }
@@ -332,13 +326,7 @@ pub async fn delete_batch(
     let rows = skynet.user.delete(&tx, &redis, &skynet, &param.id).await?;
     tx.commit().await?;
     if rows != 0 {
-        success!(
-            "Delete users\n{}",
-            json!({
-                "uid": param.id,
-                "ip": req.ip.ip(),
-            })
-        );
+        info!(success = true, uid = ?param.id, "Delete users");
     }
     finish!(Response::data(rows));
 }
@@ -359,13 +347,7 @@ pub async fn delete(
     }
     let rows = skynet.user.delete(&tx, &redis, &skynet, &[*uid]).await?;
     tx.commit().await?;
-    success!(
-        "Delete user\n{}",
-        json!({
-            "uid": uid.as_ref(),
-            "ip": req.ip.ip(),
-        })
-    );
+    info!(success = true, uid = %uid, "Delete user");
     finish!(Response::data(rows));
 }
 

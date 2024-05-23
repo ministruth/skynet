@@ -5,7 +5,7 @@ use skynet_macro::{entity_behavior, entity_id, entity_timestamp};
 use crate::HyUuid;
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Default, Serialize)]
-#[sea_orm(table_name = "agents")]
+#[sea_orm(table_name = "2eb2e1a5-66b4-45f9-ad24-3c4f05c858aa_agents")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: HyUuid,

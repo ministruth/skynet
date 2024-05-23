@@ -1,8 +1,8 @@
 use std::{fs, path::PathBuf};
 
-use log::{debug, error, info};
 use sea_orm::{DatabaseConnection, TransactionTrait};
 use skynet::Skynet;
+use tracing::{debug, error, info};
 
 use crate::{Cli, UserCli, UserCommands};
 

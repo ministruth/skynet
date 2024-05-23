@@ -1,7 +1,7 @@
 import { checkPerm, UserPerm } from '@/utils';
 import { useAccess } from '@umijs/max';
 import { ReactElement } from 'react';
-import ModalSchema, { ModalSchemaProps } from './modalSchema';
+import ModalSchema, { ModalSchemaProps } from '../modalSchema';
 
 export interface TableOpProps {
   disabled?: boolean;

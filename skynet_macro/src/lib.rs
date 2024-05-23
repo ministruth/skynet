@@ -1,8 +1,9 @@
 use proc_macro::TokenStream;
 use quote::{format_ident, quote};
 use syn::{
-    parse_macro_input, parse_quote, Data, DeriveInput, ExprPath, Fields, Ident, ImplItem, ItemImpl,
-    ItemStruct, ItemTrait, TraitItem,
+    parse::Parser, parse_macro_input, parse_quote, punctuated::Punctuated, Data, DeriveInput, Expr,
+    ExprPath, Fields, FnArg, Ident, ImplItem, ItemFn, ItemImpl, ItemStruct, ItemTrait, Pat, Token,
+    TraitItem,
 };
 
 /// Default timestamp generator.
@@ -20,7 +21,7 @@ pub fn entity_timestamp(_: TokenStream, input: TokenStream) -> TokenStream {
     entity.items.push(parse_quote!(
         fn entity_timestamp(&self, e: &mut Self, insert: bool) {
             let tm: sea_orm::ActiveValue<i64> =
-                sea_orm::ActiveValue::set(crate::utils::millis_time());
+                sea_orm::ActiveValue::set(crate::Utc::now().timestamp_millis());
             if insert {
                 e.created_at = tm.clone();
                 e.updated_at = tm.clone();
@@ -495,4 +496,98 @@ pub fn derive_iterable(input: TokenStream) -> TokenStream {
     };
 
     TokenStream::from(expanded)
+}
+
+macro_rules! parse_type {
+    ($($tt:tt)*) => {{
+        let ty: syn::Type = syn::parse_quote! { $($tt)* };
+        ty
+    }}
+}
+
+/// Add span support for plugin API.
+/// `skynet::request::Request`/`request::Request`/`Request` will be automatically reused.
+///
+/// # Examples
+/// ```
+/// #[plugin_api]
+/// async fn get() -> RspResult<impl Responder> {}
+/// // or
+/// use skynet::request::Request;
+/// #[plugin_api]
+/// async fn get_custom(xxx: Request) -> RspResult<impl Responder> {}
+/// ```
+#[proc_macro_attribute]
+pub fn plugin_api(attr: TokenStream, input: TokenStream) -> TokenStream {
+    let attr = parse_macro_input!(attr as Option<Ident>);
+    let mut func = parse_macro_input!(input as ItemFn);
+    let mut name = format_ident!("_plugin_span_req");
+    let mut flag = false;
+    for i in &func.sig.inputs {
+        if let FnArg::Typed(x) = i {
+            if *x.ty == parse_type! {skynet::request::Request}
+                || *x.ty == parse_type! {request::Request}
+                || *x.ty == parse_type! {Request}
+            {
+                if let Pat::Ident(ident) = x.pat.as_ref() {
+                    name = ident.ident.clone();
+                    flag = true;
+                    break;
+                }
+            }
+        }
+    }
+    if !flag {
+        func.sig
+            .inputs
+            .insert(0, parse_quote!(_plugin_span_req: skynet::request::Request));
+    }
+    if let Some(attr) = attr {
+        func.block.stmts.insert(
+            0,
+            parse_quote!(let _skynet_plugin_runtime_guard = #attr.get().unwrap().enter();),
+        );
+    }
+    func.block.stmts.insert(
+        0,
+        parse_quote!(let _skynet_plugin_span_guard =
+        skynet::tracing::info_span!("HTTP request", request_id = %#name.request_id, ip = %#name.ip)
+            .entered();),
+    );
+
+    quote! {
+        #func
+    }
+    .into()
+}
+
+/// Add span support for the API.
+///
+/// # Examples
+/// ```
+/// #[tracing_api(self.request_id, self.ip)]
+/// fn test(&self) {}
+/// ```
+///
+/// # Panics
+///
+/// Panics when not arguments are incorrect.
+#[proc_macro_attribute]
+pub fn tracing_api(attr: TokenStream, input: TokenStream) -> TokenStream {
+    let args = Punctuated::<Expr, Token![,]>::parse_terminated
+        .parse(attr)
+        .unwrap();
+    assert!(args.len() == 2, "arguments must be 2");
+    let request_id = args.first();
+    let ip = args.last();
+    let mut func = parse_macro_input!(input as ItemFn);
+    func.block.stmts.insert(
+        0,
+        parse_quote!(let _skynet_span_guard = skynet::tracing::info_span!("API call", request_id = %#request_id, ip = %#ip).entered();),
+    );
+
+    quote! {
+        #func
+    }
+    .into()
 }

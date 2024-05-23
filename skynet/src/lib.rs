@@ -2,9 +2,14 @@ pub use actix_web;
 pub use anyhow;
 pub use anyhow::Result;
 pub use async_trait::async_trait;
-pub use log;
+pub use chrono;
+pub use chrono::Utc;
+pub use colored;
 pub use redis;
 pub use sea_orm;
+pub use tokio;
+pub use tracing;
+pub use tracing_subscriber;
 pub use uuid;
 
 pub mod config;
@@ -19,11 +24,10 @@ pub mod request;
 pub mod utils;
 pub use hyuuid::HyUuid;
 
-use chrono::{DateTime, Utc};
+use chrono::DateTime;
 use derivative::Derivative;
 use enum_map::EnumMap;
 use handler::{GroupHandler, NotificationHandler, PermHandler, SettingHandler, UserHandler};
-use log::debug;
 use logger::Logger;
 use parking_lot::RwLock;
 use permission::{IDTypes, PermEntry, PermissionItem};
@@ -35,9 +39,8 @@ use sea_orm::{
 };
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use std::any::Any;
-use std::sync::atomic::Ordering;
-use std::sync::Arc;
-use std::{cmp, collections::HashMap, sync::atomic::AtomicU64};
+use std::{cmp, collections::HashMap};
+use tracing::debug;
 
 /// Make map creation easier.
 ///
@@ -108,7 +111,6 @@ pub struct Skynet {
     pub plugin: PluginManager,
     pub menu: Vec<MenuItem>,
 
-    pub unread_notification: Arc<AtomicU64>,
     pub running: RwLock<bool>,
     pub start_time: DateTime<Utc>,
 
@@ -116,18 +118,6 @@ pub struct Skynet {
 }
 
 impl Skynet {
-    pub fn set_unread(&self, num: u64) {
-        self.unread_notification.store(num, Ordering::SeqCst);
-    }
-
-    pub fn add_unread(&self, num: u64) {
-        self.unread_notification.fetch_add(num, Ordering::SeqCst);
-    }
-
-    pub fn get_unread(&self) -> u64 {
-        self.unread_notification.load(Ordering::Relaxed)
-    }
-
     #[allow(clippy::missing_panics_doc)]
     pub fn insert_menu(&mut self, item: MenuItem, pos: usize, parent: Option<HyUuid>) -> bool {
         if let Some(parent) = parent {

@@ -1,5 +1,5 @@
-use log::info;
 use skynet::config;
+use tracing::info;
 
 use crate::Cli;
 

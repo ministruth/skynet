@@ -50,15 +50,22 @@ pub enum DataType {
     ShellConnect(ShellConnect),
     ShellResize(ShellResize),
     ShellInput(ShellInput),
+    ShellDisconnect(ShellDisconnect),
     Reconnect,
     Quit,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ShellConnect {
+    pub id: HyUuid,
     pub cmd: String,
     pub rows: u16,
     pub cols: u16,
+}
+
+#[derive(Serialize, Deserialize, Debug)]
+pub struct ShellDisconnect {
+    pub token: String,
 }
 
 #[derive(Serialize, Deserialize, Debug)]

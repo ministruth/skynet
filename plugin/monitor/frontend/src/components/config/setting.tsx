@@ -1,3 +1,4 @@
+import ExSchema, { ExSchemaHandle } from '@/common_components/layout/exschema';
 import { API_PREFIX } from '@/config';
 import {
   UserPerm,
@@ -10,7 +11,6 @@ import {
 import { CopyOutlined } from '@ant-design/icons';
 import ProCard from '@ant-design/pro-card';
 import {
-  BetaSchemaForm,
   ParamsType,
   ProFormColumnsType,
   ProFormInstance,
@@ -19,30 +19,32 @@ import {
 import { FormattedMessage, useModel } from '@umijs/max';
 import { Button, Space, Tooltip, message } from 'antd';
 import copy from 'copy-to-clipboard';
-import { isEqual } from 'lodash';
+import _ from 'lodash';
 import randomstring from 'randomstring';
-import { useRef, useState } from 'react';
+import { useRef } from 'react';
 import styles from './style.less';
+import TagList from './taglist';
+
+const request = async (_: ParamsType) => {
+  return (await getAPI(`${API_PREFIX}/settings`)).data;
+};
+
+const handleSubmit = (
+  params: Record<string, any>,
+  initial: Record<string, any>,
+) => {
+  _.forEach(params, (v, k) => {
+    if (_.isEqual(initial[k], v)) delete params[k];
+  });
+  return checkAPI(putAPI(`${API_PREFIX}/settings`, params));
+};
 
 const SettingCard = () => {
   const intl = getIntl();
   const formRef = useRef<ProFormInstance>();
-  const [seq, setSeq] = useState(0);
+  const ref = useRef<ExSchemaHandle>();
   const { access } = useModel('@@qiankunStateFromMaster');
   const perm_disable = !checkPerm(access, 'manage.plugin', UserPerm.PermWrite);
-  const [values, setValues] = useState();
-
-  const handleSubmit = (form: Record<string, any>) => {
-    return checkAPI(putAPI(`${API_PREFIX}/settings`, form)).then((rsp) => {
-      if (rsp) setSeq(seq + 1);
-    });
-  };
-  const request = async (_: ParamsType) => {
-    let data = (await getAPI(`${API_PREFIX}/settings`)).data;
-    setValues(data);
-    return data;
-  };
-  const [changed, setChanged] = useState(false);
 
   const columns: ProFormColumnsType[] = [
     {
@@ -57,7 +59,11 @@ const SettingCard = () => {
               fieldProps={{
                 maxLength: 32,
               }}
-              formItemProps={{ className: styles.token }}
+              disabled={perm_disable}
+              formItemProps={{
+                className: styles.token,
+                style: { marginBottom: 0 },
+              }}
             />
             <Tooltip title={intl.get('pages.config.setting.token.tooltip')}>
               <Button
@@ -78,7 +84,7 @@ const SettingCard = () => {
                 formRef.current?.setFieldsValue({
                   token: randomstring.generate(32),
                 });
-                setChanged(true);
+                ref.current?.enableSubmit(true);
               }}
               disabled={perm_disable}
             >
@@ -88,38 +94,26 @@ const SettingCard = () => {
         );
       },
     },
+    {
+      title: intl.get('pages.config.setting.shell.text'),
+      dataIndex: 'shell',
+      renderFormItem: () => <TagList disabled={perm_disable} />,
+    },
   ];
 
   return (
     <ProCard title={intl.get('pages.config.setting.title')} bordered>
-      <BetaSchemaForm
+      <ExSchema
+        perm_disabled={perm_disable}
         layoutType="Form"
         layout="horizontal"
         labelAlign="left"
-        params={{ seq: seq }}
         request={request}
         labelCol={{ span: 3 }}
+        ref={ref}
         formRef={formRef}
         columns={columns}
-        onFinish={handleSubmit}
-        submitter={{
-          onReset: () => setChanged(false),
-          resetButtonProps: { disabled: perm_disable },
-          submitButtonProps: { disabled: perm_disable || !changed },
-          render: (_, dom) => [...dom.reverse()],
-        }}
-        initialValues={values}
-        onValuesChange={(_: any, all: Record<string, any>) => {
-          if (values)
-            for (let k in all) {
-              // possible object
-              if (!isEqual(values[k], all[k])) {
-                setChanged(true);
-                return;
-              }
-            }
-          setChanged(false);
-        }}
+        onSubmit={handleSubmit}
       />
     </ProCard>
   );

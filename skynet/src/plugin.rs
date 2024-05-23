@@ -13,9 +13,7 @@ use std::{
 use anyhow::{bail, Result};
 use derivative::Derivative;
 use enum_as_inner::EnumAsInner;
-use futures::executor::block_on;
 use libloading::{Library, Symbol};
-use log::{debug, error, info};
 use migration::MigratorTrait;
 use parking_lot::RwLock;
 use rs_config::Config;
@@ -24,6 +22,7 @@ use semver::Version;
 use serde::Serialize;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use serde_with::{serde_as, DisplayFromStr};
+use tracing::{debug, error, info};
 use walkdir::WalkDir;
 
 use crate::{db, APIRoute, HyUuid, Skynet};
@@ -56,16 +55,17 @@ pub trait Plugin: Send + Sync {
     ///
     /// Will return `Err` if context cannot be set.
     fn _init(&self, skynet: &mut Skynet) -> Result<()> {
-        skynet.logger.reinit(skynet.unread_notification.clone())
+        skynet.logger.init();
+        Ok(())
     }
 
     /// Fired when the plugin is loaded.
-    fn on_load(&self, _: PathBuf, skynet: Skynet) -> (Skynet, Result<()>) {
+    fn on_load(&self, _runtime_path: PathBuf, skynet: Skynet) -> (Skynet, Result<()>) {
         (skynet, Ok(()))
     }
 
     /// Fired when applying routes.
-    fn on_route(&self, _: &Skynet, r: Vec<APIRoute>) -> Vec<APIRoute> {
+    fn on_route(&self, _skynet: &Skynet, r: Vec<APIRoute>) -> Vec<APIRoute> {
         r
     }
 
@@ -102,16 +102,13 @@ macro_rules! create_plugin {
 /// # Errors
 ///
 /// Will return `Err` for db error.
-pub fn init_db<M>(s: &Skynet, _: M) -> Result<DatabaseConnection>
+pub async fn init_db<M>(s: &Skynet, _: M) -> Result<DatabaseConnection>
 where
     M: MigratorTrait,
 {
-    block_on(async {
-        let db = db::connect(s.config.database_dsn.get()).await?;
-        M::up(&db, None).await?;
-        s.logger.set_db(db.clone());
-        Ok::<DatabaseConnection, anyhow::Error>(db)
-    })
+    let db = db::connect(s.config.database_dsn.get()).await?;
+    M::up(&db, None).await?;
+    Ok::<DatabaseConnection, anyhow::Error>(db)
 }
 
 #[derive(thiserror::Error, Derivative)]
@@ -313,7 +310,57 @@ impl PluginManager {
     /// # Panics
     ///
     /// Panics if `dir` cannot be parsed or db error.
+    #[allow(clippy::cognitive_complexity)]
     pub fn load_all<P: AsRef<Path>>(&mut self, skynet: Skynet, dir: P) -> Skynet {
+        let mut instance = Self::load_all_internal(dir.as_ref());
+
+        for i in &mut instance {
+            if skynet
+                .setting
+                .get(&i.setting_name())
+                .is_some_and(|x| x == "1")
+            {
+                i.status = PluginStatus::Enable;
+            }
+        }
+
+        let mut skynet = skynet;
+        for i in &mut instance {
+            if i.status.is_enable() {
+                info!(id = %i.id, name = i.name, "Plugin init");
+                let inst = i.instance.as_ref().unwrap();
+                if let Err(e) = inst._init(&mut skynet) {
+                    i.status = PluginStatus::Unload;
+                    error!(
+                        id = %i.id, name = i.name, error=%e,
+                        "Plugin unload because of `_init` error",
+                    );
+                } else {
+                    let load_res =
+                        inst.on_load(canonicalize(dir.as_ref().join(&i.path)).unwrap(), skynet);
+                    skynet = load_res.0;
+                    if let Err(e) = load_res.1 {
+                        i.status = PluginStatus::Unload;
+                        error!(
+                            id = %i.id, name = i.name, error=%e,
+                            "Plugin unload because of `on_load` error",
+                        );
+                    } else {
+                        info!(id = %i.id, name = i.name, "Plugin loaded");
+                    }
+                }
+            }
+            if !i.status.is_enable() {
+                i.library = None;
+                i.instance = None;
+            }
+        }
+        self.plugin = RwLock::new(instance.into_iter().map(Arc::new).collect());
+        skynet
+    }
+
+    /// Load plugin folder.
+    fn load_all_internal<P: AsRef<Path>>(dir: P) -> Vec<PluginInstance> {
         let mut instance = Vec::new();
         let mut conflict_id: HashMap<HyUuid, String> = HashMap::new();
         for entry in WalkDir::new(dir.as_ref())
@@ -342,55 +389,11 @@ impl PluginManager {
                     conflict_id.insert(obj.id, obj.name.clone());
                     instance.push(obj);
                 }
-                Err(e) => error!("Plugin `{:?}` read error: `{}`", entry.path(), e),
+                Err(e) => error!(path=?entry.path(), error=%e, "Cannot load plugin"),
             }
         }
         instance.sort();
-
-        for i in &mut instance {
-            if skynet
-                .setting
-                .get(&i.setting_name())
-                .is_some_and(|x| x == "1")
-            {
-                i.status = PluginStatus::Enable;
-            }
-        }
-
-        let mut skynet = skynet;
-        for i in &mut instance {
-            if i.status.is_enable() {
-                info!("Plugin init: {}({})", i.id, i.name);
-                let inst = i.instance.as_ref().unwrap();
-                if let Err(e) = inst._init(&mut skynet) {
-                    i.status = PluginStatus::Unload;
-                    error!(
-                        "Plugin {}({}) unload because of `_init` error: {}",
-                        i.id, i.name, e,
-                    );
-                } else {
-                    let load_res =
-                        inst.on_load(canonicalize(dir.as_ref().join(&i.path)).unwrap(), skynet);
-                    skynet = load_res.0;
-                    match load_res.1 {
-                        Ok(()) => info!("Plugin loaded: {}({})", i.id, i.name),
-                        Err(e) => {
-                            i.status = PluginStatus::Unload;
-                            error!(
-                                "Plugin {}({}) unload because of `on_load` error: {}",
-                                i.id, i.name, e,
-                            );
-                        }
-                    }
-                }
-            }
-            if !i.status.is_enable() {
-                i.library = None;
-                i.instance = None;
-            }
-        }
-        self.plugin = RwLock::new(instance.into_iter().map(Arc::new).collect());
-        skynet
+        instance
     }
 
     /// Load plugin .dll/.so/.dylib file.
@@ -443,7 +446,7 @@ impl PluginManager {
         for plugin in self.plugin.write().drain(..) {
             if let Some(x) = &plugin.instance {
                 x.on_unload(plugin.status);
-                debug!("Plugin unloaded: {}({})", plugin.id, plugin.name);
+                debug!(id = %plugin.id, name = plugin.name, "Plugin unloaded");
             }
         }
     }

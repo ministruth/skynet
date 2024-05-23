@@ -8,10 +8,8 @@ use actix_web::{
 use anyhow::Result;
 use derivative::Derivative;
 use futures::future::LocalBoxFuture;
-use log::{debug, error};
 use qstring::QString;
 use redis::{aio::ConnectionManager, AsyncCommands};
-use serde_json::json;
 use skynet::{
     permission::{IDTypes::*, PermEntry, PERM_READ, PERM_WRITE},
     request::{APIRoute, PermType, Request, RspError},
@@ -23,6 +21,7 @@ use std::{
     future::{ready, Ready},
 };
 use thiserror::Error;
+use tracing::{debug, error};
 use uuid::uuid;
 
 pub mod auth;
@@ -108,7 +107,7 @@ pub fn new_menu(skynet: &Skynet) -> Vec<MenuItem> {
                 perm: PERM_READ,
             }),
             badge_func: Some(Box::new(|s: &Skynet| -> i64 {
-                s.get_unread().try_into().unwrap()
+                s.logger.get_unread().try_into().unwrap()
             })),
             ..Default::default()
         },
@@ -596,7 +595,7 @@ where
                 let request = req.request().clone();
                 let rsp = srv.call(req).await?;
                 if rsp.status() == StatusCode::BAD_REQUEST {
-                    debug!(target: "skynet-web","{:?}",rsp.into_body());
+                    debug!("{:?}", rsp.into_body());
                     Ok(ServiceResponse::new(
                         request,
                         HttpResponse::BadRequest().finish().map_into_right_body(),
@@ -604,13 +603,10 @@ where
                 } else if rsp.status() == StatusCode::INTERNAL_SERVER_ERROR {
                     if let Some(e) = rsp.response().error() {
                         error!(
-                            target: "skynet-web",
-                            "Error handle request\n{}",
-                            json!({
-                                "method": rsp.request().method().as_str(),
-                                "path": rsp.request().path(),
-                                "error": e.to_string(),
-                            })
+                            method = rsp.request().method().as_str(),
+                            path = rsp.request().path(),
+                            error = e.to_string(),
+                            "Error handle request",
                         );
                     }
                     Ok(rsp.map_into_left_body())

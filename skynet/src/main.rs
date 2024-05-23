@@ -1,10 +1,4 @@
-use std::{
-    collections::HashMap,
-    env, io,
-    path::PathBuf,
-    process::Command,
-    sync::{atomic::AtomicU64, Arc},
-};
+use std::{collections::HashMap, env, io, path::PathBuf, process::Command};
 
 use chrono::DateTime;
 use clap::{Args, Parser, Subcommand};
@@ -138,7 +132,6 @@ async fn main() -> io::Result<()> {
         plugin: PluginManager::new(),
         menu: Vec::new(),
 
-        unread_notification: Arc::new(AtomicU64::new(0)),
         running: RwLock::new(false),
         start_time: DateTime::default(),
 
@@ -147,13 +140,7 @@ async fn main() -> io::Result<()> {
     // init logger first
     skynet
         .logger
-        .init(
-            skynet.unread_notification.clone(),
-            !cli.quiet,
-            cli.log_json,
-            cli.verbose,
-        )
-        .unwrap();
+        .start_logger(!cli.quiet, cli.log_json, cli.verbose);
 
     let mut restart = false;
     match &cli.command {

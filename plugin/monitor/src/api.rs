@@ -8,46 +8,65 @@ use skynet::{
         Responder,
     },
     finish,
-    request::{unique_validator, IDsReq, PaginationParam, Request, Response, RspResult},
+    request::{unique_validator, IDsReq, PaginationParam, Response, RspResult},
     sea_orm::TransactionTrait,
-    success, HyUuid, Skynet,
+    tracing::info,
+    HyUuid, Skynet,
 };
+use skynet_macro::plugin_api;
 use validator::Validate;
 
-use crate::{agent_session, request::ResponseCode, ADDRESS, DB, SERVICE};
+use crate::{agent_session, request::ResponseCode, AGENT_ADDRESS, DB, RUNTIME, SERVICE};
 
+#[plugin_api(RUNTIME)]
 pub async fn get_settings(skynet: Data<Skynet>) -> RspResult<impl Responder> {
+    #[allow(clippy::items_after_statements)]
     #[derive(Serialize)]
     struct Rsp {
         token: String,
+        shell: Vec<String>,
     }
 
     finish!(Response::data(Rsp {
         token: PluginSrv::get_token(&skynet).unwrap_or_default(),
+        shell: PluginSrv::get_shell_prog(&skynet).unwrap_or_default(),
     }));
+}
+
+#[plugin_api(RUNTIME)]
+pub async fn get_settings_shell(skynet: Data<Skynet>) -> RspResult<impl Responder> {
+    finish!(Response::data(
+        PluginSrv::get_shell_prog(&skynet).unwrap_or_default()
+    ));
 }
 
 #[derive(Debug, Validate, Deserialize)]
 pub struct PutSettingsReq {
     #[validate(length(max = 32))]
-    token: String,
+    token: Option<String>,
+    #[validate(custom = "unique_validator")]
+    shell: Option<Vec<String>>,
 }
 
+#[plugin_api(RUNTIME)]
 pub async fn put_settings(
     param: Json<PutSettingsReq>,
-    req: Request,
     skynet: Data<Skynet>,
 ) -> RspResult<impl Responder> {
     let tx = DB.get().unwrap().begin().await?;
-    PluginSrv::set_token(&tx, &skynet, &param.token).await?;
+    if let Some(x) = &param.token {
+        PluginSrv::set_token(&tx, &skynet, x).await?;
+    }
+    if let Some(x) = &param.shell {
+        PluginSrv::set_shell_prog(&tx, &skynet, x).await?;
+    }
     tx.commit().await?;
 
-    success!(
-        "Put monitor settings\n{}",
-        json!({
-            "ip": req.ip.ip(),
-            "plugin": ID,
-        })
+    info!(
+        success = true,
+        plugin = %ID,
+        shell = ?param.shell,
+        "Put monitor settings",
     );
     finish!(Response::ok())
 }
@@ -63,6 +82,7 @@ pub struct GetAgentsReq {
     page: PaginationParam,
 }
 
+#[plugin_api(RUNTIME)]
 pub async fn get_agents(param: QsQuery<GetAgentsReq>) -> RspResult<impl Responder> {
     let srv = SERVICE.get().unwrap();
     let data: Vec<serde_json::Value> = srv
@@ -98,11 +118,8 @@ pub struct PutAgentsReq {
     name: String,
 }
 
-pub async fn put_agent(
-    param: Json<PutAgentsReq>,
-    aid: Path<HyUuid>,
-    req: Request,
-) -> RspResult<impl Responder> {
+#[plugin_api(RUNTIME)]
+pub async fn put_agent(param: Json<PutAgentsReq>, aid: Path<HyUuid>) -> RspResult<impl Responder> {
     let srv = SERVICE.get().unwrap();
     let tx = DB.get().unwrap().begin().await?;
     if srv.find_by_id(&tx, &aid).await?.is_none() {
@@ -115,18 +132,17 @@ pub async fn put_agent(
     srv.rename(&tx, &aid, &param.name).await?;
     tx.commit().await?;
 
-    success!(
-        "Put monitor agent\n{}",
-        json!({
-            "ip": req.ip.ip(),
-            "plugin": ID,
-            "aid": aid.as_ref(),
-            "name": param.name,
-        })
+    info!(
+        success = true,
+        plugin = %ID,
+        aid = %aid,
+        name = param.name,
+        "Put monitor agent",
     );
     finish!(Response::ok())
 }
 
+#[plugin_api(RUNTIME)]
 pub async fn reconnect_agent(aid: Path<HyUuid>) -> RspResult<impl Responder> {
     let srv = SERVICE.get().unwrap();
     let tx = DB.get().unwrap().begin().await?;
@@ -134,14 +150,15 @@ pub async fn reconnect_agent(aid: Path<HyUuid>) -> RspResult<impl Responder> {
         finish!(Response::not_found());
     }
 
-    if let Some(x) = ADDRESS.get().unwrap().read().get(&aid) {
+    if let Some(x) = AGENT_ADDRESS.get().unwrap().read().get(&aid) {
         x.do_send(agent_session::Reconnect);
     }
     tx.commit().await?;
     finish!(Response::ok())
 }
 
-pub async fn delete_agent(aid: Path<HyUuid>, req: Request) -> RspResult<impl Responder> {
+#[plugin_api(RUNTIME)]
+pub async fn delete_agent(aid: Path<HyUuid>) -> RspResult<impl Responder> {
     let srv = SERVICE.get().unwrap();
     let tx = DB.get().unwrap().begin().await?;
     if srv.find_by_id(&tx, &aid).await?.is_none() {
@@ -149,41 +166,38 @@ pub async fn delete_agent(aid: Path<HyUuid>, req: Request) -> RspResult<impl Res
     }
 
     let rows = srv.delete(&tx, &aid).await?;
-    if let Some(x) = ADDRESS.get().unwrap().read().get(&aid) {
+    if let Some(x) = AGENT_ADDRESS.get().unwrap().read().get(&aid) {
         x.do_send(agent_session::CloseConnection);
     }
     tx.commit().await?;
 
-    success!(
-        "Delete monitor agent\n{}",
-        json!({
-            "ip": req.ip.ip(),
-            "plugin": ID,
-            "aid": aid.as_ref(),
-        })
+    info!(
+        success = true,
+        plugin = %ID,
+        aid = %aid,
+        "Delete monitor agent",
     );
     finish!(Response::data(rows))
 }
 
-pub async fn delete_agents(param: Json<IDsReq>, req: Request) -> RspResult<impl Responder> {
+#[plugin_api(RUNTIME)]
+pub async fn delete_agents(param: Json<IDsReq>) -> RspResult<impl Responder> {
     let srv = SERVICE.get().unwrap();
     let tx = DB.get().unwrap().begin().await?;
     let mut rows = 0;
     for i in &param.id {
         rows += srv.delete(&tx, i).await?;
-        if let Some(x) = ADDRESS.get().unwrap().read().get(i) {
+        if let Some(x) = AGENT_ADDRESS.get().unwrap().read().get(i) {
             x.do_send(agent_session::CloseConnection);
         }
     }
     tx.commit().await?;
 
-    success!(
-        "Delete monitor agents\n{}",
-        json!({
-            "ip": req.ip.ip(),
-            "plugin": ID,
-            "aid": param.id,
-        })
+    info!(
+        success = true,
+        plugin = %ID,
+        aid = ?param.id,
+        "Delete monitor agents",
     );
     finish!(Response::data(rows))
 }

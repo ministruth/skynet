@@ -1,4 +1,8 @@
-use sea_orm_migration::{MigrationTrait, SchemaManager};
+use monitor_service::ID;
+use sea_orm_migration::{
+    sea_query::{types, Alias},
+    MigrationTrait, SchemaManager,
+};
 use skynet::{
     async_trait,
     sea_orm::{
@@ -37,13 +41,17 @@ enum AgentSettings {
 #[derive(DeriveMigrationName)]
 pub struct Migration;
 
+fn table_prefix(table: &impl types::Iden) -> Alias {
+    Alias::new(format!("{}_{}", ID, table.to_string()))
+}
+
 #[async_trait]
 impl MigrationTrait for Migration {
     async fn up(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
             .create_table(
                 Table::create()
-                    .table(Agents::Table)
+                    .table(table_prefix(&Agents::Table))
                     .if_not_exists()
                     .col(
                         ColumnDef::new(Agents::ID)
@@ -72,7 +80,7 @@ impl MigrationTrait for Migration {
         manager
             .create_table(
                 Table::create()
-                    .table(AgentSettings::Table)
+                    .table(table_prefix(&AgentSettings::Table))
                     .if_not_exists()
                     .col(
                         ColumnDef::new(AgentSettings::ID)
@@ -112,7 +120,7 @@ impl MigrationTrait for Migration {
                 Index::create()
                     .unique()
                     .name("idx_agentsettings_1")
-                    .table(AgentSettings::Table)
+                    .table(table_prefix(&AgentSettings::Table))
                     .col(AgentSettings::Aid)
                     .col(AgentSettings::Name)
                     .to_owned(),
@@ -123,10 +131,14 @@ impl MigrationTrait for Migration {
 
     async fn down(&self, manager: &SchemaManager) -> Result<(), DbErr> {
         manager
-            .drop_table(Table::drop().table(Agents::Table).to_owned())
+            .drop_table(Table::drop().table(table_prefix(&Agents::Table)).to_owned())
             .await?;
         manager
-            .drop_table(Table::drop().table(AgentSettings::Table).to_owned())
+            .drop_table(
+                Table::drop()
+                    .table(table_prefix(&AgentSettings::Table))
+                    .to_owned(),
+            )
             .await?;
         Ok(())
     }

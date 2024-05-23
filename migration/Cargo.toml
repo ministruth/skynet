@@ -6,8 +6,6 @@ authors = ["MXWXZ <matrixwxz@gmail.com>"]
 publish = false
 
 [dependencies]
-async-std = { version = "^1", features = ["attributes", "tokio1"] }
-
 sea-orm-migration = { version = "^0", features = [
     "sqlx-sqlite",
     "sqlx-postgres",

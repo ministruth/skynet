@@ -32,7 +32,7 @@ const AgentUpdate: React.FC<AgentBtnProps> = (props) => {
   };
   const columns: Columns = (intl) => [
     {
-      title: intl.get('pages.config.agent.table.name'),
+      title: intl.get('pages.agent.table.name'),
       dataIndex: 'name',
       tooltip: intl.get('pages.config.agent.form.name.tip'),
       fieldProps: {

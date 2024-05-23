@@ -9,15 +9,15 @@ use std::{
 
 use anyhow::{anyhow, bail, Result};
 use base64::{engine::general_purpose::STANDARD, Engine};
-use derivative::Derivative;
 use futures_util::{SinkExt, StreamExt};
-use log::{debug, error, info};
 use miniz_oxide::inflate::decompress_to_vec;
 use monitor_service::{client, server};
-use skynet::{utils, HyUuid};
+use skynet::{
+    tracing::{debug, error, info},
+    utils, HyUuid,
+};
 use sysinfo::{CpuRefreshKind, Disks, MemoryRefreshKind, Networks, RefreshKind, System};
 use tokio::{
-    net::TcpStream,
     select,
     sync::mpsc::{self, UnboundedSender},
     time::sleep,
@@ -25,21 +25,14 @@ use tokio::{
 use tokio_tungstenite::{
     connect_async_with_config,
     tungstenite::{protocol::WebSocketConfig, Message},
-    MaybeTlsStream, WebSocketStream,
 };
 use url::Url;
 
-use crate::{get_uid, shell::ShellInstance};
-
-#[derive(thiserror::Error, Derivative)]
-#[derivative(Debug)]
-pub enum AgentError {
-    #[error("Connection lost")]
-    ConnectionLost,
-
-    #[error("Invalid login response")]
-    InvalidLoginResponse,
-}
+use crate::{
+    get_uid,
+    shell::ShellInstance,
+    socket::{Socket, SocketError},
+};
 
 struct ConnectionState<'a> {
     shell: HashMap<String, ShellInstance>,
@@ -49,7 +42,7 @@ struct ConnectionState<'a> {
     uid: String,
     disk: &'a [String],
     interface: &'a [String],
-    output: Option<UnboundedSender<Vec<u8>>>,
+    output: Option<UnboundedSender<server::Message>>,
 }
 
 impl<'a> ConnectionState<'a> {
@@ -68,56 +61,63 @@ impl<'a> ConnectionState<'a> {
 }
 
 async fn shell_handler<'a>(
-    ws: &mut WebSocketStream<MaybeTlsStream<TcpStream>>,
+    ws: &mut Socket,
     state: &mut ConnectionState<'a>,
     msg_id: HyUuid,
     data: client::ShellConnect,
 ) -> Result<()> {
-    let inst = ShellInstance::new(&data.cmd, data.rows, data.cols, state.output.clone())?;
     let token = utils::rand_string(32);
-    state.shell.insert(token.clone(), inst);
-    ws.send(Message::Text(
-        server::Message::new_rsp(
-            &msg_id,
-            server::DataType::ShellConnect(server::ShellConnect { token }),
-        )
-        .into(),
-    ))
-    .await?;
-    Ok(())
+    let inst = ShellInstance::new(
+        &token,
+        &data.cmd,
+        data.rows,
+        data.cols,
+        state.output.clone(),
+    );
+    match inst {
+        Ok(inst) => {
+            state.shell.insert(token.clone(), inst);
+            ws.send_msg_rsp(
+                &msg_id,
+                server::DataType::ShellConnect(server::ShellConnect {
+                    token: token.clone(),
+                    error: String::new(),
+                }),
+            )
+            .await?;
+            info!(_token = token, "New shell connected");
+            Ok(())
+        }
+        Err(e) => {
+            ws.send_msg_rsp(
+                &msg_id,
+                server::DataType::ShellConnect(server::ShellConnect {
+                    token: String::new(),
+                    error: e.to_string(),
+                }),
+            )
+            .await?;
+            Err(e)
+        }
+    }
 }
 
 #[allow(clippy::needless_pass_by_value)]
-fn resize_handler(
-    _ws: &WebSocketStream<MaybeTlsStream<TcpStream>>,
-    state: &ConnectionState,
-    _msg_id: HyUuid,
-    data: client::ShellResize,
-) -> Result<()> {
+fn resize_handler(state: &ConnectionState, data: client::ShellResize) -> Result<()> {
     match state.shell.get(&data.token) {
         Some(x) => x.resize(data.rows, data.cols),
         None => bail!("Shell token not found"),
     }
 }
 
-fn input_handler(
-    _ws: &WebSocketStream<MaybeTlsStream<TcpStream>>,
-    state: &mut ConnectionState,
-    _msg_id: HyUuid,
-    data: client::ShellInput,
-) -> Result<()> {
+fn input_handler(state: &mut ConnectionState, data: client::ShellInput) -> Result<()> {
     match state.shell.get_mut(&data.token) {
         Some(x) => x.write(&STANDARD.decode(data.data)?),
         None => bail!("Shell token not found"),
     }
 }
 
-async fn update_handler<'a>(
-    ws: &mut WebSocketStream<MaybeTlsStream<TcpStream>>,
-    _state: &ConnectionState<'a>,
-    _msg_id: HyUuid,
-    data: client::Update,
-) -> Result<()> {
+async fn update_handler(ws: &mut Socket, data: client::Update) -> Result<()> {
     let exe = env::current_exe()?;
     let file = STANDARD.decode(data.data)?;
     let file = decompress_to_vec(&file).map_err(|e| anyhow::anyhow!(e.to_string()))?;
@@ -127,8 +127,8 @@ async fn update_handler<'a>(
         fs::write(&new_path, file)?;
         self_replace::self_replace(&new_path)?;
         fs::remove_file(new_path)?;
-        let _ = ws.close(None).await;
-        info!("Trigger update, crc32: {}", crc);
+        let _ = ws.0.close(None).await;
+        info!(crc32 = crc, "Trigger update");
         return Command::new(exe)
             .args(env::args().skip(1))
             .spawn()
@@ -139,11 +139,11 @@ async fn update_handler<'a>(
 }
 
 async fn status_handler<'a>(
-    ws: &mut WebSocketStream<MaybeTlsStream<TcpStream>>,
+    ws: &mut Socket,
     state: &mut ConnectionState<'a>,
     msg_id: HyUuid,
     data: client::Status,
-) -> Result<()> {
+) {
     state.stat_sys.refresh_specifics(
         RefreshKind::new()
             .with_cpu(CpuRefreshKind::everything())
@@ -169,70 +169,70 @@ async fn status_handler<'a>(
             band_down += i.1.total_received();
         }
     }
-    ws.send(Message::Text(
-        server::Message::new_rsp(
-            &msg_id,
-            server::DataType::Status(server::Status {
-                time: data.time,
-                cpu: state.stat_sys.global_cpu_info().cpu_usage(),
-                memory: state.stat_sys.used_memory(),
-                total_memory: state.stat_sys.total_memory(),
-                disk: disk_byte,
-                total_disk: total_disk_byte,
-                band_up,
-                band_down,
-            }),
-        )
-        .into(),
-    ))
+    ws.send_msg_rsp(
+        &msg_id,
+        server::DataType::Status(server::Status {
+            time: data.time,
+            cpu: state.stat_sys.global_cpu_info().cpu_usage(),
+            memory: state.stat_sys.used_memory(),
+            total_memory: state.stat_sys.total_memory(),
+            disk: disk_byte,
+            total_disk: total_disk_byte,
+            band_up,
+            band_down,
+        }),
+    )
     .await
-    .unwrap_or_else(|e| debug!("Send status error: {e}"));
-    Ok(())
+    .unwrap_or_else(|e| debug!(error = %e, "Send status error"));
 }
 
 async fn login_handler(
-    ws: &mut WebSocketStream<MaybeTlsStream<TcpStream>>,
+    ws: &mut Socket,
     msg_id: HyUuid,
     login_id: HyUuid,
     data: client::Login,
-    wait_time: &mut u32,
 ) -> Result<()> {
     if msg_id != login_id {
         bail!("Invalid login response");
     } else if data.code != 0 {
         bail!("Login error: code `{}`: {}", data.code, data.msg);
     } else {
-        *wait_time = 1;
         info!("Login success");
 
-        ws.send(Message::Text(
-            server::Message::new(server::DataType::Info(server::Info {
-                version: env!("CARGO_PKG_VERSION").to_owned(),
-                os: System::name(),
-                system: System::long_os_version(),
-                arch: consts::ARCH.to_owned(),
-                hostname: System::host_name(),
-            }))
-            .into(),
-        ))
+        ws.send_msg(server::DataType::Info(server::Info {
+            version: env!("CARGO_PKG_VERSION").to_owned(),
+            os: System::name(),
+            system: System::long_os_version(),
+            arch: consts::ARCH.to_owned(),
+            hostname: System::host_name(),
+        }))
         .await
-        .unwrap_or_else(|e| debug!("Send info error: {e}"));
+        .unwrap_or_else(|e| debug!(error=%e, "Send info error"));
         Ok(())
     }
 }
 
+#[allow(clippy::needless_pass_by_value)]
+fn disconnect_handler(state: &mut ConnectionState, data: client::ShellDisconnect) {
+    if let Some(x) = state.shell.remove(&data.token) {
+        drop(x); // explicitly kill
+    }
+    info!(_token = data.token, "Shell disconnected");
+}
+
 async fn handler<'a>(
-    ws: &mut WebSocketStream<MaybeTlsStream<TcpStream>>,
+    ws: &mut Socket,
     state: &mut ConnectionState<'a>,
     msg: String,
 ) -> Result<Option<Result<()>>> {
     match serde_json::from_str::<client::Message>(&msg) {
         Ok(msg) => match msg.data {
-            client::DataType::Update(data) => update_handler(ws, state, msg.id, data).await?,
-            client::DataType::Status(data) => status_handler(ws, state, msg.id, data).await?,
+            client::DataType::Update(data) => update_handler(ws, data).await?,
+            client::DataType::Status(data) => status_handler(ws, state, msg.id, data).await,
             client::DataType::ShellConnect(data) => shell_handler(ws, state, msg.id, data).await?,
-            client::DataType::ShellResize(data) => resize_handler(ws, state, msg.id, data)?,
-            client::DataType::ShellInput(data) => input_handler(ws, state, msg.id, data)?,
+            client::DataType::ShellResize(data) => resize_handler(state, data)?,
+            client::DataType::ShellInput(data) => input_handler(state, data)?,
+            client::DataType::ShellDisconnect(data) => disconnect_handler(state, data),
             client::DataType::Reconnect => {
                 return Ok(Some(Err(anyhow!("Receive reconnect signal from server"))))
             }
@@ -240,9 +240,9 @@ async fn handler<'a>(
                 info!("Receive quit signal from server");
                 return Ok(Some(Ok(())));
             }
-            _ => debug!("Invalid message type"),
+            _ => debug!(msg = ?msg, "Invalid message"),
         },
-        Err(e) => debug!("Parse message error: {e}"),
+        Err(e) => debug!(error = %e,"Parse message error"),
     }
     Ok(None)
 }
@@ -259,7 +259,7 @@ async fn connect<'a>(
     ))
     .unwrap();
     info!("Connecting to {url}");
-    let (mut ws, _) = connect_async_with_config(
+    let (ws, _) = connect_async_with_config(
         url,
         Some(WebSocketConfig {
             max_frame_size: Some(1024 * 1024 * 512),
@@ -269,6 +269,7 @@ async fn connect<'a>(
         false,
     )
     .await?;
+    let mut ws = Socket(ws);
     info!("Connected");
 
     // login
@@ -277,18 +278,15 @@ async fn connect<'a>(
         uid: state.uid.clone(),
         token: token.to_owned(),
     }));
-    ws.send(Message::Text(login_msg.json())).await?;
+    let login_id = login_msg.id;
+    ws.send_text(login_msg).await?;
 
-    let msg = ws.next().await.ok_or(AgentError::ConnectionLost)??;
-    if let Message::Text(msg) = msg {
-        let msg = serde_json::from_str::<client::Message>(&msg)?;
-        if let client::DataType::Login(data) = msg.data {
-            login_handler(&mut ws, msg.id, login_msg.id, data, wait_time).await?;
-        } else {
-            bail!(AgentError::InvalidLoginResponse)
-        }
+    let msg = ws.recv_msg().await?;
+    if let client::DataType::Login(data) = msg.data {
+        login_handler(&mut ws, msg.id, login_id, data).await?;
+        *wait_time = 1;
     } else {
-        bail!(AgentError::InvalidLoginResponse)
+        bail!(SocketError::InvalidLoginResponse)
     }
 
     let (shell_tx, mut shell_rx) = mpsc::unbounded_channel();
@@ -297,17 +295,12 @@ async fn connect<'a>(
         select! {
             msg = shell_rx.recv() => {
                 if let Some(data) = msg {
-                    ws.send(Message::Text(
-                        server::Message::new(server::DataType::ShellOutput(server::ShellOutput {
-                            data: STANDARD.encode(data),
-                        }))
-                        .into(),
-                    ))
+                    ws.send_text(data)
                     .await
-                    .unwrap_or_else(|e| debug!("Send shell output error: {e}"));
+                    .unwrap_or_else(|e| debug!(error = %e, "Send shell output error"));
                 }
             },
-            msg = ws.next() => {
+            msg = ws.0.next() => {
                 if let Some(msg) = msg {
                     match msg {
                         Ok(msg) => match msg {
@@ -320,15 +313,15 @@ async fn connect<'a>(
                                 Err(e) => error!("{e}"),
                             },
                             Message::Ping(x) => {
-                                let _ = ws.send(Message::Pong(x)).await;
+                                let _ = ws.0.send(Message::Pong(x)).await;
                             }
                             Message::Close(x) => {
-                                let _ = ws.close(x).await;
+                                let _ = ws.0.close(x).await;
                                 break;
                             }
-                            _ => debug!("WS: Unknown message"),
+                            _ => debug!("Unknown message"),
                         },
-                        Err(e) => error!("WS: {e}"),
+                        Err(e) => error!("{e}"),
                     }
                 } else {
                     break;
@@ -336,7 +329,7 @@ async fn connect<'a>(
             }
         }
     }
-    bail!(AgentError::ConnectionLost)
+    bail!(SocketError::ConnectionLost)
 }
 
 #[allow(clippy::while_let_loop)]

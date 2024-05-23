@@ -1,4 +1,5 @@
 /target
+/release
 /bin
 *.crt
 *.key

@@ -8,7 +8,6 @@ use actix_web::{cookie::time::Duration, web::Data, Responder};
 use actix_web_validator::Json;
 use anyhow::{anyhow, bail, Result};
 use awc::Client;
-use log::warn;
 use redis::aio::ConnectionManager;
 use sea_orm::{DatabaseConnection, TransactionTrait};
 use serde::{Deserialize, Serialize};
@@ -16,8 +15,9 @@ use serde_json::json;
 use skynet::{
     finish,
     request::{Request, Response, ResponseCode, ResponseCookie, RspResult},
-    success, HyUuid, Skynet,
+    HyUuid, Skynet,
 };
+use tracing::{info, warn};
 use validator::Validate;
 
 use crate::api::{new_csrf_token, APIError, CSRF_COOKIE};
@@ -73,10 +73,7 @@ pub async fn signin(
         .check_pass(&tx, &param.username, &param.password)
         .await?;
     if !ok {
-        warn!(
-            "Invalid username or password, attempt user: {}",
-            param.username
-        );
+        warn!(username = param.username, "Invalid username or password");
         finish!(Response::new(ResponseCode::CodeUserInvalid));
     }
     let user = skynet
@@ -85,11 +82,6 @@ pub async fn signin(
         .await?;
     tx.commit().await?;
 
-    let log_detail = json!({
-        "id":&user.id,
-        "name":&user.username,
-        "ip":&user.last_ip,
-    });
     session.renew();
     session.insert("id", user.id)?;
     session.insert("name", user.username.clone())?;
@@ -99,7 +91,7 @@ pub async fn signin(
     } else {
         session.insert("_ttl", skynet.config.session_expire.get())?;
     }
-    success!("User signin\n{}", log_detail.to_string());
+    info!(success = true, id = %user.id, name = user.username, "User signin");
     finish!(Response::ok());
 }
 

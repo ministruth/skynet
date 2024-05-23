@@ -13,9 +13,10 @@ use skynet::{
     request::{
         unique_validator, PaginationParam, Request, Response, ResponseCode, RspResult, SortType,
     },
-    success, HyUuid, MenuItem, Skynet,
+    HyUuid, MenuItem, Skynet,
 };
 use std::{collections::HashMap, fs::remove_dir_all, path};
+use tracing::info;
 use validator::Validate;
 
 use crate::Cli;
@@ -95,7 +96,6 @@ pub async fn put(
     id: Path<HyUuid>,
     db: Data<DatabaseConnection>,
     param: Json<PutReq>,
-    req: Request,
     skynet: Data<Skynet>,
 ) -> RspResult<impl Responder> {
     let tx = db.begin().await?;
@@ -103,21 +103,13 @@ pub async fn put(
         finish!(Response::not_found());
     }
     tx.commit().await?;
-    success!(
-        "Put plugin\n{}",
-        json!({
-            "id": id.as_ref(),
-            "enable": param.enable,
-            "ip": req.ip.ip(),
-        })
-    );
+    info!(success=true, id = %id, enable = param.enable, "Put plugin");
     finish!(Response::ok());
 }
 
 pub async fn delete(
     id: Path<HyUuid>,
     db: Data<DatabaseConnection>,
-    req: Request,
     cli: Data<Cli>,
     skynet: Data<Skynet>,
 ) -> RspResult<impl Responder> {
@@ -139,12 +131,6 @@ pub async fn delete(
     } else {
         finish!(Response::not_found());
     }
-    success!(
-        "Delete plugin\n{}",
-        json!({
-            "id": id.as_ref(),
-            "ip": req.ip.ip(),
-        })
-    );
+    info!(success = true, id = %id, "Delete plugin");
     finish!(Response::data(1));
 }

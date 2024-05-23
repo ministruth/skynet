@@ -7,6 +7,8 @@ export default {
   'pages.config.setting.token.tooltip': 'Copy token',
   'pages.config.setting.token.regenerate': 'Regenerate',
   'pages.config.setting.token.copied': 'Token copied',
+  'pages.config.setting.shell.text': 'Shell:',
+  'pages.config.setting.shell.new': 'New shell',
 
   'pages.config.agent.title': 'Agent',
   'pages.config.agent.op.shell.tip': 'Shell',
@@ -37,8 +39,10 @@ export default {
 
   'pages.view.content': 'Monitor agents',
   'pages.view.card.agent': 'Agent',
-  'pages.view.card.shell.retry.tip': 'Retry',
-  'pages.view.card.shell.retry.title': 'Retry connection, confirm?',
-  'pages.view.card.shell.retry.content':
-    'You will lost your current connection!',
+  'pages.view.card.shell.text': 'Shell:',
+  'pages.view.card.shell.placeholder': 'Loading shell program',
+  'pages.view.card.connect.text': 'Connect',
+  'pages.view.card.reconnect.text': 'Reconnect',
+  'pages.view.card.reconnect.title': 'Retry connection, confirm?',
+  'pages.view.card.reconnect.content': 'You will lost your current connection!',
 };

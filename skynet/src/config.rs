@@ -1,9 +1,9 @@
 use std::{any::type_name, path::Path};
 
 use derivative::Derivative;
-use log::warn;
 use rs_config::ConfigError;
 use skynet_macro::{Foreach, Iterable};
+use tracing::warn;
 
 macro_rules! checker_file {
     () => {

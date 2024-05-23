@@ -12,17 +12,25 @@ use actix_web::{
     dev::{fn_service, ServerHandle, ServiceRequest, ServiceResponse},
     middleware,
     web::{scope, Data},
-    App, HttpServer,
+    App, HttpMessage, HttpServer,
 };
+use awc::body::MessageBody;
 use chrono::Utc;
-use log::{debug, info, warn};
 use parking_lot::Mutex;
 use redis::aio::ConnectionManager;
 use rustls::ServerConfig;
 use rustls_pemfile::{certs, private_key};
 use sea_orm::{DatabaseConnection, TransactionTrait};
-use skynet::{config, db, plugin::PluginManager, Skynet};
+use skynet::{
+    config, db,
+    logger::Logger,
+    plugin::PluginManager,
+    request::{get_real_ip, RequestExtension},
+    HyUuid, Skynet,
+};
 use skynet_i18n::i18n;
+use tracing::{debug, error, info, info_span, warn, Span};
+use tracing_actix_web::{RootSpanBuilder, TracingLogger};
 
 pub async fn init_skynet(
     cli: &Cli,
@@ -47,8 +55,8 @@ pub async fn init_skynet(
     debug!("Redis connected");
 
     // init notification
-    skynet.logger.set_db(db.clone());
-    skynet.logger.write_pending(&db).await;
+    Logger::set_db(db.clone());
+    Logger::write_pending(&db).await;
 
     // init setting
     let tx = db.begin().await.unwrap();
@@ -133,6 +141,74 @@ impl StopHandle {
     }
 }
 
+pub struct SpanBuilder;
+
+impl RootSpanBuilder for SpanBuilder {
+    fn on_request_start(req: &ServiceRequest) -> Span {
+        let start_time = Utc::now();
+        let request_id = HyUuid::new();
+        req.extensions_mut().insert(RequestExtension {
+            start_time,
+            request_id,
+            ..Default::default()
+        });
+        let skynet = req.app_data::<Data<Skynet>>().unwrap();
+        let user_agent = req
+            .headers()
+            .get("User-Agent")
+            .map_or("", |h| h.to_str().unwrap_or(""));
+        let span = info_span!("HTTP request", request_id = %request_id, ip = %get_real_ip(req.request(), skynet));
+        span.in_scope(|| {
+            info!(
+                _time = start_time.timestamp_micros(),
+                method = %req.method(),
+                path = req.path(),
+                user_agent = user_agent,
+                "Request start"
+            );
+        });
+        span
+    }
+
+    fn on_request_end<B: MessageBody>(
+        _: Span,
+        outcome: &Result<ServiceResponse<B>, actix_web::Error>,
+    ) {
+        match &outcome {
+            Ok(response) => {
+                let req = response.request().extensions();
+                let req = req.get::<RequestExtension>().unwrap();
+                let end_time = Utc::now();
+                let time = (end_time - req.start_time).num_microseconds().unwrap_or(0);
+                if let Some(error) = response.response().error() {
+                    error!(
+                        _time = end_time.timestamp_micros(),
+                        code = %response.status().as_u16(),
+                        error = %error.as_response_error(),
+                        process_time = time,
+                        "Request end"
+                    );
+                } else {
+                    info!(
+                        _time = end_time.timestamp_micros(),
+                        code = %response.status().as_u16(),
+                        process_time = time,
+                        "Request end"
+                    );
+                }
+            }
+            Err(error) => {
+                let response_error = error.as_response_error();
+                error!(
+                    code = %response_error.status_code().as_u16(),
+                    error = %response_error,
+                    "Request end"
+                );
+            }
+        };
+    }
+}
+
 fn print_cover() {
     println!("            __                         __   ");
     println!("      _____|  | _____.__. ____   _____/  |_ ");
@@ -193,7 +269,7 @@ pub async fn command(cli: &Cli, skynet: Skynet, skip_cover: bool, disable_csrf: 
                     skynet.config.listen_ssl.get(),
                     skynet.config.header_csp.get().to_owned(),
                 ))
-                .wrap(middleware::Logger::default())
+                .wrap(TracingLogger::<SpanBuilder>::new())
                 .app_data(skynet.clone())
                 .app_data(cli_data.clone())
                 .app_data(db.clone())

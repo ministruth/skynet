@@ -34,6 +34,7 @@ const updateColumns: (
     {
       title: intl.get('pages.user.table.password'),
       dataIndex: 'password',
+      valueType: 'password',
       fieldProps: {
         placeholder: intl.get('pages.user.form.password.placeholder'),
       },
@@ -71,7 +72,7 @@ const UserUpdate: React.FC<UserBtnProps> = (props) => {
         <TableBtn
           key="update"
           icon={EditOutlined}
-          tip={intl.get('app.op.update.tip')}
+          tip={intl.get('app.op.update')}
         />
       }
       schemaProps={{

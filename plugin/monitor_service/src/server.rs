@@ -53,11 +53,16 @@ pub enum DataType {
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ShellConnect {
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub token: String,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
+    pub error: String,
 }
 
 #[derive(Serialize, Deserialize, Debug)]
 pub struct ShellOutput {
+    #[serde(skip_serializing_if = "String::is_empty")]
+    pub token: String,
     pub data: String,
 }
 

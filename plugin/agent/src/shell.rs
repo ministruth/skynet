@@ -1,6 +1,8 @@
 use std::io::{ErrorKind, Read, Write};
 
 use anyhow::Result;
+use base64::{engine::general_purpose::STANDARD, Engine};
+use monitor_service::server;
 use portable_pty::{native_pty_system, Child, CommandBuilder, PtyPair, PtySize};
 use tokio::sync::mpsc::UnboundedSender;
 
@@ -13,10 +15,11 @@ pub struct ShellInstance {
 
 impl ShellInstance {
     pub fn new(
+        token: &str,
         cmd: &str,
         rows: u16,
         cols: u16,
-        sender: Option<UnboundedSender<Vec<u8>>>,
+        sender: Option<UnboundedSender<server::Message>>,
     ) -> Result<Self> {
         let pty_system = native_pty_system();
         let pair = pty_system.openpty(PtySize {
@@ -30,6 +33,7 @@ impl ShellInstance {
         let writer = pair.master.take_writer()?;
 
         // safe to detach, terminated when reader closed.
+        let token = token.to_owned();
         tokio::spawn(async move {
             loop {
                 let mut buffer = [0; 64];
@@ -39,7 +43,12 @@ impl ShellInstance {
                             break;
                         }
                         if let Some(x) = &sender {
-                            let _ = x.send(buffer[..n].to_vec());
+                            let _ = x.send(server::Message::new(server::DataType::ShellOutput(
+                                server::ShellOutput {
+                                    token: token.clone(),
+                                    data: STANDARD.encode(&buffer[..n]),
+                                },
+                            )));
                         }
                     }
                     Err(e) => {

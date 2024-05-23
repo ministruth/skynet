@@ -1,7 +1,7 @@
-import { checkPerm, UserPerm } from '@/utils';
-import { useModel } from '@umijs/max';
-import { ReactElement } from 'react';
-import ModalSchema, { ModalSchemaProps } from './modalSchema';
+import { checkPerm, UserPerm } from "@/utils";
+import { useModel } from "@umijs/max";
+import { ReactElement } from "react";
+import ModalSchema, { ModalSchemaProps } from "../modalSchema";
 
 export interface TableOpProps {
   disabled?: boolean;
@@ -11,7 +11,7 @@ export interface TableOpProps {
 }
 
 const TableOp: React.FC<TableOpProps & ModalSchemaProps> = (props) => {
-  const { access } = useModel('@@qiankunStateFromMaster');
+  const { access } = useModel("@@qiankunStateFromMaster");
   if (
     props.disabled ||
     (props.perm &&
@@ -26,7 +26,7 @@ const TableOp: React.FC<TableOpProps & ModalSchemaProps> = (props) => {
         trigger={props.trigger}
         width={props.width}
         schemaProps={{
-          layout: 'horizontal',
+          layout: "horizontal",
           autoFocusFirstInput: true,
           labelCol: { span: 6 },
           ...props.schemaProps,

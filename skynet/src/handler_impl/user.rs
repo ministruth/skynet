@@ -1,6 +1,7 @@
 use anyhow::{anyhow, Result};
 use argon2::{password_hash::SaltString, Argon2, PasswordHash, PasswordHasher, PasswordVerifier};
 use async_trait::async_trait;
+use chrono::Utc;
 use derivative::Derivative;
 use rand::rngs::OsRng;
 use redis::{aio::ConnectionManager, AsyncCommands};
@@ -95,7 +96,7 @@ impl UserHandler for DefaultUserHandler {
         users::ActiveModel {
             id: Unchanged(uid.to_owned()),
             last_ip: Set(Some(ip.to_owned())),
-            last_login: Set(Some(utils::millis_time())),
+            last_login: Set(Some(Utc::now().timestamp_millis())),
             ..Default::default()
         }
         .update(db)

@@ -8,6 +8,6 @@ authors = ["MXWXZ <matrixwxz@gmail.com>"]
 
 [dependencies]
 enum-as-inner = "0.6"
-version-compare = "0.1"
+version-compare = "0.2"
 
 skynet = { path = "../../skynet" }

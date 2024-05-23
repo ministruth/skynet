@@ -7,13 +7,13 @@ use actix_web::{
 use actix_web_validator::Json;
 use sea_orm::{DatabaseConnection, TransactionTrait};
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 use skynet::{
     finish,
     permission::UserPerm,
-    request::{unique_validator, Request, Response, ResponseCode, RspResult},
-    success, Condition, HyUuid, Skynet,
+    request::{unique_validator, Response, ResponseCode, RspResult},
+    Condition, HyUuid, Skynet,
 };
+use tracing::info;
 use validator::Validate;
 
 pub async fn get(db: Data<DatabaseConnection>, skynet: Data<Skynet>) -> RspResult<impl Responder> {
@@ -136,7 +136,6 @@ pub struct VecPutReq {
 pub async fn put_group(
     param: Json<VecPutReq>,
     db: Data<DatabaseConnection>,
-    req: Request,
     gid: Path<HyUuid>,
     skynet: Data<Skynet>,
 ) -> RspResult<impl Responder> {
@@ -164,13 +163,11 @@ pub async fn put_group(
             .await?;
     }
     tx.commit().await?;
-    success!(
-        "Put group permission\n{}",
-        json!({
-            "gid": gid.as_ref(),
-            "perm": param.inner,
-            "ip": req.ip.ip(),
-        })
+    info!(
+        success = true,
+        gid = %gid,
+        perm = ?param.inner,
+        "Put group permission",
     );
     finish!(Response::ok());
 }
@@ -178,7 +175,6 @@ pub async fn put_group(
 pub async fn put_user(
     param: Json<VecPutReq>,
     db: Data<DatabaseConnection>,
-    req: Request,
     uid: Path<HyUuid>,
     skynet: Data<Skynet>,
 ) -> RspResult<impl Responder> {
@@ -209,13 +205,6 @@ pub async fn put_user(
             .await?;
     }
     tx.commit().await?;
-    success!(
-        "Put user permission\n{}",
-        json!({
-            "gid": uid.as_ref(),
-            "perm": param.inner,
-            "ip": req.ip.ip(),
-        })
-    );
+    info!(success = true, uid = %uid, perm = ?param.inner, "Put user permission");
     finish!(Response::ok());
 }

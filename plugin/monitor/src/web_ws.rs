@@ -1,29 +1,120 @@
-use actix::{Actor, ActorContext, StreamHandler};
+use actix::{Actor, ActorContext, Addr, AsyncContext, StreamHandler};
 use actix_web_actors::ws::{start, Message, ProtocolError, WebsocketContext};
 use derivative::Derivative;
+use monitor_service::client;
 use skynet::{
     actix_web::{
-        web::{Data, Payload},
+        web::{Bytes, Payload},
         Error, HttpRequest, HttpResponse,
     },
-    anyhow::Result,
-    request::Request,
-    Skynet,
+    anyhow::{bail, Result},
+    tracing::debug,
+    HyUuid,
 };
+use skynet_macro::plugin_api;
+
+use crate::{
+    web_session::{ShellConnect, ShellDisconnect, ShellInput, ShellResize},
+    AGENT_ADDRESS, WEB_ADDRESS,
+};
+
+pub type WSAddr = Addr<WSHandler>;
+
+pub struct WebWSConnection {
+    pub id: HyUuid,
+    pub aid: HyUuid,
+    pub token: String,
+}
 
 #[derive(Derivative)]
 pub struct WSHandler {
-    skynet: Data<Skynet>,
-    request: Request,
+    pub conn: Option<WebWSConnection>,
 }
 
 impl Actor for WSHandler {
     type Context = WebsocketContext<Self>;
+
+    fn stopped(&mut self, _: &mut Self::Context) {
+        self.cleanup();
+    }
 }
 
 impl WSHandler {
-    fn new(skynet: Data<Skynet>, request: Request) -> Self {
-        Self { skynet, request }
+    const fn new() -> Self {
+        Self { conn: None }
+    }
+
+    fn cleanup(&mut self) {
+        if let Some(conn) = &self.conn {
+            WEB_ADDRESS
+                .get()
+                .unwrap()
+                .write()
+                .remove(&conn.id.to_string());
+            WEB_ADDRESS.get().unwrap().write().remove(&conn.token);
+            if let Some(addr) = AGENT_ADDRESS.get().unwrap().read().get(&conn.aid) {
+                addr.do_send(ShellDisconnect {
+                    data: client::ShellDisconnect {
+                        token: conn.token.clone(),
+                    },
+                });
+            }
+        }
+        self.conn = None;
+    }
+
+    fn recv(&mut self, text: &Bytes, ctx: &mut <Self as Actor>::Context) -> Result<()> {
+        let msg: client::Message = serde_json::from_slice(text)?;
+        match msg.data {
+            client::DataType::ShellConnect(data) => {
+                self.cleanup();
+                if let Some(addr) = AGENT_ADDRESS.get().unwrap().read().get(&data.id) {
+                    WEB_ADDRESS
+                        .get()
+                        .unwrap()
+                        .write()
+                        .insert(msg.id.to_string(), ctx.address());
+                    self.conn = Some(WebWSConnection {
+                        id: msg.id,
+                        aid: data.id,
+                        token: String::new(),
+                    });
+                    addr.do_send(ShellConnect { id: msg.id, data });
+                } else {
+                    ctx.stop();
+                    bail!("Agent not found or offline")
+                }
+            }
+            client::DataType::ShellResize(data) => {
+                if let Some(conn) = &self.conn {
+                    if !conn.token.is_empty() && conn.token == data.token {
+                        if let Some(addr) = AGENT_ADDRESS.get().unwrap().read().get(&conn.aid) {
+                            addr.do_send(ShellResize { data });
+                        } else {
+                            self.cleanup();
+                            ctx.stop();
+                        }
+                    }
+                }
+            }
+            client::DataType::ShellInput(data) => {
+                if let Some(conn) = &self.conn {
+                    if !conn.token.is_empty() && conn.token == data.token {
+                        if let Some(addr) = AGENT_ADDRESS.get().unwrap().read().get(&conn.aid) {
+                            addr.do_send(ShellInput { data });
+                        } else {
+                            self.cleanup();
+                            ctx.stop();
+                        }
+                    }
+                }
+            }
+            client::DataType::ShellDisconnect(_) => {
+                self.cleanup();
+            }
+            _ => bail!("Invalid message {:?}", text),
+        }
+        Ok(())
     }
 }
 
@@ -32,8 +123,9 @@ impl StreamHandler<Result<Message, ProtocolError>> for WSHandler {
         match msg {
             Ok(Message::Ping(msg)) => ctx.pong(&msg),
             Ok(Message::Text(text)) => {
-                // TODO
-                println!("{text}");
+                if let Err(e) = self.recv(text.as_bytes(), ctx) {
+                    debug!("{e}");
+                }
             }
             Ok(Message::Close(reason)) => {
                 ctx.close(reason);
@@ -44,11 +136,7 @@ impl StreamHandler<Result<Message, ProtocolError>> for WSHandler {
     }
 }
 
-pub async fn service(
-    req: HttpRequest,
-    r: Request,
-    skynet: Data<Skynet>,
-    payload: Payload,
-) -> Result<HttpResponse, Error> {
-    start(WSHandler::new(skynet, r), &req, payload)
+#[plugin_api]
+pub async fn service(req: HttpRequest, payload: Payload) -> Result<HttpResponse, Error> {
+    start(WSHandler::new(), &req, payload)
 }

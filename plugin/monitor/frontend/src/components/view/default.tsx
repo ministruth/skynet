@@ -5,8 +5,8 @@ import {
 } from '@/common_components/layout/table/column';
 import styles from '@/common_components/layout/table/style.less';
 import TableBtn from '@/common_components/layout/table/tableBtn';
-import { API_PREFIX } from '@/config';
-import { getAPI, getIntl } from '@/utils';
+import { API_PREFIX, PLUGIN_ID } from '@/config';
+import { UserPerm, getAPI, getIntl } from '@/utils';
 import { CodeOutlined } from '@ant-design/icons';
 import { ParamsType, ProDescriptions } from '@ant-design/pro-components';
 import { ProColumns } from '@ant-design/pro-table';
@@ -92,16 +92,18 @@ const DefaultTab: React.FC<TabItemProps> = (props) => {
       fieldProps: {
         mode: 'multiple',
         tagRender: (props: CustomTagProps) => {
-          return (
-            <Tag
-              color={statusEnum[props.value].color}
-              closable={props.closable}
-              onClose={props.onClose}
-              style={{ marginRight: 4 }}
-            >
-              {props.label}
-            </Tag>
-          );
+          // BUG: rc-select undefined value
+          if (props.value)
+            return (
+              <Tag
+                color={statusEnum[props.value].color}
+                closable={props.closable}
+                onClose={props.onClose}
+                style={{ marginRight: 4 }}
+              >
+                {props.label}
+              </Tag>
+            );
         },
       },
       valueEnum: Object.entries(statusEnum).reduce(
@@ -148,6 +150,8 @@ const DefaultTab: React.FC<TabItemProps> = (props) => {
             icon={CodeOutlined}
             tip={intl.get('pages.config.agent.op.shell.tip')}
             onClick={(_) => props.addTabCallback?.(row)}
+            permName={`view.plugin.${PLUGIN_ID}`}
+            perm={UserPerm.PermAll}
             disabled={row.status != 1}
           />,
         ];

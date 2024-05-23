@@ -1,16 +1,18 @@
 use derivative::Derivative;
 use entity::agents;
 use enum_as_inner::EnumAsInner;
+use itertools::Itertools;
 use parking_lot::RwLock;
 use serde::Serialize;
+use serde_json::Value;
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use skynet::{
     anyhow::{self, Result},
+    chrono::Utc,
     sea_orm::{
         ActiveModelTrait, ColumnTrait, DatabaseTransaction, EntityTrait, QueryFilter, Set,
         Unchanged,
     },
-    utils,
     uuid::uuid,
     HyUuid, Skynet,
 };
@@ -101,15 +103,38 @@ impl From<agents::Model> for Agent {
 }
 
 impl PluginSrv {
-    /// Get token setting name.
+    /// Token setting name.
     #[must_use]
     pub fn token_setting() -> String {
         format!("plugin_{ID}_token")
     }
 
+    /// Shell program setting name.
+    #[must_use]
+    pub fn shell_prog_setting() -> String {
+        format!("plugin_{ID}_shellprog")
+    }
+
     /// Get monitor token.
     pub fn get_token(skynet: &Skynet) -> Option<String> {
         skynet.setting.get(&Self::token_setting())
+    }
+
+    /// Get monitor shell program.
+    /// Remove all invalid values.
+    pub fn get_shell_prog(skynet: &Skynet) -> Option<Vec<String>> {
+        if let Some(x) = skynet.setting.get(&Self::shell_prog_setting()) {
+            if let Ok(x) = serde_json::from_str::<Value>(&x) {
+                return x.as_array().map(|x| {
+                    x.iter()
+                        .map(|x| x.as_str().unwrap_or("").to_owned())
+                        .unique()
+                        .filter(|x| !x.is_empty())
+                        .collect()
+                });
+            }
+        }
+        None
     }
 
     /// Set monitor token.
@@ -119,6 +144,26 @@ impl PluginSrv {
     /// Will raise `Err` for db errors.
     pub async fn set_token(db: &DatabaseTransaction, skynet: &Skynet, token: &str) -> Result<()> {
         skynet.setting.set(db, &Self::token_setting(), token).await
+    }
+
+    /// Set shell program.
+    ///
+    /// # Errors
+    ///
+    /// Will raise `Err` for db errors.
+    pub async fn set_shell_prog(
+        db: &DatabaseTransaction,
+        skynet: &Skynet,
+        shell_prog: &[String],
+    ) -> Result<()> {
+        skynet
+            .setting
+            .set(
+                db,
+                &Self::shell_prog_setting(),
+                &serde_json::to_string(&shell_prog)?,
+            )
+            .await
     }
 
     /// Init agent in cache.
@@ -159,7 +204,7 @@ impl PluginSrv {
         band_up: u64,
         band_down: u64,
     ) {
-        let now = utils::millis_time();
+        let now = Utc::now().timestamp_millis();
         let mut wlock = self.agent.write();
         if let Some(item) = wlock.get_mut(id) {
             if let Some(rsp) = item.last_rsp {
@@ -348,7 +393,7 @@ impl PluginSrv {
         ip: String,
     ) -> Result<Option<HyUuid>> {
         let agent = self.find_by_uid(db, &uid).await?;
-        let now = utils::millis_time();
+        let now = Utc::now().timestamp_millis();
         let agent = if let Some(agent) = agent {
             agent
         } else {

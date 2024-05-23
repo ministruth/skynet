@@ -1,18 +1,27 @@
-use std::{env::consts, io, time};
-
 use byte_unit::{Byte, UnitType};
+use chrono::{DateTime, Local, Utc};
 use clap::{command, Parser, Subcommand};
 use client::run;
-use fern::colors::{Color, ColoredLevelConfig};
-use log::LevelFilter;
-use serde_json::json;
 use sha3::{digest::ExtendableOutput, Shake256};
+use skynet::{
+    logger::{LogItem, LogSender, Logger},
+    tracing::Level,
+    tracing_subscriber,
+};
+use std::{
+    env::consts,
+    io::{self, stderr, stdout},
+    str::FromStr,
+    sync::mpsc,
+    thread,
+};
 use sysinfo::{
     CpuRefreshKind, Disks, MemoryRefreshKind, NetworkData, Networks, RefreshKind, System,
 };
 
 mod client;
 mod shell;
+mod socket;
 
 #[derive(Parser, Clone)]
 #[command(author, version, about, long_about = None)]
@@ -57,55 +66,6 @@ enum Commands {
     },
     /// List interface in agent
     List,
-}
-
-fn init_logger(verbose: bool, json: bool) {
-    let level_color = ColoredLevelConfig::new()
-        .debug(Color::BrightMagenta)
-        .info(Color::BrightBlue)
-        .warn(Color::BrightYellow)
-        .error(Color::BrightRed);
-    let mut logger = fern::Dispatch::new().level(if verbose {
-        LevelFilter::Debug
-    } else {
-        LevelFilter::Info
-    });
-    logger = logger.format(move |out, message, record| {
-        if json {
-            let time = time::SystemTime::now()
-                .duration_since(time::UNIX_EPOCH)
-                .unwrap()
-                .as_secs();
-            out.finish(format_args!(
-                "{}",
-                serde_json::to_string(&json!({
-                    "time":time,
-                    "level":record.level().as_str(),
-                    "msg":message,
-                }))
-                .unwrap()
-            ));
-        } else {
-            out.finish(format_args!(
-                "{}[{}] {}",
-                chrono::Local::now().format("[%Y-%m-%d %H:%M:%S]"),
-                level_color.color(record.level()),
-                message
-            ));
-        }
-    });
-    logger = logger
-        .chain(
-            fern::Dispatch::new()
-                .filter(|s| s.level() != LevelFilter::Error)
-                .chain(io::stdout()),
-        )
-        .chain(
-            fern::Dispatch::new()
-                .level(LevelFilter::Error)
-                .chain(io::stderr()),
-        );
-    logger.apply().unwrap();
 }
 
 fn get_uid() -> String {
@@ -177,11 +137,75 @@ fn list() {
     }
 }
 
+fn start_logger(json: bool, verbose: bool) {
+    let (tx, rx) = mpsc::channel();
+    tracing_subscriber::fmt()
+        .with_max_level(if verbose { Level::DEBUG } else { Level::INFO })
+        .with_writer(LogSender::new(tx))
+        .without_time()
+        .with_file(true)
+        .with_line_number(true)
+        .json()
+        .init();
+
+    thread::spawn(move || {
+        while let Ok(v) = rx.recv() {
+            let mut item = LogItem::from_json(v);
+            let level = Level::from_str(&item.level).unwrap_or(Level::ERROR);
+            if item.target.starts_with("tungstenite::") {
+                continue;
+            }
+            item.filename = Logger::trim_filename(&item.filename);
+            let time = item.fields.remove("_time").unwrap_or_default().as_i64();
+            let token: String = item
+                .fields
+                .remove("_token")
+                .unwrap_or_default()
+                .as_str()
+                .unwrap_or("main")
+                .chars()
+                .take(8)
+                .collect();
+            if !verbose {
+                item.filename.clear();
+                item.line_number = 0;
+            }
+
+            let writer: Box<dyn io::Write> = if level <= Level::WARN {
+                Box::new(stderr())
+            } else {
+                Box::new(stdout())
+            };
+            if json {
+                item.target.clear();
+                if token != "main" {
+                    item.fields.insert(String::from("token"), token.into());
+                }
+                item.time = time.unwrap_or_else(|| Utc::now().timestamp_micros()).into();
+                let _ = item.write_json(writer);
+            } else {
+                item.level = Logger::fmt_level(&level);
+                item.target = token; // we do not use target, show token instead.
+                item.time = time
+                    .map_or_else(Local::now, |v| {
+                        DateTime::from_timestamp_micros(v)
+                            .unwrap_or_default()
+                            .into()
+                    })
+                    .format("%F %T%.6f")
+                    .to_string()
+                    .into();
+                let _ = item.write_console(writer);
+            }
+        }
+    });
+}
+
 #[tokio::main]
 async fn main() {
     let cli = Cli::parse();
     if !cli.quiet {
-        init_logger(cli.verbose, cli.log_json);
+        start_logger(cli.log_json, cli.verbose);
     }
     match cli.command {
         Commands::Run {

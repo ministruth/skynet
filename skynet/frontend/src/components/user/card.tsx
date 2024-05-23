@@ -150,15 +150,17 @@ export const GroupColumn: Column = (intl) => {
       showSearch: true,
       labelInValue: true,
       tagRender: (props: CustomTagProps) => {
-        return (
-          <Tag
-            closable={props.closable}
-            onClose={props.onClose}
-            style={{ marginRight: 4 }}
-          >
-            {props.label}
-          </Tag>
-        );
+        // BUG: rc-select undefined value
+        if (props.value)
+          return (
+            <Tag
+              closable={props.closable}
+              onClose={props.onClose}
+              style={{ marginRight: 4 }}
+            >
+              {props.label}
+            </Tag>
+          );
       },
     },
     request: async ({ keyWords }: any) => {

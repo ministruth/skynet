@@ -4,24 +4,25 @@ use actix::{Actor, ActorContext, Addr, AsyncContext, StreamHandler};
 use actix_web_actors::ws::{start, Message, ProtocolError, WebsocketContext};
 use base64::{engine::general_purpose::STANDARD, Engine};
 use derivative::Derivative;
-use futures::executor::block_on;
 use miniz_oxide::deflate::compress_to_vec;
 use monitor_service::{client, server, PluginSrv, ID};
 use sea_orm_migration::sea_orm::TransactionTrait;
-use serde_json::json;
 use skynet::{
     actix_web::{
         web::{Bytes, Data, Payload},
         Error, HttpRequest, HttpResponse,
     },
     anyhow::{self, bail, Result},
-    log::{debug, info, warn},
     request::Request,
-    utils, HyUuid, Skynet,
+    tracing::{debug, info, warn},
+    HyUuid, Skynet, Utc,
 };
-use tokio::runtime::Runtime;
+use skynet_macro::{plugin_api, tracing_api};
 
-use crate::{ADDRESS, DB, SERVICE};
+use crate::{
+    web_session::{ShellConnectRsp, ShellOutput},
+    AGENT_ADDRESS, DB, RUNTIME, SERVICE, WEB_ADDRESS,
+};
 
 pub type WSAddr = Addr<WSHandler>;
 
@@ -30,27 +31,25 @@ pub struct WSHandler {
     id: Option<HyUuid>,
     skynet: Data<Skynet>,
     request: Request,
-
-    rt: Runtime,
 }
 
 impl Actor for WSHandler {
     type Context = WebsocketContext<Self>;
 
+    #[tracing_api(self.request.request_id, self.request.ip)]
     fn stopped(&mut self, _: &mut Self::Context) {
         if let Some(x) = self.id {
             SERVICE.get().unwrap().logout(&x);
-            ADDRESS.get().unwrap().write().remove(&x);
-            info!("Agent `{}` logout", x);
+            AGENT_ADDRESS.get().unwrap().write().remove(&x);
+            info!(aid = %x, "Agent logout");
         }
     }
 }
 
 impl WSHandler {
-    fn new(skynet: Data<Skynet>, request: Request) -> Self {
+    const fn new(skynet: Data<Skynet>, request: Request) -> Self {
         Self {
             id: None,
-            rt: Runtime::new().unwrap(),
             skynet,
             request,
         }
@@ -60,7 +59,7 @@ impl WSHandler {
     fn send_status(&mut self, ctx: &mut <Self as Actor>::Context) {
         ctx.text(client::Message::new(client::DataType::Status(
             client::Status {
-                time: utils::millis_time(),
+                time: Utc::now().timestamp_millis(),
             },
         )));
     }
@@ -72,7 +71,7 @@ impl WSHandler {
         msg: server::Login,
     ) -> Result<()> {
         if PluginSrv::get_token(&self.skynet).is_some_and(|x| x == msg.token) {
-            block_on(async {
+            RUNTIME.get().unwrap().block_on(async {
                 let tx = DB.get().unwrap().begin().await?;
                 self.id = Some(
                     if let Some(x) = SERVICE
@@ -81,7 +80,11 @@ impl WSHandler {
                         .login(&tx, msg.uid, self.request.ip.ip().to_string())
                         .await?
                     {
-                        ADDRESS.get().unwrap().write().insert(x, ctx.address());
+                        AGENT_ADDRESS
+                            .get()
+                            .unwrap()
+                            .write()
+                            .insert(x, ctx.address());
                         x
                     } else {
                         ctx.text(client::Message::new_rsp(
@@ -95,13 +98,10 @@ impl WSHandler {
                     },
                 );
                 tx.commit().await?;
-                Ok::<(), anyhow::Error>(())
+                ctx.run_interval(Duration::from_secs(1), Self::send_status);
+                Ok(())
             })?;
 
-            // enter tokio runtime.
-            self.rt.block_on(async {
-                ctx.run_interval(Duration::from_secs(1), Self::send_status);
-            });
             ctx.text(client::Message::new_rsp(
                 msg_id,
                 client::DataType::Login(client::Login {
@@ -109,7 +109,7 @@ impl WSHandler {
                     msg: "Login success".to_owned(),
                 }),
             ));
-            info!("Agent `{}` login", self.id.unwrap());
+            info!(aid = %self.id.unwrap(), "Agent login");
         } else {
             ctx.text(client::Message::new_rsp(
                 msg_id,
@@ -128,7 +128,7 @@ impl WSHandler {
         msg_id: &HyUuid,
         msg: server::Info,
     ) -> Result<()> {
-        block_on(async {
+        RUNTIME.get().unwrap().block_on(async {
             let tx = DB.get().unwrap().begin().await?;
             SERVICE
                 .get()
@@ -152,45 +152,32 @@ impl WSHandler {
             .and_then(|x| x.downcast_ref::<Arc<agent_service::PluginSrv>>())
         {
             if agent_service::PluginSrv::check_version(&msg.version) {
-                if let Some(sys) = agent_service::System::parse(&msg.os.clone().unwrap_or_default())
-                {
-                    if let Some(arch) = agent_service::Arch::parse(&msg.arch) {
-                        if let Some(data) = x.get_binary(sys, arch) {
-                            SERVICE.get().unwrap().update_state(&self.id.unwrap());
-                            let crc = crc32fast::hash(&data);
-                            let data = STANDARD.encode(compress_to_vec(&data, 6));
-                            ctx.text(client::Message::new_rsp(
-                                msg_id,
-                                client::DataType::Update(client::Update { crc32: crc, data }),
-                            ));
-                        } else {
-                            warn!(
-                                "Agent not update, file not found\n{}",
-                                json!({
-                                    "plugin": ID,
-                                    "aid": self.id.unwrap(),
-                                    "file": x.get_binary_name(sys, arch),
-                                })
-                            );
-                        }
-                    } else {
-                        warn!(
-                            "Agent not update, arch invalid\n{}",
-                            json!({
-                                "plugin": ID,
-                                "aid": self.id.unwrap(),
-                                "arch": msg.arch,
-                            })
-                        );
-                    }
+                let sys = agent_service::System::parse(&msg.os.clone().unwrap_or_default());
+                let arch = agent_service::Arch::parse(&msg.arch);
+                if sys.is_none() || arch.is_none() {
+                    warn!(
+                        plugin = %ID,
+                        aid = %self.id.unwrap(),
+                        arch = msg.arch,
+                        system = msg.os,
+                        "Agent not update, platform invalid",
+                    );
+                }
+
+                if let Some(data) = x.get_binary(sys.unwrap(), arch.unwrap()) {
+                    SERVICE.get().unwrap().update_state(&self.id.unwrap());
+                    let crc = crc32fast::hash(&data);
+                    let data = STANDARD.encode(compress_to_vec(&data, 6));
+                    ctx.text(client::Message::new_rsp(
+                        msg_id,
+                        client::DataType::Update(client::Update { crc32: crc, data }),
+                    ));
                 } else {
                     warn!(
-                        "Agent not update, system invalid\n{}",
-                        json!({
-                            "plugin": ID,
-                            "aid": self.id.unwrap(),
-                            "system": msg.os.unwrap_or_default(),
-                        })
+                        plugin = %ID,
+                        aid = %self.id.unwrap(),
+                        file = %x.get_binary_name(sys.unwrap(), arch.unwrap()).to_string_lossy(),
+                        "Agent not update, file not found",
                     );
                 }
             }
@@ -212,6 +199,43 @@ impl WSHandler {
         );
     }
 
+    fn shell_connect(
+        &mut self,
+        ctx: &mut <Self as Actor>::Context,
+        id: &HyUuid,
+        msg: server::ShellConnect,
+    ) {
+        let id_string = &id.to_string();
+        let mut lock = WEB_ADDRESS.get().unwrap().write();
+        if let Some(addr) = lock.remove(id_string) {
+            let token = msg.token.clone();
+            addr.do_send(ShellConnectRsp { id: *id, data: msg });
+            if !token.is_empty() {
+                lock.insert(token.clone(), addr);
+                info!(success = true, aid = %self.id.unwrap(), token = &token[..8], "Shell connected");
+            }
+            drop(lock);
+        } else {
+            drop(lock);
+            // clean up shell
+            ctx.text(client::Message::new(client::DataType::ShellDisconnect(
+                client::ShellDisconnect { token: msg.token },
+            )));
+        }
+    }
+
+    #[allow(clippy::unused_self)]
+    fn shell_output(
+        &mut self,
+        _ctx: &mut <Self as Actor>::Context,
+        _id: &HyUuid,
+        msg: server::ShellOutput,
+    ) {
+        if let Some(addr) = WEB_ADDRESS.get().unwrap().read().get(&msg.token) {
+            addr.do_send(ShellOutput { data: msg });
+        }
+    }
+
     fn recv(&mut self, text: &Bytes, ctx: &mut <Self as Actor>::Context) -> Result<()> {
         let msg: server::Message = serde_json::from_slice(text)?;
         if self.id.is_some() {
@@ -227,7 +251,8 @@ impl WSHandler {
                 }
                 server::DataType::Info(x) => self.info_msg(ctx, &msg.id, x)?,
                 server::DataType::Status(x) => self.status_msg(&x),
-                _ => bail!("Invalid message"),
+                server::DataType::ShellConnect(x) => self.shell_connect(ctx, &msg.id, x),
+                server::DataType::ShellOutput(x) => self.shell_output(ctx, &msg.id, x),
             }
         } else {
             match msg.data {
@@ -240,6 +265,7 @@ impl WSHandler {
 }
 
 impl StreamHandler<Result<Message, ProtocolError>> for WSHandler {
+    #[tracing_api(self.request.request_id, self.request.ip)]
     fn handle(&mut self, msg: Result<Message, ProtocolError>, ctx: &mut Self::Context) {
         match msg {
             Ok(Message::Ping(msg)) => ctx.pong(&msg),
@@ -257,6 +283,7 @@ impl StreamHandler<Result<Message, ProtocolError>> for WSHandler {
     }
 }
 
+#[plugin_api]
 pub async fn service(
     req: HttpRequest,
     r: Request,

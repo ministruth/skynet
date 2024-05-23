@@ -117,16 +117,18 @@ const NotificationCard = () => {
       fieldProps: {
         mode: 'multiple',
         tagRender: (props: CustomTagProps) => {
-          return (
-            <Tag
-              color={levelEnum[props.value].color}
-              closable={props.closable}
-              onClose={props.onClose}
-              style={{ marginRight: 4 }}
-            >
-              {props.label}
-            </Tag>
-          );
+          // BUG: rc-select undefined value
+          if (props.value)
+            return (
+              <Tag
+                color={levelEnum[props.value].color}
+                closable={props.closable}
+                onClose={props.onClose}
+                style={{ marginRight: 4 }}
+              >
+                {props.label}
+              </Tag>
+            );
         },
       },
       valueEnum: Object.entries(levelEnum).reduce(

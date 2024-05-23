@@ -13,6 +13,7 @@ use actix_web::{
     web::Data,
     FromRequest, HttpRequest, HttpResponse, Responder, ResponseError, Route,
 };
+use chrono::{DateTime, Utc};
 use derivative::Derivative;
 use enum_as_inner::EnumAsInner;
 use futures::Future;
@@ -29,11 +30,6 @@ use crate::{
     permission::{PermEntry, PermissionItem, GUEST_ID, PERM_ALL, ROOT_ID, USER_ID},
     t, utils, HyUuid, Skynet,
 };
-
-#[macro_export]
-macro_rules! success {
-    ($($arg:tt)+) => (skynet::log::info!(target: "_success", $($arg)+))
-}
 
 #[macro_export]
 macro_rules! finish {
@@ -227,6 +223,36 @@ impl Default for APIRoute {
     }
 }
 
+/// Get `req` real ip, handle proxy automatically.
+///
+/// # Panics
+///
+/// Panics if ip cannot be parsed.
+pub fn get_real_ip(req: &HttpRequest, skynet: &Skynet) -> SocketAddr {
+    let mut ip = req.peer_addr().unwrap();
+    if skynet.config.proxy_enable.get() {
+        let trusted: Vec<&str> = skynet
+            .config
+            .proxy_trusted
+            .get()
+            .split(',')
+            .map(str::trim)
+            .collect();
+        for i in req
+            .headers()
+            .get_all(skynet.config.proxy_header.get())
+            .map(|x| x.to_str().unwrap())
+            .rev()
+        {
+            if !trusted.contains(&i) {
+                ip = i.parse().unwrap();
+                break;
+            }
+        }
+    }
+    ip
+}
+
 #[derive(Derivative)]
 #[derivative(Debug)]
 pub struct Request {
@@ -244,9 +270,19 @@ pub struct Request {
 
     /// Real ip address.
     pub ip: SocketAddr,
+
+    pub start_time: DateTime<Utc>,
+
+    pub request_id: HyUuid,
 }
 
-struct LangExtension(String);
+#[derive(Derivative)]
+#[derivative(Default(new = "true"))]
+pub struct RequestExtension {
+    pub start_time: DateTime<Utc>,
+    pub lang: String,
+    pub request_id: HyUuid,
+}
 
 impl FromRequest for Request {
     type Error = actix_web::Error;
@@ -269,7 +305,6 @@ impl FromRequest for Request {
                 .get("lang")
                 .unwrap_or_else(|| skynet.config.lang.get())
                 .to_owned();
-            req.extensions_mut().insert(LangExtension(lang.clone()));
 
             match s.get::<HyUuid>("id") {
                 Ok(x) => {
@@ -320,33 +355,17 @@ impl FromRequest for Request {
                             ..Default::default()
                         },
                     );
-                    let mut ip = req.peer_addr().unwrap();
-                    if skynet.config.proxy_enable.get() {
-                        let trusted: Vec<&str> = skynet
-                            .config
-                            .proxy_trusted
-                            .get()
-                            .split(',')
-                            .map(str::trim)
-                            .collect();
-                        for i in req
-                            .headers()
-                            .get_all(skynet.config.proxy_header.get())
-                            .map(|x| x.to_str().unwrap())
-                            .rev()
-                        {
-                            if !trusted.contains(&i) {
-                                ip = i.parse().unwrap();
-                                break;
-                            }
-                        }
-                    }
+                    let mut ext = req.extensions_mut();
+                    let ext = ext.get_mut::<RequestExtension>().unwrap();
+                    ext.lang = lang.clone();
                     Ok(Self {
                         uid: x,
                         username: s.get::<String>("name")?,
+                        ip: get_real_ip(&req, skynet),
+                        start_time: ext.start_time,
+                        lang: ext.lang.clone(),
+                        request_id: ext.request_id,
                         perm,
-                        lang,
-                        ip,
                     })
                 }
                 Err(e) => Err(e.into()),
@@ -504,7 +523,10 @@ impl<'a> Responder for Response<'a> {
     fn respond_to(mut self, req: &HttpRequest) -> HttpResponse<Self::Body> {
         let skynet = req.app_data::<Data<Skynet>>().unwrap();
         if let Some(x) = &self.inner {
-            self.msg = x.translate(skynet, &req.extensions().get::<LangExtension>().unwrap().0);
+            self.msg = x.translate(
+                skynet,
+                &req.extensions().get::<RequestExtension>().unwrap().lang,
+            );
             self.code = x.code();
         }
         let mut rsp = if self.http_code == 200 {

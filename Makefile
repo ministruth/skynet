@@ -1,6 +1,7 @@
 SHELL = /bin/bash
 .SHELLFLAGS = -
 OUTPUTDIR = ./bin
+RELEASEDIR = ./release
 PLUGIN_SUFFIX =
 
 ifeq ($(OS),Windows_NT)
@@ -16,7 +17,7 @@ else
 endif
 
 .ONESHELL:
-.PHONY: run build help
+.PHONY: check build run dev static clean help release
 
 all: help
 
@@ -36,7 +37,8 @@ check:
 	-A clippy::print_stdout -A clippy::blanket_clippy_restriction_lints -A clippy::should_implement_trait -A clippy::similar_names \
 	-A clippy::as_conversions -A clippy::significant_drop_in_scrutinee -A clippy::use_debug -A clippy::match_wildcard_for_single_variants \
 	-A clippy::separated_literal_suffix -A clippy::significant_drop_tightening -A clippy::too-many-arguments \
-	-A clippy::iter-over-hash-type -A clippy::no-effect-underscore-binding -A clippy::redundant-else
+	-A clippy::iter-over-hash-type -A clippy::no-effect-underscore-binding -A clippy::redundant-else -A clippy::assigning-clones \
+	-A clippy::string_slice
 
 ## build: Build skynet(dev).
 build:
@@ -63,7 +65,7 @@ build:
 	done
 	@echo Success
 
-## run: Run skynet(dev).
+## run: Run skynet (dev).
 run: build
 	@cd $(OUTPUTDIR) && ./skynet run -v --persist-session --disable-csrf
 
@@ -89,7 +91,7 @@ static:
 		fi												\
 	done
 
-## clean: clean all build files
+## clean: clean all build files.
 clean:
 	@rm -rf $(OUTPUTDIR)
 	@cargo clean
@@ -98,3 +100,11 @@ clean:
 help: Makefile
 	@echo Usage: make [command]
 	@sed -n 's/^##//p' $< | column -t -s ':' |  sed -e 's/^/ /'
+
+## release: Build skynet (release).
+release: static
+	@rm -rf $(RELEASEDIR)
+	@mkdir -p $(RELEASEDIR)/windows-x86_64
+	@cross build --target x86_64-pc-windows-gnu --release
+	@mkdir -p $(RELEASEDIR)/linux-x86_64
+	@cross build --target x86_64-unknown-linux-gnu --release

@@ -1,9 +1,9 @@
 use std::ffi::OsString;
 use std::fs::{self, File};
 use std::hash::Hash;
+use std::io;
 use std::path::PathBuf;
 use std::{collections::HashSet, io::Cursor};
-use std::{io, time};
 
 use anyhow::{bail, Result};
 use base64::engine::general_purpose::STANDARD;
@@ -21,6 +21,10 @@ where
 {
     let mut uniq = HashSet::new();
     iter.into_iter().all(move |x| uniq.insert(x))
+}
+
+pub fn is_default<T: Default + PartialEq>(t: &T) -> bool {
+    *t == Default::default()
 }
 
 /// Get `n` bytes random string.
@@ -140,19 +144,4 @@ pub fn unzip(data: &[u8], path: &PathBuf) -> Result<()> {
         let _ = fs::remove_dir_all(path);
         e
     })
-}
-
-/// Get millisecond UNIX timestamp.
-///
-/// # Panics
-///
-/// Panics if clock go backwards.
-#[must_use]
-pub fn millis_time() -> i64 {
-    time::SystemTime::now()
-        .duration_since(time::UNIX_EPOCH)
-        .unwrap()
-        .as_millis()
-        .try_into()
-        .unwrap()
 }

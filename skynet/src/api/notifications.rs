@@ -2,16 +2,14 @@ use actix_web::{web::Data, Responder};
 use actix_web_validator::QsQuery;
 use sea_orm::{ColumnTrait, DatabaseConnection, IntoSimpleExpr, TransactionTrait};
 use serde::Deserialize;
-use serde_json::json;
 use skynet::{
     entity::notifications::Column,
     finish, like_expr,
-    request::{
-        unique_validator, PageData, PaginationParam, Request, Response, RspResult, TimeParam,
-    },
-    success, NotifyLevel, Skynet,
+    request::{unique_validator, PageData, PaginationParam, Response, RspResult, TimeParam},
+    NotifyLevel, Skynet,
 };
 use skynet_macro::common_req;
+use tracing::info;
 use validator::Validate;
 
 #[common_req(Column)]
@@ -50,27 +48,21 @@ pub async fn get_all(
     let tx = db.begin().await?;
     let data = skynet.notification.find(&tx, cond).await?;
     tx.commit().await?;
-    skynet.set_unread(0);
+    skynet.logger.set_unread(0);
     finish!(Response::data(PageData::new(data)));
 }
 
 pub async fn delete_all(
-    req: Request,
     db: Data<DatabaseConnection>,
     skynet: Data<Skynet>,
 ) -> RspResult<impl Responder> {
     let tx = db.begin().await?;
     let cnt = skynet.notification.delete_all(&tx).await?;
     tx.commit().await?;
-    success!(
-        "Delete all notification\n{}",
-        json!({
-            "ip": req.ip.ip(),
-        })
-    );
+    info!(success = true, "Delete all notification");
     finish!(Response::data(cnt));
 }
 
 pub async fn get_unread(skynet: Data<Skynet>) -> RspResult<impl Responder> {
-    finish!(Response::data(skynet.get_unread()));
+    finish!(Response::data(skynet.logger.get_unread()));
 }

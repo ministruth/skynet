@@ -9,14 +9,13 @@ authors = ["MXWXZ <matrixwxz@gmail.com>"]
 [dependencies]
 clap = { version = "4", features = ["derive"] }
 derivative = "2.2"
-log = "0.4"
-fern = { version = "0.6", features = ["colored"] }
+serde = { version = "1.0", features = ["derive"] }
 serde_json = { version = "1.0" }
 chrono = "0.4"
 sysinfo = "0.30"
 byte-unit = "5.1"
 tokio-tungstenite = { version = "*", features = ["rustls-tls-webpki-roots"] }
-tokio = { version = "1.36", features = ["full"] }
+tokio = { version = "1.37", features = ["full"] }
 url = "2.5"
 futures-util = "0.3"
 anyhow = "1.0"
