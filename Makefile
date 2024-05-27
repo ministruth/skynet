@@ -97,23 +97,9 @@ static:
 ## clean: clean all build files.
 clean:
 	@rm -rf $(OUTPUT_DIR)
-	@rm -rf $(RELEASE_DIR)
 	@cargo clean
 
 ## help: Show this help.
 help: Makefile
 	@echo Usage: make [command]
 	@sed -n 's/^##//p' $< | column -t -s ':' |  sed -e 's/^/ /'
-
-## release: Build skynet (release).
-release:
-	@rm -rf $(RELEASE_DIR)
-	@echo Building...
-	@RUSTFLAGS=$(RUSTFLAGS) cargo build --release
-	@cd ./skynet/frontend && yarn && yarn build
-	@mkdir -p $(RELEASE_DIR)/plugin 	&&	\
-	cp -r ./skynet/frontend/dist/. $(RELEASE_DIR)/assets && mkdir -p $(RELEASE_DIR)/assets/_plugin &&	\
-	cp conf.yml $(RELEASE_DIR) 			&&	\
-	cp conf.schema.json $(RELEASE_DIR) 	&&	\
-	cp default.webp $(RELEASE_DIR)		&&	\
-	cp $(TARGET_DIR)/release/skynet$(EXE_SUFFIX) $(RELEASE_DIR)
