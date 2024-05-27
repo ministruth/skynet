@@ -12,6 +12,7 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+      - run: ls -al && ls -al skynet
       - uses: actions/setup-node@v4
         with:
           node-version: 20
