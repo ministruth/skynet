@@ -78,6 +78,8 @@ pub trait Plugin: Send + Sync {
 /// # Example
 ///
 /// ```
+/// use skynet::{create_plugin, plugin::Plugin};
+///
 /// #[derive(Debug, Default)]
 /// struct YourPlugin;
 ///

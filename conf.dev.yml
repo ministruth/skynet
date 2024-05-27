@@ -1,9 +1,9 @@
 # yaml-language-server: $schema=conf.schema.json
 database:
-  dsn: "sqlite://data.db?mode=rwc" # database dsn, support sqlite, mysql, postgresql
+  dsn: "sqlite://../data.db?mode=rwc" # database dsn, support sqlite, mysql, postgresql
 
 redis:
-  dsn: "redis://redis:6379/0" # redis dsn
+  dsn: "redis://127.0.0.1:6379/0" # redis dsn
 
 session:
   key: "Ckm7cYj0XDaIkGQeXYun7fuduCT8V5dMwYzMAz2mb5nlj3FTAgLYp5MstHh18PW8" # session sign key, at least 64 in length
@@ -13,7 +13,7 @@ session:
   remember: 5184000 # remember expire time seconds
 
 listen:
-  address: "0.0.0.0:8080" # listen address
+  address: "localhost:8080" # listen address
   worker: 0 # web workers, 0 for cores
   ssl: false # enable ssl
   ssl_cert: "" # ssl certificate path(.crt)

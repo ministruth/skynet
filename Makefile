@@ -1,7 +1,8 @@
 SHELL = /bin/bash
 .SHELLFLAGS = -
-OUTPUTDIR = ./bin
-RELEASEDIR = ./release
+OUTPUT_DIR = $$(pwd)/bin
+TARGET_DIR = $$(pwd)/target
+PLUGIN_DIR = $$(pwd)/plugin
 PLUGIN_SUFFIX =
 
 ifeq ($(OS),Windows_NT)
@@ -17,7 +18,7 @@ else
 endif
 
 .ONESHELL:
-.PHONY: check build run dev static clean help release
+.PHONY: check build run dev static clean help
 
 all: help
 
@@ -44,21 +45,23 @@ check:
 build:
 	@echo Building...
 	@cargo build
-	@mkdir -p $(OUTPUTDIR)
-	@cp conf.yml $(OUTPUTDIR)
-	@cp conf.schema.json $(OUTPUTDIR)
-	@cp default.webp $(OUTPUTDIR)
-	@cp ./target/debug/skynet $(OUTPUTDIR)
-	@mkdir -p $(OUTPUTDIR)/plugin
-	@for d in `ls ./plugin`;do	\
-		if [ -f ./plugin/$$d/config.yml ];then		\
-			mkdir -p $(OUTPUTDIR)/plugin/$$d; 		\
-			cp ./target/debug/lib$$d$(PLUGIN_SUFFIX) $(OUTPUTDIR)/plugin/$$d; \
-			cp ./plugin/$$d/config.yml $(OUTPUTDIR)/plugin/$$d;	\
-			if [ -f ./plugin/$$d/Makefile ];then	\
+	@mkdir -p $(OUTPUT_DIR)
+	@cp conf.dev.yml $(OUTPUT_DIR)/conf.yml
+	@cp conf.schema.json $(OUTPUT_DIR)
+	@cp default.webp $(OUTPUT_DIR)
+	@cp $(TARGET_DIR)/debug/skynet $(OUTPUT_DIR)
+	@mkdir -p $(OUTPUT_DIR)/plugin
+	@for d in `ls $(PLUGIN_DIR)`;do	\
+		if [ -f $(PLUGIN_DIR)/$$d/config.yml ];then		\
+			mkdir -p $(OUTPUT_DIR)/plugin/$$d; 		\
+			cp $(TARGET_DIR)/debug/lib$$d$(PLUGIN_SUFFIX) $(OUTPUT_DIR)/plugin/$$d; \
+			cp $(PLUGIN_DIR)/$$d/config.yml $(OUTPUT_DIR)/plugin/$$d;	\
+			if [ -f $(PLUGIN_DIR)/$$d/Makefile ];then	\
+				t=$(TARGET_DIR);					\
+				o=$(OUTPUT_DIR)/plugin/$$d;			\
 				pushd . > /dev/null;				\
-				cd ./plugin/$$d;					\
-				make --no-print-directory build; 	\
+				cd $(PLUGIN_DIR)/$$d;					\
+				make --no-print-directory build TARGET_DIR=$$t OUTPUT_DIR=$$o; 	\
 				popd > /dev/null;					\
 			fi										\
 		fi											\
@@ -67,7 +70,7 @@ build:
 
 ## run: Run skynet (dev).
 run: build
-	@cd $(OUTPUTDIR) && ./skynet run -v --persist-session --disable-csrf
+	@cd $(OUTPUT_DIR) && ./skynet run -v --persist-session --disable-csrf
 
 ## dev: Run dev server, auto reload on save.
 dev:
@@ -76,24 +79,25 @@ dev:
 ## static: make static files.
 static:
 	@cd ./skynet/frontend && yarn && yarn build
-	@mkdir -p $(OUTPUTDIR)
-	@rm -rf $(OUTPUTDIR)/assets
-	@cp -r ./skynet/frontend/dist/. $(OUTPUTDIR)/assets && mkdir $(OUTPUTDIR)/assets/_plugin
-	@for d in `ls ./plugin`;do	\
-		if [ -d ./plugin/$$d/frontend ];then								\
-		    id=`cat ./plugin/$$d/config.yml | head -n 1 | cut -d \" -f 2`;	\
-		    mkdir -p $(OUTPUTDIR)/assets/_plugin/$$id;	\
+	@mkdir -p $(OUTPUT_DIR)
+	@rm -rf $(OUTPUT_DIR)/assets
+	@cp -r ./skynet/frontend/dist/. $(OUTPUT_DIR)/assets && mkdir $(OUTPUT_DIR)/assets/_plugin
+	@for d in `ls $(PLUGIN_DIR)`;do	\
+		if [ -d $(PLUGIN_DIR)/$$d/frontend ];then								\
+		    id=`cat $(PLUGIN_DIR)/$$d/config.yml | head -n 1 | cut -d \" -f 2`;	\
+		    mkdir -p $(OUTPUT_DIR)/assets/_plugin/$$id;	\
 			pushd . > /dev/null;						\
-			cd ./plugin/$$d/frontend;					\
+			cd $(PLUGIN_DIR)/$$d/frontend;					\
 			yarn build; 								\
 			popd > /dev/null;							\
-			cp -r ./plugin/$$d/frontend/dist/. $(OUTPUTDIR)/assets/_plugin/$$id; \
+			cp -r $(PLUGIN_DIR)/$$d/frontend/dist/. $(OUTPUT_DIR)/assets/_plugin/$$id; \
 		fi												\
 	done
 
 ## clean: clean all build files.
 clean:
-	@rm -rf $(OUTPUTDIR)
+	@rm -rf $(OUTPUT_DIR)
+	@rm -rf $(RELEASE_DIR)
 	@cargo clean
 
 ## help: Show this help.
@@ -102,9 +106,14 @@ help: Makefile
 	@sed -n 's/^##//p' $< | column -t -s ':' |  sed -e 's/^/ /'
 
 ## release: Build skynet (release).
-release: static
-	@rm -rf $(RELEASEDIR)
-	@mkdir -p $(RELEASEDIR)/windows-x86_64
-	@cross build --target x86_64-pc-windows-gnu --release
-	@mkdir -p $(RELEASEDIR)/linux-x86_64
-	@cross build --target x86_64-unknown-linux-gnu --release
+release:
+	@rm -rf $(RELEASE_DIR)
+	@echo Building...
+	@RUSTFLAGS=$(RUSTFLAGS) cargo build --release
+	@cd ./skynet/frontend && yarn && yarn build
+	@mkdir -p $(RELEASE_DIR)/plugin 	&&	\
+	cp -r ./skynet/frontend/dist/. $(RELEASE_DIR)/assets && mkdir -p $(RELEASE_DIR)/assets/_plugin &&	\
+	cp conf.yml $(RELEASE_DIR) 			&&	\
+	cp conf.schema.json $(RELEASE_DIR) 	&&	\
+	cp default.webp $(RELEASE_DIR)		&&	\
+	cp $(TARGET_DIR)/release/skynet$(EXE_SUFFIX) $(RELEASE_DIR)

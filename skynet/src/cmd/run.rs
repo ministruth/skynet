@@ -44,14 +44,18 @@ pub async fn init_skynet(
     skynet.add_locale(i18n!("locales"));
 
     // init db
-    let db = db::connect(skynet.config.database_dsn.get()).await.unwrap();
-    skynet.default_id = db::init(&db, &skynet).await.unwrap();
+    let db = db::connect(skynet.config.database_dsn.get())
+        .await
+        .expect("DB connect failed");
+    skynet.default_id = db::init(&db, &skynet).await.expect("DB init failed");
     debug!("DB connected");
 
     // init redis
-    let redis = ConnectionManager::new(redis::Client::open(skynet.config.redis_dsn.get()).unwrap())
-        .await
-        .unwrap();
+    let redis = ConnectionManager::new(
+        redis::Client::open(skynet.config.redis_dsn.get()).expect("Redis open failed"),
+    )
+    .await
+    .expect("Redis connect failed");
     debug!("Redis connected");
 
     // init notification

@@ -16,7 +16,7 @@ async fn create(
 ) {
     let mut avatar_file: Option<Vec<u8>> = None;
     if let Some(x) = avatar {
-        avatar_file = Some(fs::read(x).unwrap());
+        avatar_file = Some(fs::read(x).expect("Read avatar failed"));
         debug!("Read avatar success: {:?}", x);
     }
     let tx = db.begin().await.unwrap();

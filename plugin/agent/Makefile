@@ -1,6 +1,5 @@
 SHELL = /bin/bash
 .SHELLFLAGS = -
-OUTPUTDIR = ../../bin/plugin/agent
 PLATFORM =
 MACHINE =
 SUFFIX =
@@ -38,5 +37,5 @@ else
 endif
 
 build:
-	@mkdir -p $(OUTPUTDIR)/bin
-	@cp ../../target/debug/agent $(OUTPUTDIR)/bin/agent_$(PLATFORM)_$(MACHINE)$(SUFFIX);
+	@mkdir -p $(OUTPUT_DIR)/bin
+	@cp $(TARGET_DIR)/debug/agent $(OUTPUT_DIR)/bin/agent_$(PLATFORM)_$(MACHINE)$(SUFFIX);

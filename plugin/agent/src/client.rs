@@ -257,7 +257,7 @@ async fn connect<'a>(
         "{addr}/api/plugins/{}/agents/ws",
         monitor_service::ID
     ))
-    .unwrap();
+    .expect("URL parse failed");
     info!("Connecting to {url}");
     let (ws, _) = connect_async_with_config(
         url,

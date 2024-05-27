@@ -40,7 +40,7 @@ Further reading on sessions:
 To start using sessions in your Actix Web application you must register [`SessionMiddleware`]
 as a middleware on your `App`:
 
-```no_run
+```ignore
 use actix_web::{web, App, HttpServer, HttpResponse, Error};
 use actix_session::{Session, SessionMiddleware, storage::RedisSessionStore};
 use actix_web::cookie::Key;

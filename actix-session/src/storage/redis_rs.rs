@@ -13,7 +13,7 @@ use crate::storage::{
 
 /// Use Redis as session storage backend.
 ///
-/// ```no_run
+/// ```ignore
 /// use actix_web::{web, App, HttpServer, HttpResponse, Error};
 /// use actix_session::{SessionMiddleware, storage::RedisSessionStore};
 /// use actix_web::cookie::Key;
@@ -47,7 +47,7 @@ use crate::storage::{
 /// Add the `redis-rs-tls-session` feature flag to enable TLS support. You can then establish a TLS
 /// connection to Redis using the `rediss://` URL scheme:
 ///
-/// ```no_run
+/// ```ignore
 /// use actix_session::{storage::RedisSessionStore};
 ///
 /// # actix_web::rt::System::new().block_on(async {

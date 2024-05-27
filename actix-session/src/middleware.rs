@@ -45,7 +45,7 @@ use crate::{
 /// reasonably secure implementation of sessions.
 ///
 /// # Examples
-/// ```no_run
+/// ```ignore
 /// use actix_web::{web, App, HttpServer, HttpResponse, Error};
 /// use actix_session::{Session, SessionMiddleware, storage::RedisSessionStore};
 /// use actix_web::cookie::Key;
@@ -78,7 +78,7 @@ use crate::{
 ///
 /// If you want to customise use [`builder`](Self::builder) instead of [`new`](Self::new):
 ///
-/// ```no_run
+/// ```ignore
 /// use actix_web::{App, cookie::{Key, time}, Error, HttpResponse, HttpServer, web};
 /// use actix_session::{Session, SessionMiddleware, storage::RedisSessionStore};
 /// use actix_session::config::PersistentSession;

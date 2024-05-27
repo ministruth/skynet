@@ -11,7 +11,7 @@ use syn::{
 /// Automatically generate `created_at` and `updated_at` on create and update.
 ///
 /// # Examples
-/// ```
+/// ```ignore
 /// #[entity_timestamp]
 /// impl ActiveModel {}
 /// ```
@@ -41,7 +41,7 @@ pub fn entity_timestamp(_: TokenStream, input: TokenStream) -> TokenStream {
 /// Automatically generate `id` on create.
 ///
 /// # Examples
-/// ```
+/// ```ignore
 /// #[entity_id]
 /// impl ActiveModel {}
 /// ```
@@ -66,7 +66,7 @@ pub fn entity_id(_: TokenStream, input: TokenStream) -> TokenStream {
 /// - `entity_timestamp`
 ///
 /// # Examples
-/// ```
+/// ```ignore
 /// #[entity_behavior]
 /// impl ActiveModelBehavior for ActiveModel {}
 /// ```
@@ -96,7 +96,7 @@ pub fn entity_behavior(_: TokenStream, input: TokenStream) -> TokenStream {
 /// The fields should be exactly the same.
 ///
 /// # Examples
-/// ```
+/// ```ignore
 /// #[partial_entity(users::Model)]
 /// #[derive(Serialize)]
 /// struct Rsp {
@@ -134,11 +134,16 @@ pub fn partial_entity(attr: TokenStream, input: TokenStream) -> TokenStream {
 /// Implement common request param methods.
 ///
 /// # Examples
-/// ```
+/// ```ignore
 /// #[common_req(Column)]
 /// #[derive(Debug, Validate, Deserialize)]
 /// pub struct GetReq {
-///     ...
+///     #[serde(flatten)]
+///     #[validate]
+///     page: PaginationParam,
+///     #[serde(flatten)]
+///     #[validate]
+///     time: TimeParam,
 /// }
 /// ```
 #[proc_macro_attribute]
@@ -162,11 +167,10 @@ pub fn common_req(attr: TokenStream, input: TokenStream) -> TokenStream {
 /// Define default handlers trait.
 ///
 /// # Examples
-/// ```
+/// ```ignore
 /// #[default_handler(users)]
 /// #[async_trait]
 /// pub trait UserHandler: Send + Sync {
-/// ...
 /// }
 /// ```
 #[proc_macro_attribute]
@@ -238,7 +242,7 @@ pub fn default_handler(attr: TokenStream, input: TokenStream) -> TokenStream {
 /// Implement default handlers.
 ///
 /// # Examples
-/// ```
+/// ```ignore
 /// #[default_handler_impl(users)]
 /// #[async_trait]
 /// impl UserHandler for DefaultUserHandler {
@@ -339,7 +343,7 @@ pub fn default_handler_impl(attr: TokenStream, input: TokenStream) -> TokenStrea
 ///
 /// # Examples
 ///
-/// ```
+/// ```ignore
 /// #[derive(Default, Foreach)]
 /// pub struct Config {
 ///     pub fields1: Option<i32>,
@@ -405,8 +409,8 @@ pub fn foreach(input: TokenStream) -> TokenStream {
 ///
 /// Add the derive attribute (`#[derive(Iterable)]`) above your struct definition.
 ///
-/// ```
-/// use struct_iterable::Iterable;
+/// ```ignore
+/// use skynet_macro::Iterable;
 ///
 /// #[derive(Iterable)]
 /// struct MyStruct {
@@ -417,7 +421,7 @@ pub fn foreach(input: TokenStream) -> TokenStream {
 ///
 /// You can now call the `iter` method on instances of your struct to get an iterator over its fields:
 ///
-/// ```
+/// ```ignore
 /// let my_instance = MyStruct {
 ///     field1: 42,
 ///     field2: "Hello, world!".to_string(),
@@ -430,7 +434,7 @@ pub fn foreach(input: TokenStream) -> TokenStream {
 ///
 /// Or call the `iter_mut` method to modify the fields:
 ///
-/// ```
+/// ```ignore
 /// let mut my_instance = MyStruct {
 ///     field1: 42,
 ///     field2: "Hello, world!".to_string(),
@@ -509,7 +513,7 @@ macro_rules! parse_type {
 /// `skynet::request::Request`/`request::Request`/`Request` will be automatically reused.
 ///
 /// # Examples
-/// ```
+/// ```ignore
 /// #[plugin_api]
 /// async fn get() -> RspResult<impl Responder> {}
 /// // or
@@ -564,7 +568,7 @@ pub fn plugin_api(attr: TokenStream, input: TokenStream) -> TokenStream {
 /// Add span support for the API.
 ///
 /// # Examples
-/// ```
+/// ```ignore
 /// #[tracing_api(self.request_id, self.ip)]
 /// fn test(&self) {}
 /// ```

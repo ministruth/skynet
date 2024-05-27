@@ -47,6 +47,7 @@ use tracing::debug;
 /// # Examples
 ///
 /// ```
+/// use skynet::map;
 /// let val = map!["key" => "value"];
 /// ```
 #[macro_export]

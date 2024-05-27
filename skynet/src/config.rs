@@ -372,7 +372,7 @@ pub fn load_file<S: AsRef<str>>(path: S) -> Config {
     let c = rs_config::Config::builder()
         .add_source(rs_config::File::with_name(path.as_ref()))
         .build()
-        .unwrap();
+        .expect("Config load failed");
 
     for (_, v) in ret.iter_mut() {
         if let Some(v) = v.downcast_mut::<ConfigItem<String>>() {

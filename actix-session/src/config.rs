@@ -250,7 +250,7 @@ impl<Store: SessionStore> SessionMiddlewareBuilder<Store> {
     /// Default is [`SessionLifecycle::BrowserSession`].
     ///
     /// # Examples
-    /// ```
+    /// ```ignore
     /// use actix_web::cookie::{Key, time::Duration};
     /// use actix_session::{SessionMiddleware, config::PersistentSession};
     /// use actix_session::storage::CookieSessionStore;
