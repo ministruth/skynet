@@ -1,4 +1,4 @@
-name: Release
+name: Plugin-Release
 
 on:
   workflow_dispatch:
@@ -37,27 +37,27 @@ jobs:
           - os_name: linux-x86_64
             os: ubuntu-20.04
             target: x86_64-unknown-linux-gnu
-            ext: so
+            lib: lib$d.so
           - os_name: linux-i686
             os: ubuntu-20.04
             target: i686-unknown-linux-gnu
-            ext: so
+            lib: lib$d.so
           - os_name: linux-aarch64
             os: ubuntu-20.04
             target: aarch64-unknown-linux-gnu
-            ext: so
+            lib: lib$d.so
           - os_name: windows-x86_64
             os: windows-latest
             target: x86_64-pc-windows-gnu
-            ext: dll
+            lib: $d.dll
           - os_name: macOS-x86_64
             os: macOS-latest
             target: x86_64-apple-darwin
-            ext: dylib
+            lib: lib$d.dylib
           - os_name: macOS-aarch64
             os: macOS-latest
             target: aarch64-apple-darwin
-            ext: dylib
+            lib: lib$d.dylib
     steps:
       - uses: actions/checkout@v4
       - name: Cache cargo & target directories
@@ -81,7 +81,7 @@ jobs:
           for d in `ls ../plugin`;do
             if [ -f ../plugin/$d/config.yml ];then
               mkdir plugin/plugin/$d;
-              cp ../target/${{ matrix.platform.target }}/release/lib$d.${{ matrix.platform.ext }} plugin/plugin/$d;
+              cp ../target/${{ matrix.platform.target }}/release/${{ matrix.platform.lib }} plugin/plugin/$d;
               cp ../plugin/$d/config.yml plugin/plugin/$d;
             fi
           done;
