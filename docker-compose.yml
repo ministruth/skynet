@@ -1,0 +1,16 @@
+services:
+  skynet:
+    build: .
+    restart: always
+    depends_on:
+      - redis
+    volumes:
+      - ./plugin/:/app/plugin
+      - ./assets/_plugin/:/app/assets/_plugin
+      - ./conf.yml:/app/conf.yml
+      - ./data.db:/app/data.db
+    ports:
+      - "8080:8080"
+  redis:
+    image: "redis:alpine"
+    restart: always
