@@ -72,7 +72,6 @@ pub struct Config {
 
     pub proxy_enable: ConfigItem<bool>,
     pub proxy_header: ConfigItem<String>,
-    pub proxy_trusted: ConfigItem<String>,
 
     pub recaptcha_enable: ConfigItem<bool>,
     pub recaptcha_url: ConfigItem<String>,
@@ -201,12 +200,6 @@ impl Config {
             proxy_header: ConfigItem {
                 name: "proxy.header".to_owned(),
                 default: "X-Forwarded-For".to_owned(),
-                checker: checker_str_need_when!(proxy_enable),
-                ..Default::default()
-            },
-            proxy_trusted: ConfigItem {
-                name: "proxy.trusted".to_owned(),
-                default: String::new(),
                 checker: checker_str_need_when!(proxy_enable),
                 ..Default::default()
             },

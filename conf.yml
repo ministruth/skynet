@@ -24,8 +24,7 @@ header:
 
 proxy:
   enable: false # if skynet is behind proxy, enable to get correct ip
-  header: "X-Forwarded-For" # ip header set by proxy server
-  trusted: "" # trusted proxy address, client ip will be the first untrusted one in header, seperated by ,
+  header: "X-Real-IP" # ip header set by proxy server
 
 recaptcha:
   enable: false # if enable recaptcha

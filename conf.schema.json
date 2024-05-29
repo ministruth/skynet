@@ -47,8 +47,7 @@
       "type": "object",
       "properties": {
         "enable": { "type": "boolean" },
-        "header": { "type": "string", "minimum": 1 },
-        "trusted": { "type": "string", "minimum": 1 }
+        "header": { "type": "string", "minimum": 1 }
       }
     },
     "recaptcha": {

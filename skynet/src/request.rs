@@ -231,24 +231,13 @@ impl Default for APIRoute {
 pub fn get_real_ip(req: &HttpRequest, skynet: &Skynet) -> SocketAddr {
     let mut ip = req.peer_addr().unwrap();
     if skynet.config.proxy_enable.get() {
-        let trusted: Vec<&str> = skynet
-            .config
-            .proxy_trusted
-            .get()
-            .split(',')
-            .map(str::trim)
-            .collect();
-        for i in req
+        ip = req
             .headers()
-            .get_all(skynet.config.proxy_header.get())
+            .get(skynet.config.proxy_header.get())
             .map(|x| x.to_str().unwrap())
-            .rev()
-        {
-            if !trusted.contains(&i) {
-                ip = i.parse().unwrap();
-                break;
-            }
-        }
+            .unwrap()
+            .parse()
+            .unwrap();
     }
     ip
 }
