@@ -1,6 +1,6 @@
 services:
   skynet:
-    build: .
+    image: imwxz/skynet
     restart: always
     depends_on:
       - redis

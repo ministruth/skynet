@@ -133,25 +133,15 @@ jobs:
       - run: |
           cd release
           tar xzvf skynet-linux-x86_64.tar.gz
-          cd -
-      - name: Build and push x86_64
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          platforms: linux/amd64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-      - run: |
-          cd release
-          rm -rf skynet
+          mv skynet amd64
           tar xzvf skynet-linux-aarch64.tar.gz
+          mv skynet arm64
           cd -
       - name: Build and push aarch64
         uses: docker/build-push-action@v5
         with:
           context: .
-          platforms: linux/arm64
+          platforms: linux/amd64,linux/arm64
           push: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
