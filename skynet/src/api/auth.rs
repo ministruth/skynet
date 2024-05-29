@@ -11,7 +11,6 @@ use awc::Client;
 use redis::aio::ConnectionManager;
 use sea_orm::{DatabaseConnection, TransactionTrait};
 use serde::{Deserialize, Serialize};
-use serde_json::json;
 use skynet::{
     finish,
     request::{Request, Response, ResponseCode, ResponseCookie, RspResult},
@@ -106,9 +105,11 @@ async fn verify_recaptcha(response: String, ip: String, option: RecaptchaOption)
     #[derive(Deserialize, Serialize)]
     struct Response {
         success: bool,
+        #[serde(default)]
         challenge_ts: String,
+        #[serde(default)]
         hostname: String,
-        #[serde(rename = "error-codes")]
+        #[serde(default, rename = "error-codes")]
         error_codes: Vec<String>,
     }
     let client = Client::default();
@@ -117,11 +118,11 @@ async fn verify_recaptcha(response: String, ip: String, option: RecaptchaOption)
         req = req.timeout(x);
     }
     let mut rsp = req
-        .send_json(&json!({
-            "secret": option.secret,
-            "remoteip": ip,
-            "response": response,
-        }))
+        .send_form(&[
+            ("secret", option.secret),
+            ("remoteip", ip),
+            ("response", response),
+        ])
         .await
         .map_err(|e| anyhow!(e.to_string()))?;
     let rsp = rsp.json::<Response>().await?;

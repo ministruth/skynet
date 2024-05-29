@@ -20,12 +20,11 @@ listen:
   ssl_key: "" # ssl key path(.key)
 
 header:
-  csp: "default-src 'none'; script-src 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; base-uri 'self'" # Content Security Policy, https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP
+  csp: "default-src 'none'; script-src https://www.recaptcha.net https://www.gstatic.cn 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; base-uri 'self'; frame-src 'self' https://www.recaptcha.net" # Content Security Policy, https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP
 
 proxy:
   enable: false # if skynet is behind proxy, enable to get correct ip
-  header: "X-Forwarded-For" # ip header set by proxy server
-  trusted: "" # trusted proxy address, client ip will be the first untrusted one in header, seperated by ,
+  header: "X-Real-Address" # ip:port header set by proxy server
 
 recaptcha:
   enable: false # if enable recaptcha
