@@ -1,0 +1,146 @@
+name: Release
+
+on:
+  workflow_dispatch:
+  push:
+    tags:
+      - "plugin-v*"
+
+jobs:
+  build_frontend:
+    name: Build frontend
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: "yarn"
+          cache-dependency-path: plugin/monitor/frontend/yarn.lock
+      - run: yarn
+        working-directory: plugin/monitor/frontend
+      - run: yarn build
+        working-directory: plugin/monitor/frontend
+      - uses: actions/upload-artifact@v4
+        with:
+          name: monitor-frontend
+          path: plugin/monitor/frontend/dist
+          retention-days: 1
+
+  build_plugin:
+    needs: build_frontend
+    name: Build plugin ${{ matrix.platform.os_name }}
+    runs-on: ${{ matrix.platform.os }}
+    strategy:
+      matrix:
+        platform:
+          - os_name: linux-x86_64
+            os: ubuntu-20.04
+            target: x86_64-unknown-linux-gnu
+            ext: so
+          - os_name: linux-i686
+            os: ubuntu-20.04
+            target: i686-unknown-linux-gnu
+            ext: so
+          - os_name: linux-aarch64
+            os: ubuntu-20.04
+            target: aarch64-unknown-linux-gnu
+            ext: so
+          - os_name: windows-x86_64
+            os: windows-latest
+            target: x86_64-pc-windows-gnu
+            ext: dll
+          - os_name: macOS-x86_64
+            os: macOS-latest
+            target: x86_64-apple-darwin
+            ext: dylib
+          - os_name: macOS-aarch64
+            os: macOS-latest
+            target: aarch64-apple-darwin
+            ext: dylib
+    steps:
+      - uses: actions/checkout@v4
+      - name: Cache cargo & target directories
+        uses: Swatinem/rust-cache@v2
+      - name: Build binary
+        uses: houseabsolute/actions-rust-cross@v0
+        with:
+          command: "both"
+          target: ${{ matrix.platform.target }}
+          args: "--locked --release"
+          strip: false
+      - uses: actions/download-artifact@v4
+        with:
+          name: monitor-frontend
+          path: release/plugin/assets/_plugin/2eb2e1a5-66b4-45f9-ad24-3c4f05c858aa
+      - name: Package as archive
+        shell: bash
+        run: |
+          cd release
+          mkdir plugin/plugin
+          for d in `ls ../plugin`;do
+            if [ -f ../plugin/$d/config.yml ];then
+              mkdir plugin/plugin/$d;
+              cp ../target/${{ matrix.platform.target }}/release/lib$d.${{ matrix.platform.ext }} plugin/plugin/$d;
+              cp ../plugin/$d/config.yml plugin/plugin/$d;
+            fi
+          done;
+          mkdir plugin/plugin/agent/bin
+          if [[ "${{ matrix.platform.os }}" == "windows-latest" ]]; then
+            cp ../target/${{ matrix.platform.target }}/release/agent.exe plugin/plugin/agent/bin;
+          else
+            cp ../target/${{ matrix.platform.target }}/release/agent plugin/plugin/agent/bin;
+          fi
+          mv plugin plugin-${{ matrix.platform.os_name }}
+          cd -
+      - uses: actions/upload-artifact@v4
+        with:
+          name: plugin-${{ matrix.platform.os_name }}
+          path: release
+          retention-days: 1
+  package_plugin:
+    needs: build_plugin
+    name: Package plugin
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/download-artifact@v4
+        with:
+          path: .
+          pattern: plugin-*
+          merge-multiple: true
+      - name: Merge output
+        shell: bash
+        run: |
+          mkdir bin
+          mv plugin-linux-x86_64/plugin/agent/bin/agent bin/agent_linux_x64
+          mv plugin-linux-i686/plugin/agent/bin/agent bin/agent_linux_x86
+          mv plugin-linux-aarch64/plugin/agent/bin/agent bin/agent_linux_arm64
+          mv plugin-windows-x86_64/plugin/agent/bin/agent.exe bin/agent_windows_x64.exe
+          mv plugin-macOS-x86_64/plugin/agent/bin/agent bin/agent_osx_x64
+          mv plugin-macOS-aarch64/plugin/agent/bin/agent bin/agent_osx_arm64
+          cp bin/* plugin-linux-x86_64/plugin/agent/bin/
+          cp bin/* plugin-linux-i686/plugin/agent/bin/
+          cp bin/* plugin-linux-aarch64/plugin/agent/bin/
+          cp bin/* plugin-windows-x86_64/plugin/agent/bin/
+          cp bin/* plugin-macOS-x86_64/plugin/agent/bin/
+          cp bin/* plugin-macOS-aarch64/plugin/agent/bin/
+          mkdir pak
+          tar czvf pak/plugin-linux-x86_64.tar.gz plugin-linux-x86_64
+          tar czvf pak/plugin-linux-i686.tar.gz plugin-linux-i686
+          tar czvf pak/plugin-linux-aarch64.tar.gz plugin-linux-aarch64
+          7z a pak/plugin-windows-x86_64.zip plugin-windows-x86_64
+          tar czvf pak/plugin-darwin-x86_64.tar.gz plugin-macOS-x86_64
+          tar czvf pak/plugin-darwin-aarch64.tar.gz plugin-macOS-aarch64
+      - name: Generate SHA-256
+        run: |
+          shasum -a 256 pak/plugin-linux-x86_64.tar.gz > pak/plugin-linux-x86_64.tar.gz.sha256
+          shasum -a 256 pak/plugin-linux-i686.tar.gz > pak/plugin-linux-i686.tar.gz.sha256
+          shasum -a 256 pak/plugin-linux-aarch64.tar.gz > pak/plugin-linux-aarch64.tar.gz.sha256
+          shasum -a 256 pak/plugin-windows-x86_64.zip > pak/plugin-windows-x86_64.zip.sha256
+          shasum -a 256 pak/plugin-darwin-x86_64.tar.gz > pak/plugin-darwin-x86_64.tar.gz.sha256
+          shasum -a 256 pak/plugin-darwin-aarch64.tar.gz > pak/plugin-darwin-aarch64.tar.gz.sha256
+      - name: Publish GitHub release
+        uses: softprops/action-gh-release@v2
+        with:
+          draft: true
+          files: pak/*

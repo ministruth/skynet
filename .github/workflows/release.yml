@@ -25,6 +25,7 @@ jobs:
         with:
           name: frontend
           path: skynet/frontend/dist
+          retention-days: 1
 
   build_skynet:
     needs: build_frontend
@@ -94,11 +95,6 @@ jobs:
             tar czvf ../${{ matrix.platform.name }} skynet
           fi
           cd -
-      - name: Publish release artifacts
-        uses: actions/upload-artifact@v4
-        with:
-          name: skynet-${{ matrix.platform.os_name }}
-          path: ${{ matrix.platform.name }}
       - name: Generate SHA-256
         run: shasum -a 256 ${{ matrix.platform.name }} > ${{ matrix.platform.name }}.sha256
       - name: Publish GitHub release
