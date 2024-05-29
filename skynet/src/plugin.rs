@@ -353,8 +353,8 @@ impl PluginManager {
                 }
             }
             if !i.status.is_enable() {
+                i.instance = None; // instance MUST be released before library
                 i.library = None;
-                i.instance = None;
             }
         }
         self.plugin = RwLock::new(instance.into_iter().map(Arc::new).collect());

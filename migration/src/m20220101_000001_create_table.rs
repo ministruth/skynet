@@ -100,7 +100,7 @@ impl MigrationTrait for Migration {
                             .unique_key()
                             .not_null(),
                     )
-                    .col(ColumnDef::new(Users::Password).char_len(128).not_null())
+                    .col(ColumnDef::new(Users::Password).string_len(128).not_null())
                     .col(ColumnDef::new(Users::Avatar).binary())
                     .col(ColumnDef::new(Users::LastLogin).big_integer())
                     .col(ColumnDef::new(Users::LastIP).string_len(64))

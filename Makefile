@@ -1,5 +1,4 @@
 SHELL = /bin/bash
-.SHELLFLAGS = -
 OUTPUT_DIR = $$(pwd)/bin
 TARGET_DIR = $$(pwd)/target
 PLUGIN_DIR = $$(pwd)/plugin

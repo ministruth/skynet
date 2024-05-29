@@ -8,9 +8,16 @@ services:
       - ./plugin/:/app/plugin
       - ./assets/_plugin/:/app/assets/_plugin
       - ./conf.yml:/app/conf.yml
-      - ./data.db:/app/data.db
     ports:
       - "8080:8080"
   redis:
     image: redis:alpine
     restart: always
+  db:
+    image: postgres
+    restart: always
+    volumes:
+      - ./data:/var/lib/postgresql/data
+    environment:
+      POSTGRES_PASSWORD: changeme
+      POSTGRES_DB: skynet

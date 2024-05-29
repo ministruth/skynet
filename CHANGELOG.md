@@ -1,3 +1,8 @@
+# 0.1.3
+## Bug fix
+1. Fix login db error when using PostgreSQL.
+2. Fix plugin segmentation fault in some systems.
+
 # 0.1.2
 ## Bug fix
 1. Fix CSP violation for reCAPTCHA.

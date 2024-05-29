@@ -1,5 +1,4 @@
 SHELL = /bin/bash
-.SHELLFLAGS = -
 PLATFORM =
 MACHINE =
 SUFFIX =

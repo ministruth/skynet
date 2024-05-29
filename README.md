@@ -11,10 +11,8 @@ Security is considered as **TOP** priority in Skynet, we will not consider featu
 ### Run in docker
 
 1. Copy `docker-compose.yml` and `conf.yml` to your folder.
-2. `mkdir plugin` and `mkdir -p assets/_plugin`, then add your plugins.
-3. `touch data.db` or copy your existing database.
-4. `docker-compose up`
-5. Visit `localhost:8080`.
+2. `docker-compose up`
+3. Visit `localhost:8080`.
 
 ### Run natively
 

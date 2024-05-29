@@ -185,7 +185,7 @@ impl RootSpanBuilder for SpanBuilder {
                 let end_time = Utc::now();
                 let time = (end_time - req.start_time).num_microseconds().unwrap_or(0);
                 if let Some(error) = response.response().error() {
-                    error!(
+                    info!(
                         _time = end_time.timestamp_micros(),
                         code = %response.status().as_u16(),
                         error = %error.as_response_error(),
