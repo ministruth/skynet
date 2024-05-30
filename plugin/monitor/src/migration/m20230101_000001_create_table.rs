@@ -107,7 +107,7 @@ impl MigrationTrait for Migration {
                     )
                     .foreign_key(
                         ForeignKey::create()
-                            .to(Agents::Table, Agents::ID)
+                            .to(table_prefix(&Agents::Table), Agents::ID)
                             .from_col(AgentSettings::Aid)
                             .on_update(ForeignKeyAction::Restrict)
                             .on_delete(ForeignKeyAction::Cascade),

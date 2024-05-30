@@ -230,6 +230,9 @@ pub async fn command(cli: &Cli, skynet: Skynet, skip_cover: bool, disable_csrf: 
     if disable_csrf {
         warn!("CSRF protection is disabled, for debugging purpose only");
     }
+    if !skynet.config.listen_ssl.get() && !skynet.config.proxy_enable.get() {
+        warn!("SSL is not enabled, your traffic is at risk")
+    }
     if !cli.persist_session {
         let _: () = redis::cmd("FLUSHDB").query_async(&mut redis).await.unwrap();
     }

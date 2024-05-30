@@ -159,7 +159,7 @@ impl Config {
             listen_ssl: ConfigItem {
                 name: "listen.ssl".to_owned(),
                 default: false,
-                warning:true,
+                warning: false,
                 ..Default::default()
             },
             listen_ssl_cert: ConfigItem {
