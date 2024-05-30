@@ -156,6 +156,13 @@ pub struct PluginInstance {
     library: Option<Library>,
 }
 
+impl Drop for PluginInstance {
+    fn drop(&mut self) {
+        self.instance = None;
+        self.library = None;
+    }
+}
+
 impl PluginInstance {
     /// Get setting name.
     #[must_use]
@@ -293,7 +300,11 @@ impl PluginManager {
         let dll = dll.pop().unwrap_or_default();
         let inst = Self::load_internal(path.as_ref().join(PLUGIN_CONFIG), dll)?;
         if let Some(x) = self.get(&inst.id) {
-            bail!(PluginError::ConflictID(x.id, inst.name, x.name.clone()));
+            bail!(PluginError::ConflictID(
+                x.id,
+                inst.name.clone(),
+                x.name.clone()
+            ));
         }
         skynet.setting.set(db, &inst.setting_name(), "0").await?;
         let mut wlock = self.plugin.write();
@@ -385,7 +396,7 @@ impl PluginManager {
                     if let Some(x) = conflict_id.get(&obj.id) {
                         panic!(
                             "{}",
-                            PluginError::ConflictID(obj.id, obj.name, x.to_owned())
+                            PluginError::ConflictID(obj.id, obj.name.clone(), x.to_owned())
                         );
                     }
                     conflict_id.insert(obj.id, obj.name.clone());

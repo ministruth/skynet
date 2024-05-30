@@ -4,6 +4,7 @@ services:
     restart: always
     depends_on:
       - redis
+      - db
     volumes:
       - ./plugin/:/app/plugin
       - ./assets/_plugin/:/app/assets/_plugin

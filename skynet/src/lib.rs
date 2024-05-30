@@ -118,6 +118,13 @@ pub struct Skynet {
     pub shared_api: HashMap<HyUuid, Box<dyn Any + Send + Sync>>,
 }
 
+impl Drop for Skynet {
+    fn drop(&mut self) {
+        // clear API first otherwise SIGSEGV.
+        self.shared_api.clear();
+    }
+}
+
 impl Skynet {
     #[allow(clippy::missing_panics_doc)]
     pub fn insert_menu(&mut self, item: MenuItem, pos: usize, parent: Option<HyUuid>) -> bool {

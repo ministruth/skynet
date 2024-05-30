@@ -1,3 +1,7 @@
+# 0.1.4
+## Bug fix
+1. Fix segmentation fault when shared API is enabled.
+
 # 0.1.3
 ## Bug fix
 1. Fix login db error when using PostgreSQL.
