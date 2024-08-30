@@ -13,4 +13,4 @@ categories = ["api-bindings", "external-ffi-bindings"]
 version-compare = "0.2.0"
 enum-as-inner = "0.6.0"
 
-skynet_api = { version = "0.1.0", path = "../../skynet_api" }
+skynet_api = { version = "0.1.1", path = "../../skynet_api" }

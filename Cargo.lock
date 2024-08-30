@@ -4136,7 +4136,7 @@ dependencies = [
 
 [[package]]
 name = "skynet_api"
-version = "0.1.0"
+version = "0.1.1"
 dependencies = [
  "actix-cloud",
  "base64 0.22.1",
