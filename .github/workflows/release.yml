@@ -69,9 +69,17 @@ jobs:
       - name: Cache cargo & target directories
         uses: Swatinem/rust-cache@v2
       - name: Install Protoc
+        id: protoc-install
         uses: arduino/setup-protoc@v3
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Set protoc env
+        run: |
+          if [[ "${{ matrix.platform.os }}" == "windows-latest" ]]; then
+            echo "PROTOC=${{ steps.protoc-install.outputs.path }}/protoc.exe" >> "$GITHUB_ENV"
+          else
+            echo "PROTOC=${{ steps.protoc-install.outputs.path }}/protoc" >> "$GITHUB_ENV"
+          fi
       - name: Build binary
         uses: houseabsolute/actions-rust-cross@v0
         with:
