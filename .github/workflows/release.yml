@@ -119,6 +119,22 @@ jobs:
         with:
           draft: true
           files: ${{ matrix.platform.name }}*
+  publish_crate:
+    needs: build_skynet
+    name: Publish crate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Login
+        run: cargo login ${{ secrets.CRATES_IO_TOKEN }}
+      - name: Push to crate.io
+        run: |
+          cd skynet_macro
+          cargo publish --no-verify || true
+          cd -
+          cd skynet_api
+          cargo publish --no-verify || true
+          cd -
   push_dockerhub:
     needs: build_skynet
     name: Push to dockerhub

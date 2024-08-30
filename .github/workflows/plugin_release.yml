@@ -110,6 +110,22 @@ jobs:
           name: plugin-${{ matrix.platform.os_name }}
           path: release
           retention-days: 1
+  publish_crate:
+    needs: build_plugin
+    name: Publish crate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Login
+        run: cargo login ${{ secrets.CRATES_IO_TOKEN }}
+      - name: Push to crate.io
+        run: |
+          cd plugin/monitor_api
+          cargo publish --no-verify || true
+          cd -
+          cd plugin/agent_api
+          cargo publish --no-verify || true
+          cd -
   package_plugin:
     needs: build_plugin
     name: Package plugin
