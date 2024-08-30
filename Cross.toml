@@ -1,5 +1,6 @@
 [target.i686-unknown-linux-gnu]
 pre-build = [
+    "apt-get update && apt-get install --assume-yes unzip",
     "curl -LO https://github.com/protocolbuffers/protobuf/releases/download/v27.3/protoc-27.3-linux-x86_32.zip",
     "unzip protoc-27.3-linux-x86_32.zip -d $HOME/.local",
     "rm protoc-27.3-linux-x86_32.zip",
@@ -8,6 +9,7 @@ pre-build = [
 
 [target.aarch64-unknown-linux-gnu]
 pre-build = [
+    "apt-get update && apt-get install --assume-yes unzip",
     "curl -LO https://github.com/protocolbuffers/protobuf/releases/download/v27.3/protoc-27.3-linux-aarch_64.zip",
     "unzip protoc-27.3-linux-aarch_64.zip -d $HOME/.local",
     "rm protoc-27.3-linux-aarch_64.zip",
