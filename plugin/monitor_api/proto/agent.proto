@@ -1,0 +1,37 @@
+syntax = "proto3";
+package msg;
+
+message HandshakeReqMessage { string uid = 1; }
+
+message InfoMessage {
+  string endpoint = 1;          // connect endpoint
+  string version = 2;           // version
+  optional string os = 3;       // os
+  optional string system = 4;   // system name
+  optional string arch = 5;     // arch name
+  optional string hostname = 6; // host name
+  uint32 report_rate = 7;       // status report rate
+  bool disable_shell = 8;       // whether disable shell
+  optional string ip = 9;       // override ip
+}
+
+message StatusRspMessage {
+  int64 time = 1;          // request time
+  float cpu = 2;           // unit percent
+  uint64 memory = 3;       // unit bytes
+  uint64 total_memory = 4; // unit bytes
+  uint64 disk = 5;         // unit bytes
+  uint64 total_disk = 6;   // unit bytes
+  uint64 band_up = 8;      // unit bytes
+  uint64 band_down = 9;    // unit bytes
+}
+
+message ShellOutputMessage {
+  optional string token = 1; // shell token
+  bytes data = 2;            // output data
+}
+
+message ShellErrorMessage {
+  optional string token = 1; // shell token
+  string error = 2;          // error
+}

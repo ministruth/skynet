@@ -26,7 +26,7 @@ const GroupUpdate: React.FC<GroupBtnProps> = (props) => {
         <TableBtn
           key="update"
           icon={EditOutlined}
-          tip={intl.get('app.op.update.tip')}
+          tip={intl.get('app.op.update')}
         />
       }
       rollback={<EditOutlined key="update" />}

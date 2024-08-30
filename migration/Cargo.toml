@@ -6,9 +6,9 @@ authors = ["MXWXZ <matrixwxz@gmail.com>"]
 publish = false
 
 [dependencies]
-sea-orm-migration = { version = "^0", features = [
+sea-orm-migration = { version = "1.0.0", features = [
     "sqlx-sqlite",
     "sqlx-postgres",
     "sqlx-mysql",
-    "runtime-actix-rustls",
+    "runtime-tokio-rustls",
 ] }

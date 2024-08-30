@@ -7,7 +7,7 @@ import styles from '@/common_components/layout/table/style.less';
 import TableBtn from '@/common_components/layout/table/tableBtn';
 import { API_PREFIX, PLUGIN_ID } from '@/config';
 import { UserPerm, getAPI, getIntl } from '@/utils';
-import { CodeOutlined } from '@ant-design/icons';
+import { CheckOutlined, CloseOutlined, CodeOutlined } from '@ant-design/icons';
 import { ParamsType, ProDescriptions } from '@ant-design/pro-components';
 import { ProColumns } from '@ant-design/pro-table';
 import { Tag } from 'antd';
@@ -152,7 +152,7 @@ const DefaultTab: React.FC<TabItemProps> = (props) => {
             onClick={(_) => props.addTabCallback?.(row)}
             permName={`view.plugin.${PLUGIN_ID}`}
             perm={UserPerm.PermAll}
-            disabled={row.status != 1}
+            disabled={row.status != 1 || row.disable_shell}
           />,
         ];
       },
@@ -172,6 +172,7 @@ const DefaultTab: React.FC<TabItemProps> = (props) => {
             <ProDescriptions
               column={3}
               dataSource={record}
+              contentStyle={{ alignItems: 'center' }}
               columns={[
                 {
                   title: intl.get('pages.agent.table.uid'),
@@ -223,6 +224,34 @@ const DefaultTab: React.FC<TabItemProps> = (props) => {
                   title: intl.get('pages.agent.table.bandwidth'),
                   renderText: (_, row) =>
                     `${bytes.format(row.band_up, { unitSeparator: ' ' }) ?? '-'} ↑ | ${bytes.format(row.band_down, { unitSeparator: ' ' }) ?? '-'} ↓`,
+                  style: { paddingBottom: 0 },
+                },
+                {
+                  title: intl.get('pages.agent.table.address'),
+                  dataIndex: 'address',
+                  style: { paddingBottom: 0 },
+                },
+                {
+                  title: intl.get('pages.agent.table.endpoint'),
+                  dataIndex: 'endpoint',
+                  style: { paddingBottom: 0 },
+                },
+                {
+                  title: intl.get('pages.agent.table.report_rate'),
+                  dataIndex: 'report_rate',
+                  renderText: (_, row) =>
+                    `${(row.report_rate ?? 0) == 0 ? '-' : row.report_rate + ' s'}`,
+                  style: { paddingBottom: 0 },
+                },
+                {
+                  title: intl.get('pages.agent.table.disable_shell'),
+                  dataIndex: 'disable_shell',
+                  render: (_, row) => {
+                    if (row.status !== 1) return '-';
+                    else if (row.disable_shell)
+                      return <CloseOutlined style={{ color: '#f5222d' }} />;
+                    else return <CheckOutlined style={{ color: '#52c41a' }} />;
+                  },
                   style: { paddingBottom: 0 },
                 },
               ]}

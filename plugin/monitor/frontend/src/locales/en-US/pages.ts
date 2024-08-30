@@ -2,13 +2,22 @@ export default {
   'pages.config.content': 'Configure plugin monitor',
 
   'pages.config.setting.title': 'Setting',
-  'pages.config.setting.token.text': 'Token:',
-  'pages.config.setting.token.placeholder': 'Generate new token',
-  'pages.config.setting.token.tooltip': 'Copy token',
-  'pages.config.setting.token.regenerate': 'Regenerate',
-  'pages.config.setting.token.copied': 'Token copied',
+  'pages.config.setting.status.text': 'Status:',
+  'pages.config.setting.status.running': 'Running',
+  'pages.config.setting.status.stopped': 'Stopped',
+  'pages.config.setting.status.stopped.title': 'Stop monitor server, confirm?',
+  'pages.config.setting.status.stopped.content':
+    'All agents will be disconnected immediately.',
+  'pages.config.setting.address.text': 'Address:',
   'pages.config.setting.shell.text': 'Shell:',
   'pages.config.setting.shell.new': 'New shell',
+  'pages.config.setting.cert.text': 'Certificate:',
+  'pages.config.setting.cert.get': 'Get pubkey',
+  'pages.config.setting.cert.regenerate': 'Regenerate',
+  'pages.config.setting.cert.regenerate.title':
+    'Regenerate public & private key pair, confirm?',
+  'pages.config.setting.cert.regenerate.content':
+    'All agents will be kicked and need the new public key to connect.',
 
   'pages.config.agent.title': 'Agent',
   'pages.config.agent.op.shell.tip': 'Shell',
@@ -26,6 +35,10 @@ export default {
   'pages.agent.table.arch': 'Arch',
   'pages.agent.table.lastlogin': 'Last Login',
   'pages.agent.table.status': 'Status',
+  'pages.agent.table.address': 'Address',
+  'pages.agent.table.endpoint': 'Endpoint',
+  'pages.agent.table.report_rate': 'Report Rate',
+  'pages.agent.table.disable_shell': 'Shell',
   'pages.agent.table.uid': 'UID',
   'pages.agent.table.hostname': 'Hostname',
   'pages.agent.table.system': 'System',
@@ -36,6 +49,17 @@ export default {
   'pages.agent.table.network': 'Network',
   'pages.agent.table.bandwidth': 'Bandwidth',
   'pages.agent.table.latency': 'Latency',
+  'pages.agent.op.passive': 'Passive Agents',
+  'pages.agent.op.passive.title': 'Manage Passive Agents',
+  'pages.agent.op.passive.table.name': 'Name',
+  'pages.agent.op.passive.table.address': 'Address',
+  'pages.agent.op.passive.table.retrytime': 'Retry Time',
+  'pages.agent.op.passive.table.retrytime.tip': 'Disable when set to 0',
+  'pages.agent.op.add.passive.title': 'Add Passive Agent',
+  'pages.agent.op.delete.passive.selected.title':
+    'Delete selected passive agents, confirm?',
+  'pages.agent.op.delete.passive.title':
+    'Delete passive agent {name}, confirm?',
 
   'pages.view.content': 'Monitor agents',
   'pages.view.card.agent': 'Agent',

@@ -1,14 +1,13 @@
 [workspace]
 
 members = [
-    "actix-session",
     "skynet_macro",
-    "skynet_i18n",
     "migration",
+    "skynet_api",
     "skynet",
-    "plugin/monitor_service",
+    "plugin/monitor_api",
     "plugin/monitor",
-    "plugin/agent_service",
+    "plugin/agent_api",
     "plugin/agent",
     "plugin/task",
 ]

@@ -25,7 +25,6 @@ const updateColumns: (
       tooltip: intl.get('pages.user.form.username.tip'),
       fieldProps: {
         maxLength: 32,
-        disabled: root,
       },
       formItemProps: {
         rules: [{ required: true }],

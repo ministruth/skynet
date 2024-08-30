@@ -1,30 +1,36 @@
-use actix_web::{web::Data, Responder};
 use actix_web_validator::QsQuery;
-use sea_orm::{ColumnTrait, DatabaseConnection, IntoSimpleExpr, TransactionTrait};
 use serde::Deserialize;
-use skynet::{
+use skynet_api::{
+    actix_cloud::{
+        actix_web::{web::Data, Responder},
+        response::RspResult,
+    },
     entity::notifications::Column,
-    finish, like_expr,
-    request::{unique_validator, PageData, PaginationParam, Response, RspResult, TimeParam},
-    NotifyLevel, Skynet,
+    request::{
+        unique_validator, Condition, IntoExpr, NotifyLevel, PageData, PaginationParam, TimeParam,
+    },
+    sea_orm::{ColumnTrait, DatabaseConnection, IntoSimpleExpr, TransactionTrait},
+    tracing::info,
+    Skynet,
 };
 use skynet_macro::common_req;
-use tracing::info;
 use validator::Validate;
+
+use crate::finish_data;
 
 #[common_req(Column)]
 #[derive(Debug, Validate, Deserialize)]
 pub struct GetReq {
-    #[validate(custom = "unique_validator")]
-    level: Option<Vec<NotifyLevel>>,
-    text: Option<String>,
+    #[validate(custom(function = "unique_validator"))]
+    pub level: Option<Vec<NotifyLevel>>,
+    pub text: Option<String>,
 
     #[serde(flatten)]
-    #[validate]
-    page: PaginationParam,
+    #[validate(nested)]
+    pub page: PaginationParam,
     #[serde(flatten)]
-    #[validate]
-    time: TimeParam,
+    #[validate(nested)]
+    pub time: TimeParam,
 }
 
 pub async fn get_all(
@@ -38,18 +44,18 @@ pub async fn get_all(
     }
     if let Some(text) = &param.text {
         cond = cond.add(
-            sea_orm::Condition::any()
-                .add(like_expr!(Column::Id, text))
-                .add(like_expr!(Column::Target, text))
-                .add(like_expr!(Column::Message, text))
-                .add(like_expr!(Column::Detail, text)),
+            Condition::any()
+                .add(text.like_expr(Column::Id))
+                .add(text.like_expr(Column::Target))
+                .add(text.like_expr(Column::Message))
+                .add(text.like_expr(Column::Detail)),
         );
     }
     let tx = db.begin().await?;
     let data = skynet.notification.find(&tx, cond).await?;
     tx.commit().await?;
     skynet.logger.set_unread(0);
-    finish!(Response::data(PageData::new(data)));
+    finish_data!(PageData::new(data));
 }
 
 pub async fn delete_all(
@@ -60,9 +66,9 @@ pub async fn delete_all(
     let cnt = skynet.notification.delete_all(&tx).await?;
     tx.commit().await?;
     info!(success = true, "Delete all notification");
-    finish!(Response::data(cnt));
+    finish_data!(cnt);
 }
 
 pub async fn get_unread(skynet: Data<Skynet>) -> RspResult<impl Responder> {
-    finish!(Response::data(skynet.logger.get_unread()));
+    finish_data!(skynet.logger.get_unread());
 }

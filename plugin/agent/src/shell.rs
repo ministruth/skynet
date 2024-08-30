@@ -1,13 +1,12 @@
 use std::io::{ErrorKind, Read, Write};
 
-use anyhow::Result;
-use base64::{engine::general_purpose::STANDARD, Engine};
-use monitor_service::server;
+use monitor_api::{message::Data, ShellOutputMessage};
 use portable_pty::{native_pty_system, Child, CommandBuilder, PtyPair, PtySize};
-use tokio::sync::mpsc::UnboundedSender;
+use skynet_api::actix_cloud::tokio::spawn;
+use skynet_api::actix_cloud::tokio::sync::mpsc::UnboundedSender;
+use skynet_api::Result;
 
 pub struct ShellInstance {
-    pub cmd: String,
     writer: Box<dyn Write + Send>,
     pair: PtyPair,
     child: Box<dyn Child + Send + Sync>,
@@ -19,7 +18,7 @@ impl ShellInstance {
         cmd: &str,
         rows: u16,
         cols: u16,
-        sender: Option<UnboundedSender<server::Message>>,
+        sender: Option<UnboundedSender<Data>>,
     ) -> Result<Self> {
         let pty_system = native_pty_system();
         let pair = pty_system.openpty(PtySize {
@@ -34,7 +33,7 @@ impl ShellInstance {
 
         // safe to detach, terminated when reader closed.
         let token = token.to_owned();
-        tokio::spawn(async move {
+        spawn(async move {
             loop {
                 let mut buffer = [0; 64];
                 match reader.read(&mut buffer) {
@@ -43,12 +42,10 @@ impl ShellInstance {
                             break;
                         }
                         if let Some(x) = &sender {
-                            let _ = x.send(server::Message::new(server::DataType::ShellOutput(
-                                server::ShellOutput {
-                                    token: token.clone(),
-                                    data: STANDARD.encode(&buffer[..n]),
-                                },
-                            )));
+                            let _ = x.send(Data::ShellOutput(ShellOutputMessage {
+                                token: Some(token.clone()),
+                                data: buffer[..n].to_vec(),
+                            }));
                         }
                     }
                     Err(e) => {
@@ -60,7 +57,6 @@ impl ShellInstance {
             }
         });
         Ok(Self {
-            cmd: cmd.to_owned(),
             writer,
             pair,
             child,

@@ -1,5 +1,4 @@
-use skynet::config;
-use tracing::info;
+use skynet_api::{config, tracing::info};
 
 use crate::Cli;
 

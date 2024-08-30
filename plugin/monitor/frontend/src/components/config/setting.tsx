@@ -1,29 +1,31 @@
 import ExSchema, { ExSchemaHandle } from '@/common_components/layout/exschema';
-import { API_PREFIX } from '@/config';
+import confirm from '@/common_components/layout/modal';
+import { API_PREFIX, BASE_URL } from '@/config';
 import {
+  StringIntl,
   UserPerm,
   checkAPI,
   checkPerm,
   getAPI,
   getIntl,
+  postAPI,
   putAPI,
 } from '@/utils';
-import { CopyOutlined } from '@ant-design/icons';
+import { CaretRightOutlined, PauseOutlined } from '@ant-design/icons';
 import ProCard from '@ant-design/pro-card';
 import {
   ParamsType,
   ProFormColumnsType,
   ProFormInstance,
-  ProFormText,
 } from '@ant-design/pro-components';
 import { FormattedMessage, useModel } from '@umijs/max';
-import { Button, Space, Tooltip, message } from 'antd';
-import copy from 'copy-to-clipboard';
+import { Button, Space, Typography } from 'antd';
 import _ from 'lodash';
-import randomstring from 'randomstring';
 import { useRef } from 'react';
 import styles from './style.less';
 import TagList from './taglist';
+
+const { Text } = Typography;
 
 const request = async (_: ParamsType) => {
   return (await getAPI(`${API_PREFIX}/settings`)).data;
@@ -39,6 +41,63 @@ const handleSubmit = (
   return checkAPI(putAPI(`${API_PREFIX}/settings`, params));
 };
 
+const handleRegenerateCert = (intl: StringIntl) => {
+  confirm({
+    title: intl.get('pages.config.setting.cert.regenerate.title'),
+    content: intl.get('pages.config.setting.cert.regenerate.content'),
+    onOk() {
+      return new Promise((resolve, reject) => {
+        postAPI(`${API_PREFIX}/settings/certificate`, {}).then((rsp) => {
+          if (rsp && rsp.code === 0) resolve(rsp);
+          else reject(rsp);
+        });
+      });
+    },
+    intl: intl,
+  });
+};
+
+const handleStart = (
+  ref: React.MutableRefObject<ExSchemaHandle | undefined>,
+) => {
+  return checkAPI(
+    postAPI(`${API_PREFIX}/settings/server`, {
+      start: true,
+    }),
+  ).then(() =>
+    setTimeout(() => {
+      ref.current?.refresh();
+    }, 1000),
+  );
+};
+
+const handleStop = (
+  intl: StringIntl,
+  ref: React.MutableRefObject<ExSchemaHandle | undefined>,
+) => {
+  confirm({
+    title: intl.get('pages.config.setting.status.stopped.title'),
+    content: intl.get('pages.config.setting.status.stopped.content'),
+    onOk() {
+      return new Promise((resolve, reject) => {
+        postAPI(`${API_PREFIX}/settings/server`, { start: false }).then(
+          (rsp) => {
+            if (rsp && rsp.code === 0) {
+              setTimeout(() => {
+                ref.current?.refresh();
+              }, 1000);
+              resolve(rsp);
+            } else {
+              reject(rsp);
+            }
+          },
+        );
+      });
+    },
+    intl: intl,
+  });
+};
+
 const SettingCard = () => {
   const intl = getIntl();
   const formRef = useRef<ProFormInstance>();
@@ -48,56 +107,68 @@ const SettingCard = () => {
 
   const columns: ProFormColumnsType[] = [
     {
-      title: intl.get('pages.config.setting.token.text'),
-      dataIndex: 'token',
-      renderFormItem: () => {
-        return (
-          <Space.Compact block>
-            <ProFormText
-              name="token"
-              placeholder={intl.get('pages.config.setting.token.placeholder')}
-              fieldProps={{
-                maxLength: 32,
-              }}
-              disabled={perm_disable}
-              formItemProps={{
-                className: styles.token,
-                style: { marginBottom: 0 },
-              }}
-            />
-            <Tooltip title={intl.get('pages.config.setting.token.tooltip')}>
-              <Button
-                icon={<CopyOutlined />}
-                onClick={() => {
-                  copy(formRef.current?.getFieldValue('token'), {
-                    format: 'text/plain',
-                  });
-                  message.success(
-                    intl.get('pages.config.setting.token.copied'),
-                  );
-                }}
-              />
-            </Tooltip>
-            <Button
-              danger
-              onClick={() => {
-                formRef.current?.setFieldsValue({
-                  token: randomstring.generate(32),
-                });
-                ref.current?.enableSubmit(true);
-              }}
-              disabled={perm_disable}
-            >
-              <FormattedMessage id="pages.config.setting.token.regenerate" />
-            </Button>
-          </Space.Compact>
+      title: intl.get('pages.config.setting.status.text'),
+      dataIndex: 'running',
+      readonly: true,
+      render: (e) => {
+        let status = e ? (
+          <Text type="success" strong>
+            <FormattedMessage id="pages.config.setting.status.running" />
+          </Text>
+        ) : (
+          <Text type="danger" strong>
+            <FormattedMessage id="pages.config.setting.status.stopped" />
+          </Text>
         );
+        return (
+          <>
+            {status}
+            <Space style={{ marginLeft: '50px' }}>
+              <Button
+                icon={<CaretRightOutlined />}
+                disabled={e === true}
+                onClick={() => handleStart(ref)}
+              />
+              <Button
+                icon={<PauseOutlined />}
+                danger
+                disabled={e === false}
+                onClick={() => handleStop(intl, ref)}
+              />
+            </Space>
+          </>
+        );
+      },
+    },
+    {
+      title: intl.get('pages.config.setting.address.text'),
+      dataIndex: 'address',
+      fieldProps: {
+        className: styles.addr,
+      },
+      formItemProps: {
+        rules: [{ required: true }],
       },
     },
     {
       title: intl.get('pages.config.setting.shell.text'),
       dataIndex: 'shell',
       renderFormItem: () => <TagList disabled={perm_disable} />,
+    },
+    {
+      title: intl.get('pages.config.setting.cert.text'),
+      renderFormItem: () => {
+        return (
+          <Space>
+            <Button href={`${BASE_URL}${API_PREFIX}/settings/certificate`}>
+              <FormattedMessage id="pages.config.setting.cert.get" />
+            </Button>
+            <Button onClick={() => handleRegenerateCert(intl)} danger>
+              <FormattedMessage id="pages.config.setting.cert.regenerate" />
+            </Button>
+          </Space>
+        );
+      },
     },
   ];
 

@@ -31,6 +31,7 @@ import { SortOrder } from 'antd/es/table/interface';
 import { CustomTagProps } from 'rc-select/es/BaseSelect';
 import { Key, useRef, useState } from 'react';
 import AgentUpdate from './agentUpdateBtn';
+import PassiveAgent from './passiveBtn';
 
 const request = async (params?: ParamsType, _?: Record<string, SortOrder>) => {
   const msg = await getAPI(`${API_PREFIX}/agents`, {
@@ -249,6 +250,7 @@ const AgentCard = () => {
         request={request}
         columns={columns}
         action={[
+          <PassiveAgent />,
           <Button
             key="delete"
             danger
@@ -266,7 +268,7 @@ const AgentCard = () => {
           expandedRowRender: (record: any) => {
             return (
               <ProDescriptions
-                column={3}
+                column={2}
                 dataSource={record}
                 columns={[
                   {
@@ -283,6 +285,16 @@ const AgentCard = () => {
                   {
                     title: intl.get('pages.agent.table.system'),
                     dataIndex: 'system',
+                    style: { paddingBottom: 0 },
+                  },
+                  {
+                    title: intl.get('pages.agent.table.address'),
+                    dataIndex: 'address',
+                    style: { paddingBottom: 0 },
+                  },
+                  {
+                    title: intl.get('pages.agent.table.endpoint'),
+                    dataIndex: 'endpoint',
                     style: { paddingBottom: 0 },
                   },
                 ]}

@@ -1,0 +1,47 @@
+Success:
+  code: 0
+  message: "response.success"
+
+NotReady:
+  code: 1
+  message: "response.not_ready"
+
+RecaptchaInvalid:
+  code: 2
+  message: "response.recaptcha.invalid"
+
+UserInvalid:
+  code: 3
+  message: "response.user.invalid"
+
+UserNotExist:
+  code: 4
+  message: "response.user.notexist"
+
+UserExist:
+  code: 5
+  message: "response.user.exist"
+
+UserRoot:
+  code: 6
+  message: "response.user.root"
+
+UserInvalidAvatar:
+  code: 7
+  message: "response.user.invalid_avatar"
+
+GroupNotExist:
+  code: 8
+  message: "response.group.notexist"
+
+GroupExist:
+  code: 9
+  message: "response.group.exist"
+
+PermissionNotExist:
+  code: 10
+  message: "response.permission.notexist"
+
+PluginLoaded:
+  code: 11
+  message: "response.plugin.loaded"

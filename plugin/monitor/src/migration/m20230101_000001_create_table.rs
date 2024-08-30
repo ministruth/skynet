@@ -1,15 +1,13 @@
-use monitor_service::ID;
-use sea_orm_migration::{
-    sea_query::{types, Alias},
-    MigrationTrait, SchemaManager,
-};
-use skynet::{
+use sea_orm_migration::{MigrationTrait, SchemaManager};
+use skynet_api::{
     async_trait,
     sea_orm::{
         sea_query::{self, ColumnDef, ForeignKey, ForeignKeyAction, Iden, Index, Table},
         DbErr, DeriveMigrationName,
     },
 };
+
+use super::migrator::table_prefix;
 
 #[derive(Iden)]
 enum Agents {
@@ -38,12 +36,19 @@ enum AgentSettings {
     UpdatedAt,
 }
 
+#[derive(Iden)]
+enum PassiveAgents {
+    Table,
+    ID,
+    Name,
+    Address,
+    RetryTime,
+    CreatedAt,
+    UpdatedAt,
+}
+
 #[derive(DeriveMigrationName)]
 pub struct Migration;
-
-fn table_prefix(table: &impl types::Iden) -> Alias {
-    Alias::new(format!("{}_{}", ID, table.to_string()))
-}
 
 #[async_trait]
 impl MigrationTrait for Migration {
@@ -126,6 +131,47 @@ impl MigrationTrait for Migration {
                     .to_owned(),
             )
             .await?;
+        manager
+            .create_table(
+                Table::create()
+                    .table(table_prefix(&PassiveAgents::Table))
+                    .if_not_exists()
+                    .col(
+                        ColumnDef::new(PassiveAgents::ID)
+                            .char_len(36)
+                            .not_null()
+                            .primary_key(),
+                    )
+                    .col(
+                        ColumnDef::new(PassiveAgents::Name)
+                            .string_len(32)
+                            .not_null()
+                            .unique_key(),
+                    )
+                    .col(
+                        ColumnDef::new(PassiveAgents::Address)
+                            .string_len(64)
+                            .not_null()
+                            .unique_key(),
+                    )
+                    .col(
+                        ColumnDef::new(PassiveAgents::RetryTime)
+                            .integer()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(PassiveAgents::CreatedAt)
+                            .big_integer()
+                            .not_null(),
+                    )
+                    .col(
+                        ColumnDef::new(PassiveAgents::UpdatedAt)
+                            .big_integer()
+                            .not_null(),
+                    )
+                    .to_owned(),
+            )
+            .await?;
         Ok(())
     }
 
@@ -137,6 +183,13 @@ impl MigrationTrait for Migration {
             .drop_table(
                 Table::drop()
                     .table(table_prefix(&AgentSettings::Table))
+                    .to_owned(),
+            )
+            .await?;
+        manager
+            .drop_table(
+                Table::drop()
+                    .table(table_prefix(&PassiveAgents::Table))
                     .to_owned(),
             )
             .await?;

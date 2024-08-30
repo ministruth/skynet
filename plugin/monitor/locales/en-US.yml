@@ -4,3 +4,6 @@
   response:
     agent:
       exist: "Agent name already exists"
+    passive_agent:
+      name_exist: "Passive agent name already exists"
+      address_exist: "Passive agent address already exists"

@@ -1,25 +1,18 @@
+use base64::{engine::general_purpose::STANDARD, Engine};
 use byte_unit::{Byte, UnitType};
-use chrono::{DateTime, Local, Utc};
-use clap::{command, Parser, Subcommand};
+use clap::{command, Args, Parser, Subcommand};
 use client::run;
+use logger::start_logger;
+use monitor_api::ecies::PublicKey;
 use sha3::{digest::ExtendableOutput, Shake256};
-use skynet::{
-    logger::{LogItem, LogSender, Logger},
-    tracing::Level,
-    tracing_subscriber,
-};
-use std::{
-    env::consts,
-    io::{self, stderr, stdout},
-    str::FromStr,
-    sync::mpsc,
-    thread,
-};
+use skynet_api::actix_cloud::tokio;
+use std::{env::consts, fs, net::IpAddr, path::PathBuf};
 use sysinfo::{
     CpuRefreshKind, Disks, MemoryRefreshKind, NetworkData, Networks, RefreshKind, System,
 };
 
 mod client;
+mod logger;
 mod shell;
 mod socket;
 
@@ -29,42 +22,61 @@ struct Cli {
     #[command(subcommand)]
     command: Commands,
 
-    /// Show verbose/debug log
+    /// Show verbose/debug log.
     #[arg(short, long, global = true)]
     verbose: bool,
 
-    /// Do not print any log
+    /// Do not print any log.
     #[arg(short, long, global = true)]
     quiet: bool,
 
-    /// Use JSON to format log
+    /// Use JSON to format log.
     #[arg(long, global = true)]
     log_json: bool,
 }
 
+#[derive(Args, Clone)]
+pub struct RunArgs {
+    /// Server or listen address.
+    addr: String,
+
+    /// Connect certificate.
+    cert: PathBuf,
+
+    /// Passive mode, wait for server to connect.
+    #[arg(short, long)]
+    passive: bool,
+
+    /// Override public ip.
+    #[arg(long)]
+    ip: Option<IpAddr>,
+
+    /// Status report rate (seconds).
+    #[arg(long, default_value = "1")]
+    report_rate: u32,
+
+    /// Whether to disable shell feature.
+    #[arg(long)]
+    disable_shell: bool,
+
+    /// Max wait time when retrying.
+    #[arg(long, default_value = "16")]
+    max_time: u32,
+
+    /// Disk name, match first, sum all specified.
+    #[arg(short, long, required = true)]
+    disk: Vec<String>,
+
+    /// Interface name, sum all specified.
+    #[arg(short, long, required = true)]
+    interface: Vec<String>,
+}
+
 #[derive(Subcommand, Clone)]
 enum Commands {
-    /// Run agent
-    Run {
-        /// Server address
-        addr: String,
-
-        /// Connect token
-        token: String,
-
-        /// Max wait time when retrying
-        #[arg(long, default_value = "16")]
-        max_time: u32,
-
-        /// Disk name, match first, sum all specified.
-        #[arg(short, long, required = true)]
-        disk: Vec<String>,
-
-        /// Interface name, sum all specified.
-        #[arg(short, long, required = true)]
-        interface: Vec<String>,
-    },
-    /// List interface in agent
+    /// Run agent.
+    Run(RunArgs),
+    /// List interface in agent.
     List,
 }
 
@@ -98,7 +110,7 @@ fn list() {
     );
 
     println!();
-    println!("CPU: {:.2}%", sys.global_cpu_info().cpu_usage());
+    println!("CPU: {:.2}%", sys.global_cpu_usage());
     println!(
         "Memory: {:.2} / {:.2}",
         Byte::from_u64(sys.used_memory()).get_appropriate_unit(UnitType::Binary),
@@ -137,89 +149,21 @@ fn list() {
     }
 }
 
-fn start_logger(json: bool, verbose: bool) {
-    let (tx, rx) = mpsc::channel();
-    tracing_subscriber::fmt()
-        .with_max_level(if verbose { Level::DEBUG } else { Level::INFO })
-        .with_writer(LogSender::new(tx))
-        .without_time()
-        .with_file(true)
-        .with_line_number(true)
-        .json()
-        .init();
-
-    thread::spawn(move || {
-        while let Ok(v) = rx.recv() {
-            let mut item = LogItem::from_json(v);
-            let level = Level::from_str(&item.level).unwrap_or(Level::ERROR);
-            if item.target.starts_with("tungstenite::") {
-                continue;
-            }
-            item.filename = Logger::trim_filename(&item.filename);
-            let time = item.fields.remove("_time").unwrap_or_default().as_i64();
-            let token: String = item
-                .fields
-                .remove("_token")
-                .unwrap_or_default()
-                .as_str()
-                .unwrap_or("main")
-                .chars()
-                .take(8)
-                .collect();
-            if !verbose {
-                item.filename.clear();
-                item.line_number = 0;
-            }
-
-            let writer: Box<dyn io::Write> = if level <= Level::WARN {
-                Box::new(stderr())
-            } else {
-                Box::new(stdout())
-            };
-            if json {
-                item.target.clear();
-                if token != "main" {
-                    item.fields.insert(String::from("token"), token.into());
-                }
-                item.time = time.unwrap_or_else(|| Utc::now().timestamp_micros()).into();
-                let _ = item.write_json(writer);
-            } else {
-                item.level = Logger::fmt_level(&level);
-                item.target = token; // we do not use target, show token instead.
-                item.time = time
-                    .map_or_else(Local::now, |v| {
-                        DateTime::from_timestamp_micros(v)
-                            .unwrap_or_default()
-                            .into()
-                    })
-                    .format("%F %T%.6f")
-                    .to_string()
-                    .into();
-                let _ = item.write_console(writer);
-            }
-        }
-    });
-}
-
 #[tokio::main]
 async fn main() {
     let cli = Cli::parse();
-    if !cli.quiet {
-        start_logger(cli.log_json, cli.verbose);
-    }
+    let (_, _guard) = start_logger(!cli.quiet, cli.log_json, cli.verbose);
     match cli.command {
-        Commands::Run {
-            addr,
-            token,
-            max_time,
-            disk,
-            interface,
-        } => {
+        Commands::Run(args) => {
+            let cert = STANDARD
+                .decode(fs::read_to_string(&args.cert).unwrap())
+                .unwrap();
+            let pubkey = PublicKey::parse(&cert.try_into().unwrap()).unwrap();
             let disks: Vec<String> = Disks::new_with_refreshed_list()
                 .into_iter()
                 .map(|x| x.name().to_string_lossy().to_string())
                 .collect();
-            for i in &disk {
+            for i in &args.disk {
                 assert!(disks.contains(i), "Disk name `{i}` not found");
             }
             let interfaces: Vec<String> = Networks::new_with_refreshed_list()
@@ -227,10 +171,10 @@ async fn main() {
                 .filter(|x| !x.1.mac_address().is_unspecified())
                 .map(|x| x.0.to_owned())
                 .collect();
-            for i in &interface {
+            for i in &args.interface {
                 assert!(interfaces.contains(i), "Interface name `{i}` not found");
             }
-            run(addr, token, max_time, disk, interface).await;
+            run(args, pubkey).await;
         }
         Commands::List => list(),
     }

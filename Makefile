@@ -21,24 +21,10 @@ endif
 
 all: help
 
-## check: Check code using clippy.
+## check: Check code and style.
 check:
-	@cargo clippy -- -W clippy::all -W clippy::pedantic -W clippy::nursery -W clippy::restriction \
-	-A clippy::future_not_send -A clippy::type_repetition_in_bounds -A clippy::module_name_repetitions \
-	-A clippy::single_call_fn -A clippy::shadow_reuse -A clippy::multiple_unsafe_ops_per_block -A clippy::pattern_type_mismatch \
-	-A clippy::unwrap_used -A clippy::question_mark_used -A clippy::min_ident_chars -A clippy::implicit_return \
-	-A clippy::std_instead_of_core -A clippy::indexing_slicing -A clippy::let_underscore_untyped \
-	-A clippy::clone-on-ref-ptr -A clippy::let_underscore_must_use -A clippy::missing_inline_in_public_items \
-	-A clippy::unreachable -A clippy::std_instead_of_alloc -A clippy::mod_module_files -A clippy::missing_trait_methods \
-	-A clippy::string_add -A clippy::exhaustive_structs -A clippy::exhaustive_enums -A clippy::shadow_unrelated \
-	-A clippy::arithmetic_side_effects -A clippy::shadow_same -A clippy::error_impl_error -A clippy::unwrap_in_result \
-	-A clippy::panic -A clippy::wildcard_enum_match_arm -A clippy::default_numeric_fallback -A clippy::single_char_lifetime_names \
-	-A clippy::partial_pub_fields -A clippy::missing_docs_in_private_items -A clippy::pub_use -A clippy::expect_used \
-	-A clippy::print_stdout -A clippy::blanket_clippy_restriction_lints -A clippy::should_implement_trait -A clippy::similar_names \
-	-A clippy::as_conversions -A clippy::significant_drop_in_scrutinee -A clippy::use_debug -A clippy::match_wildcard_for_single_variants \
-	-A clippy::separated_literal_suffix -A clippy::significant_drop_tightening -A clippy::too-many-arguments \
-	-A clippy::iter-over-hash-type -A clippy::no-effect-underscore-binding -A clippy::redundant-else -A clippy::assigning-clones \
-	-A clippy::string_slice
+	@cargo clippy -- -D clippy::all
+	@cargo fmt --all -- --check
 
 ## build: Build skynet(dev).
 build:
@@ -69,13 +55,13 @@ build:
 
 ## run: Run skynet (dev).
 run: build
-	@cd $(OUTPUT_DIR) && ./skynet run -v --persist-session --disable-csrf
+	@cd $(OUTPUT_DIR) && RUST_BACKTRACE=1 ./skynet run -v --persist-session --disable-csrf
 
 ## dev: Run dev server, auto reload on save.
 dev:
 	@cargo watch -i frontend -- make run 
 
-## static: make static files.
+## static: Make static files.
 static:
 	@cd ./skynet/frontend && yarn && yarn build
 	@mkdir -p $(OUTPUT_DIR)
@@ -93,7 +79,7 @@ static:
 		fi												\
 	done
 
-## clean: clean all build files.
+## clean: Clean all build files.
 clean:
 	@rm -rf $(OUTPUT_DIR)
 	@cargo clean

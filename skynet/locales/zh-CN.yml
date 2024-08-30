@@ -27,6 +27,3 @@ response:
     notexist: "权限不存在"
   plugin:
     loaded: "插件已加载"
-    exist: "插件已存在"
-    invalid: "插件文件无效"
-    invalid_hash: "插件哈希值错误"

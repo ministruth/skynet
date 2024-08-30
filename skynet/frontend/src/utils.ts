@@ -65,8 +65,8 @@ export function api(
   }).then((rsp) => {
     if (rsp) {
       if (showmsg) {
-        if (rsp.code == 0) message.success(rsp.msg);
-        else message.error(rsp.msg);
+        if (rsp.code == 0) message.success(rsp.message);
+        else message.error(rsp.message);
       }
       return rsp;
     }

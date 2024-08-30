@@ -1,37 +1,33 @@
-use actix_web::{web::Data, Responder};
-use serde_json::{Map, Number, Value};
-use skynet::{
-    config::ConfigItem,
-    finish,
-    request::{Response, RspResult},
+use serde::Serialize;
+use skynet_api::{
+    actix_cloud::{
+        actix_web::{web::Data, Responder},
+        response::RspResult,
+    },
     Skynet,
 };
 
+use crate::finish_data;
+
 pub async fn get_public(skynet: Data<Skynet>) -> RspResult<impl Responder> {
-    let mut ret: Map<String, Value> = Map::new();
-    for (_, v) in skynet.config.iter() {
-        if let Some(v) = v.downcast_ref::<ConfigItem<String>>() {
-            if v.public {
-                ret.insert(v.name.clone(), Value::String(v.get().to_owned()));
-            }
-        } else if let Some(v) = v.downcast_ref::<ConfigItem<i64>>() {
-            if v.public {
-                ret.insert(v.name.clone(), Value::Number(v.get().into()));
-            }
-        } else if let Some(v) = v.downcast_ref::<ConfigItem<bool>>() {
-            if v.public {
-                ret.insert(v.name.clone(), Value::Bool(v.get()));
-            }
-        } else if let Some(v) = v.downcast_ref::<ConfigItem<f64>>() {
-            if v.public {
-                ret.insert(
-                    v.name.clone(),
-                    Value::Number(Number::from_f64(v.get()).unwrap()),
-                );
-            }
-        } else {
-            unreachable!()
-        }
+    #[derive(Serialize)]
+    struct Rsp {
+        #[serde(rename(serialize = "recaptcha.enable"))]
+        recaptcha_enable: bool,
+        #[serde(rename(serialize = "recaptcha.url"))]
+        recaptcha_url: String,
+        #[serde(
+            rename(serialize = "recaptcha.sitekey"),
+            skip_serializing_if = "Option::is_none"
+        )]
+        recaptcha_sitekey: Option<String>,
+        lang: String,
     }
-    finish!(Response::data(ret));
+    let ret = Rsp {
+        recaptcha_enable: skynet.config.recaptcha.enable,
+        recaptcha_url: skynet.config.recaptcha.url.clone(),
+        recaptcha_sitekey: skynet.config.recaptcha.sitekey.clone(),
+        lang: skynet.config.lang.clone(),
+    };
+    finish_data!(ret);
 }

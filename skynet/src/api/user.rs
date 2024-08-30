@@ -1,45 +1,51 @@
 use std::fs;
 
-use actix_web::{
-    web::{Data, Path},
-    Responder,
-};
 use actix_web_validator::{Json, QsQuery};
-use redis::aio::ConnectionManager;
-use sea_orm::{ColumnTrait, DatabaseConnection, IntoSimpleExpr, TransactionTrait};
 use serde::{Deserialize, Serialize};
-use skynet::{
-    entity::{groups, users::Column},
-    finish, like_expr,
-    permission::PermEntry,
-    request::{
-        unique_validator, IDsReq, PageData, PaginationParam, Request, Response, ResponseCode,
-        RspResult, SortType, TimeParam,
+use skynet_api::{
+    actix_cloud::{
+        actix_web::{
+            web::{Data, Path},
+            Responder,
+        },
+        macros::partial_entity,
+        response::{JsonResponse, RspResult},
+        state::GlobalState,
     },
+    entity::{groups, users::Column},
+    finish,
+    permission::{PermEntry, ROOT_ID},
+    request::{
+        unique_validator, Condition, IDsReq, IntoExpr, PageData, PaginationParam, Request,
+        SortType, TimeParam,
+    },
+    sea_orm::{ColumnTrait, DatabaseConnection, IntoSimpleExpr, TransactionTrait},
+    tracing::info,
     utils::{get_dataurl, parse_dataurl},
     HyUuid, Skynet,
 };
-use skynet_macro::{common_req, partial_entity};
-use tracing::info;
+use skynet_macro::common_req;
 use validator::Validate;
+
+use crate::{finish_data, finish_err, finish_ok, SkynetResponse};
 
 #[common_req(Column)]
 #[derive(Debug, Validate, Deserialize)]
 pub struct GetReq {
-    text: Option<String>,
+    pub text: Option<String>,
 
-    login_sort: Option<SortType>,
+    pub login_sort: Option<SortType>,
     #[validate(range(min = 0))]
-    login_start: Option<i64>,
+    pub login_start: Option<i64>,
     #[validate(range(min = 0))]
-    login_end: Option<i64>,
+    pub login_end: Option<i64>,
 
     #[serde(flatten)]
-    #[validate]
-    page: PaginationParam,
+    #[validate(nested)]
+    pub page: PaginationParam,
     #[serde(flatten)]
-    #[validate]
-    time: TimeParam,
+    #[validate(nested)]
+    pub time: TimeParam,
 }
 
 pub async fn get_all(
@@ -50,10 +56,10 @@ pub async fn get_all(
     let mut cond = param.common_cond();
     if let Some(text) = &param.text {
         cond = cond.add(
-            sea_orm::Condition::any()
-                .add(like_expr!(Column::Id, text))
-                .add(like_expr!(Column::Username, text))
-                .add(like_expr!(Column::LastIp, text)),
+            Condition::any()
+                .add(text.like_expr(Column::Id))
+                .add(text.like_expr(Column::Username))
+                .add(text.like_expr(Column::LastIp)),
         );
     }
     cond = cond.add_option(param.login_start.map(|x| Column::LastLogin.gte(x)));
@@ -62,9 +68,9 @@ pub async fn get_all(
         cond = cond.add_sort(Column::LastLogin.into_simple_expr(), x.into());
     };
 
-    let (avatar, mime) = get_dataurl(&fs::read(skynet.config.avatar.get())?);
+    let (avatar, mime) = get_dataurl(&fs::read(&skynet.config.avatar)?);
     if mime.is_none() {
-        finish!(Response::new(ResponseCode::CodeUserInvalidAvatar));
+        finish_err!(SkynetResponse::UserInvalidAvatar);
     }
     let tx = db.begin().await?;
     let data = skynet.user.find(&tx, cond).await?;
@@ -82,7 +88,7 @@ pub async fn get_all(
         data.1,
     );
     tx.commit().await?;
-    finish!(Response::data(PageData::new(data)));
+    finish_data!(PageData::new(data));
 }
 
 pub async fn get(
@@ -93,30 +99,30 @@ pub async fn get(
     let tx = db.begin().await?;
     let data = skynet.user.find_by_id(&tx, &uid).await?;
     if data.is_none() {
-        finish!(Response::not_found());
+        finish!(JsonResponse::not_found());
     }
     let mut data = data.unwrap();
     if data.avatar.is_none() {
-        let (avatar, mime) = get_dataurl(&fs::read(skynet.config.avatar.get())?);
+        let (avatar, mime) = get_dataurl(&fs::read(&skynet.config.avatar)?);
         if mime.is_none() {
-            finish!(Response::new(ResponseCode::CodeUserInvalidAvatar));
+            finish_err!(SkynetResponse::UserInvalidAvatar);
         }
         data.avatar = Some(avatar.into());
     }
     tx.commit().await?;
-    finish!(Response::data(data));
+    finish_data!(data);
 }
 
 #[derive(Debug, Validate, Deserialize)]
 pub struct AddReq {
     #[validate(length(max = 32))]
-    username: String,
-    password: String,
-    avatar: Option<String>,
-    #[validate(custom = "unique_validator")]
-    group: Option<Vec<HyUuid>>,
-    base: Option<HyUuid>,
-    clone_group: Option<bool>,
+    pub username: String,
+    pub password: String,
+    pub avatar: Option<String>,
+    #[validate(custom(function = "unique_validator"))]
+    pub group: Option<Vec<HyUuid>>,
+    pub base: Option<HyUuid>,
+    pub clone_group: Option<bool>,
 }
 
 pub async fn add(
@@ -125,26 +131,23 @@ pub async fn add(
     skynet: Data<Skynet>,
 ) -> RspResult<impl Responder> {
     if param.clone_group.is_some() && param.base.is_none() {
-        finish!(Response::bad_request(
+        finish!(JsonResponse::bad_request(
             "Base should not be None when clone group"
         ));
     }
-    if param.username == "root" {
-        finish!(Response::new(ResponseCode::CodeUserRoot));
-    }
     if param.base.is_some_and(|x| x.is_nil()) {
-        finish!(Response::new(ResponseCode::CodeUserRoot));
+        finish_err!(SkynetResponse::UserRoot);
     }
     let avatar = if let Some(x) = &param.avatar {
         let (avatar, mime) = parse_dataurl(x);
         // 1MB
         if avatar.len() > 1024 * 1024 {
-            finish!(Response::bad_request("File too large"));
+            finish!(JsonResponse::bad_request("File too large"));
         }
         if mime.is_none()
             || !["image/png", "image/jpeg", "image/webp"].contains(&mime.unwrap().mime_type())
         {
-            finish!(Response::new(ResponseCode::CodeUserInvalidAvatar));
+            finish_err!(SkynetResponse::UserInvalidAvatar);
         }
         Some(avatar)
     } else {
@@ -157,24 +160,24 @@ pub async fn add(
         .await?
         .is_some()
     {
-        finish!(Response::new(ResponseCode::CodeUserExist));
+        finish_err!(SkynetResponse::UserExist);
     }
     if let Some(group) = &param.group {
         for i in group {
             if skynet.group.find_by_id(&tx, i).await?.is_none() {
-                finish!(Response::new(ResponseCode::CodeGroupNotExist));
+                finish_err!(SkynetResponse::GroupNotExist);
             }
         }
     }
     if let Some(x) = param.base {
         if skynet.user.find_by_id(&tx, &x).await?.is_none() {
-            finish!(Response::new(ResponseCode::CodeUserNotExist));
+            finish_err!(SkynetResponse::UserNotExist);
         }
     }
 
     let user = skynet
         .user
-        .create(&tx, &param.username, Some(&param.password), avatar)
+        .create(&tx, &param.username, Some(&param.password), avatar, false)
         .await?;
     if let Some(base) = &param.base {
         let perm: Vec<PermEntry> = skynet
@@ -212,51 +215,47 @@ pub async fn add(
         clone_group = param.clone_group,
         "Add user",
     );
-    finish!(Response::data(user.id));
+    finish_data!(user.id);
 }
 
 #[derive(Debug, Validate, Deserialize)]
 pub struct PutReq {
     #[validate(length(max = 32))]
-    username: Option<String>,
-    password: Option<String>,
-    avatar: Option<String>,
-    #[validate(custom = "unique_validator")]
-    group: Option<Vec<HyUuid>>,
+    pub username: Option<String>,
+    pub password: Option<String>,
+    pub avatar: Option<String>,
+    #[validate(custom(function = "unique_validator"))]
+    pub group: Option<Vec<HyUuid>>,
 }
 
 pub async fn put(
     uid: Path<HyUuid>,
     param: Json<PutReq>,
     db: Data<DatabaseConnection>,
-    redis: Data<ConnectionManager>,
+    state: Data<GlobalState>,
     req: Request,
     skynet: Data<Skynet>,
 ) -> RspResult<impl Responder> {
     if uid.is_nil()
         && (!req.uid.is_some_and(|x| x.is_nil())
-            || param.username.as_ref().is_some_and(|x| x != "root")
             || param.group.as_ref().is_some_and(|x| !x.is_empty()))
     {
-        finish!(Response::new(ResponseCode::CodeUserRoot));
+        finish_err!(SkynetResponse::UserRoot);
     }
 
-    if param.username.as_ref().is_some_and(|x| x == "root") {
-        finish!(Response::new(ResponseCode::CodeUserRoot));
-    }
     let tx = db.begin().await?;
     if let Some(user) = skynet.user.find_by_id(&tx, &uid).await? {
         if let Some(name) = &param.username {
             if let Some(x) = skynet.user.find_by_name(&tx, name).await? {
                 if x.id != user.id {
-                    finish!(Response::new(ResponseCode::CodeUserExist));
+                    finish_err!(SkynetResponse::UserExist);
                 }
             }
         }
         if let Some(group) = &param.group {
             for i in group {
                 if skynet.group.find_by_id(&tx, i).await?.is_none() {
-                    finish!(Response::new(ResponseCode::CodeGroupNotExist));
+                    finish_err!(SkynetResponse::GroupNotExist);
                 }
             }
         }
@@ -267,13 +266,13 @@ pub async fn put(
                 let (avatar, mime) = parse_dataurl(x);
                 // 1MB
                 if avatar.len() > 1024 * 1024 {
-                    finish!(Response::bad_request("File too large"));
+                    finish!(JsonResponse::bad_request("File too large"));
                 }
                 if mime.is_none()
                     || !["image/png", "image/jpeg", "image/webp"]
                         .contains(&mime.unwrap().mime_type())
                 {
-                    finish!(Response::new(ResponseCode::CodeUserInvalidAvatar));
+                    finish_err!(SkynetResponse::UserInvalidAvatar);
                 }
                 Some(avatar)
             }
@@ -285,7 +284,7 @@ pub async fn put(
             .user
             .update(
                 &tx,
-                &redis,
+                state.memorydb.clone(),
                 &skynet,
                 &user.id,
                 param.username.as_deref(),
@@ -299,7 +298,7 @@ pub async fn put(
             skynet.group.link(&tx, &[*uid], gid).await?;
         }
     } else {
-        finish!(Response::not_found());
+        finish!(JsonResponse::not_found());
     }
     tx.commit().await?;
     info!(
@@ -309,65 +308,74 @@ pub async fn put(
         gid = ?param.group,
         "Put user",
     );
-    finish!(Response::ok());
+    finish_ok!();
 }
 
 pub async fn delete_batch(
     param: Json<IDsReq>,
     db: Data<DatabaseConnection>,
-    redis: Data<ConnectionManager>,
+    state: Data<GlobalState>,
     req: Request,
     skynet: Data<Skynet>,
 ) -> RspResult<impl Responder> {
-    if param.id.contains(&HyUuid::nil()) && !req.uid.is_some_and(|x| x.is_nil()) {
-        finish!(Response::new(ResponseCode::CodeUserRoot));
+    if param.id.contains(&ROOT_ID) && !req.uid.is_some_and(|x| x.is_nil()) {
+        finish_err!(SkynetResponse::UserRoot)
     }
     let tx = db.begin().await?;
-    let rows = skynet.user.delete(&tx, &redis, &skynet, &param.id).await?;
+    let rows = skynet
+        .user
+        .delete(&tx, state.memorydb.clone(), &skynet, &param.id)
+        .await?;
     tx.commit().await?;
     if rows != 0 {
         info!(success = true, uid = ?param.id, "Delete users");
     }
-    finish!(Response::data(rows));
+    finish_data!(rows);
 }
 
 pub async fn delete(
     uid: Path<HyUuid>,
     db: Data<DatabaseConnection>,
-    redis: Data<ConnectionManager>,
+    state: Data<GlobalState>,
     req: Request,
     skynet: Data<Skynet>,
 ) -> RspResult<impl Responder> {
     if uid.is_nil() && !req.uid.is_some_and(|x| x.is_nil()) {
-        finish!(Response::new(ResponseCode::CodeUserRoot));
+        finish_err!(SkynetResponse::UserRoot);
     }
     let tx = db.begin().await?;
     if skynet.user.find_by_id(&tx, &uid).await?.is_none() {
-        finish!(Response::not_found());
+        finish!(JsonResponse::not_found());
     }
-    let rows = skynet.user.delete(&tx, &redis, &skynet, &[*uid]).await?;
+    let rows = skynet
+        .user
+        .delete(&tx, state.memorydb.clone(), &skynet, &[*uid])
+        .await?;
     tx.commit().await?;
     info!(success = true, uid = %uid, "Delete user");
-    finish!(Response::data(rows));
+    finish_data!(rows);
 }
 
 pub async fn kick(
     uid: Path<HyUuid>,
     db: Data<DatabaseConnection>,
-    redis: Data<ConnectionManager>,
+    state: Data<GlobalState>,
     req: Request,
     skynet: Data<Skynet>,
 ) -> RspResult<impl Responder> {
     if uid.is_nil() && !req.uid.is_some_and(|x| x.is_nil()) {
-        finish!(Response::new(ResponseCode::CodeUserRoot));
+        finish_err!(SkynetResponse::UserRoot);
     }
     let tx = db.begin().await?;
     if skynet.user.find_by_id(&tx, &uid).await?.is_none() {
-        finish!(Response::not_found());
+        finish!(JsonResponse::not_found());
     }
-    skynet.user.kick(&redis, &skynet, &uid).await?;
+    skynet
+        .user
+        .kick(state.memorydb.clone(), &skynet, &uid)
+        .await?;
     tx.commit().await?;
-    finish!(Response::ok());
+    finish_ok!();
 }
 
 pub async fn get_group(
@@ -386,7 +394,7 @@ pub async fn get_group(
 
     let tx = db.begin().await?;
     if skynet.user.find_by_id(&tx, &uid).await?.is_none() {
-        finish!(Response::not_found());
+        finish!(JsonResponse::not_found());
     }
     let data: Vec<Rsp> = skynet
         .group
@@ -394,5 +402,5 @@ pub async fn get_group(
         .await
         .map(|x| (x.into_iter().map(Into::into).collect()))?;
     tx.commit().await?;
-    finish!(Response::data(data));
+    finish_data!(data);
 }

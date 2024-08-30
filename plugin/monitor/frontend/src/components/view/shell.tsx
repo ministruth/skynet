@@ -6,8 +6,9 @@ import { Terminal } from '@xterm/xterm';
 import '@xterm/xterm/css/xterm.css';
 import Cookies from 'js-cookie';
 import { useEffect, useRef } from 'react';
+import { v4 as uuidv4 } from 'uuid';
 import { TabItemProps } from './default';
-import { ShellConnect, ShellInput, ShellResize, newMessage } from './msg';
+import { FrontendMessage } from './msg';
 import ShellSelect from './shellSelect';
 
 export interface ShellTabProps {
@@ -52,25 +53,31 @@ const ShellTab: React.FC<TabItemProps & ShellTabProps> = (props) => {
         ws.current = new WebSocket(
           url + '?X-CSRF-Token=' + Cookies.get('CSRF_TOKEN'),
         );
+        ws.current.binaryType = 'arraybuffer';
         ws.current.onopen = (e) => {
-          let msg: ShellConnect = {
+          token.current = uuidv4();
+          let msg: FrontendMessage = {
             id: props.id,
-            cmd: cmd,
-            rows: shellSize.current.rows,
-            cols: shellSize.current.cols,
-            type: 'ShellConnect',
+            data: {
+              oneofKind: 'shellConnect',
+              shellConnect: {
+                token: token.current,
+                cmd: cmd,
+                rows: shellSize.current.rows,
+                cols: shellSize.current.cols,
+              },
+            },
           };
-          ws.current?.send(JSON.stringify(newMessage(msg)));
+          ws.current?.send(FrontendMessage.toBinary(msg));
         };
         ws.current.onmessage = (e) => {
-          let data = JSON.parse(e.data).data;
-          switch (data.type) {
-            case 'ShellConnect':
-              if (data.token) token.current = data.token;
-              else term.current.writeln('Error: ' + data.error);
+          let data = FrontendMessage.fromBinary(new Uint8Array(e.data)).data;
+          switch (data.oneofKind) {
+            case 'shellOutput':
+              term.current.write(data.shellOutput.data);
               break;
-            case 'ShellOutput':
-              term.current.write(atob(data.data));
+            case 'shellError':
+              term.current.writeln('Error: ' + data.shellError.error);
               break;
             default:
               console.log('Unknown message: ', data);
@@ -95,21 +102,29 @@ const ShellTab: React.FC<TabItemProps & ShellTabProps> = (props) => {
       term.current.onResize((e) => {
         shellSize.current.rows = e.rows;
         shellSize.current.cols = e.cols;
-        let msg: ShellResize = {
-          type: 'ShellResize',
-          token: token.current,
-          rows: e.rows,
-          cols: e.cols,
+        let msg: FrontendMessage = {
+          data: {
+            oneofKind: 'shellResize',
+            shellResize: {
+              token: token.current,
+              rows: e.rows,
+              cols: e.cols,
+            },
+          },
         };
-        ws.current?.send(JSON.stringify(newMessage(msg)));
+        ws.current?.send(FrontendMessage.toBinary(msg));
       });
       term.current.onData((e) => {
-        let msg: ShellInput = {
-          type: 'ShellInput',
-          token: token.current,
-          data: btoa(e),
+        let msg: FrontendMessage = {
+          data: {
+            oneofKind: 'shellInput',
+            shellInput: {
+              token: token.current,
+              data: Buffer.from(e),
+            },
+          },
         };
-        ws.current?.send(JSON.stringify(newMessage(msg)));
+        ws.current?.send(FrontendMessage.toBinary(msg));
       });
     }
     window.addEventListener('resize', handleResize);

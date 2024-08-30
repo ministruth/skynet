@@ -1,14 +1,14 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema",
   "type": "object",
-  "required": ["redis", "database"],
+  "required": ["database", "session"],
   "properties": {
     "redis": {
       "type": "object",
       "properties": {
+        "enable": { "type": "boolean" },
         "dsn": { "type": "string", "minLength": 1 }
-      },
-      "required": ["dsn"]
+      }
     },
     "database": {
       "type": "object",
@@ -25,7 +25,8 @@
         "cookie": { "type": "string", "minLength": 1 },
         "expire": { "type": "number", "minimum": 1 },
         "remember": { "type": "number", "minimum": 1 }
-      }
+      },
+      "required": ["key"]
     },
     "listen": {
       "type": "object",
@@ -33,8 +34,8 @@
         "address": { "type": "string", "minLength": 1 },
         "worker": { "type": "number", "minimum": 0 },
         "ssl": { "type": "boolean" },
-        "ssl_cert": { "type": "string" },
-        "ssl_key": { "type": "string" }
+        "ssl_cert": { "type": "string", "minLength": 1 },
+        "ssl_key": { "type": "string", "minLength": 1 }
       }
     },
     "header": {
@@ -47,23 +48,23 @@
       "type": "object",
       "properties": {
         "enable": { "type": "boolean" },
-        "header": { "type": "string", "minimum": 1 }
+        "header": { "type": "string", "minLength": 1 }
       }
     },
     "recaptcha": {
       "type": "object",
       "properties": {
         "enable": { "type": "boolean" },
-        "url": { "type": "string", "minimum": 1 },
-        "sitekey": { "type": "string", "minimum": 1 },
-        "secret": { "type": "string", "minimum": 1 },
+        "url": { "type": "string", "minLength": 1 },
+        "sitekey": { "type": "string", "minLength": 1 },
+        "secret": { "type": "string", "minLength": 1 },
         "timeout": { "type": "number", "minimum": 0 }
       }
     },
     "csrf": {
       "type": "object",
       "properties": {
-        "prefix": { "type": "string", "minimum": 1 },
+        "prefix": { "type": "string", "minLength": 1 },
         "expire": { "type": "number", "minimum": 1 }
       }
     },

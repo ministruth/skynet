@@ -1,67 +1,75 @@
-use std::{
-    collections::HashMap,
-    time::{self},
-};
+use std::{collections::HashMap, time};
 
-use actix_session::Session;
-use actix_web::{cookie::time::Duration, web::Data, Responder};
 use actix_web_validator::Json;
-use anyhow::{anyhow, bail, Result};
 use awc::Client;
-use redis::aio::ConnectionManager;
-use sea_orm::{DatabaseConnection, TransactionTrait};
 use serde::{Deserialize, Serialize};
-use skynet::{
-    finish,
-    request::{Request, Response, ResponseCode, ResponseCookie, RspResult},
-    HyUuid, Skynet,
+use skynet_api::{
+    actix_cloud::{
+        actix_web::{
+            cookie::{time::Duration, Cookie, SameSite},
+            web::Data,
+            Responder,
+        },
+        bail,
+        response::{JsonResponse, RspResult},
+        session::Session,
+        state::GlobalState,
+    },
+    anyhow, finish,
+    request::Request,
+    sea_orm::{DatabaseConnection, TransactionTrait},
+    tracing::{info, warn},
+    HyUuid, Result, Skynet,
 };
-use tracing::{info, warn};
 use validator::Validate;
 
-use crate::api::{new_csrf_token, APIError, CSRF_COOKIE};
+use crate::{
+    finish_data, finish_err, finish_ok,
+    request::{new_csrf_token, APIError, CSRF_COOKIE},
+    SkynetResponse,
+};
 
 #[derive(Debug, Validate, Deserialize)]
 pub struct SigninReq {
     #[validate(length(max = 32))]
-    username: String,
-    password: String,
-    remember: Option<bool>,
+    pub username: String,
+    pub password: String,
+    pub remember: Option<bool>,
     #[serde(rename = "g-recaptcha-response")]
-    recaptcha: Option<String>,
+    pub recaptcha: Option<String>,
 }
 
 pub async fn signin(
     param: Json<SigninReq>,
     db: Data<DatabaseConnection>,
-    req: Request,
     session: Session,
+    req: Request,
     skynet: Data<Skynet>,
 ) -> RspResult<impl Responder> {
-    if skynet.config.recaptcha_enable.get() {
+    if skynet.config.recaptcha.enable {
         if let Some(x) = &param.recaptcha {
-            let timeout = skynet.config.recaptcha_timeout.get();
+            let timeout = skynet.config.recaptcha.timeout;
             if verify_recaptcha(
                 x.to_owned(),
-                req.ip.ip().to_string(),
+                req.extension.real_ip.ip().to_string(),
                 RecaptchaOption {
-                    url: skynet.config.recaptcha_url.get().to_owned(),
-                    secret: skynet.config.recaptcha_secret.get().to_owned(),
+                    url: skynet.config.recaptcha.url.clone(),
+                    secret: skynet.config.recaptcha.secret.clone().unwrap(),
                     timeout: if timeout == 0 {
                         None
                     } else {
-                        Some(time::Duration::from_secs(timeout.try_into()?))
+                        Some(time::Duration::from_secs(timeout.into()))
                     },
                 },
             )
             .await
             .is_err()
             {
-                finish!(Response::new(ResponseCode::CodeRecaptchaInvalid));
+                finish_err!(SkynetResponse::RecaptchaInvalid);
             }
         } else {
-            finish!(Response::bad_request(
-                APIError::MissingField("recaptcha".to_owned()).to_string(),
+            finish!(JsonResponse::bad_request(
+                APIError::MissingField(String::from("recaptcha")).to_string()
             ));
         }
     }
@@ -73,25 +81,29 @@ pub async fn signin(
         .await?;
     if !ok {
         warn!(username = param.username, "Invalid username or password");
-        finish!(Response::new(ResponseCode::CodeUserInvalid));
+        finish_err!(SkynetResponse::UserInvalid);
     }
     let user = skynet
         .user
-        .update_login(&tx, &user.unwrap().id, &req.ip.ip().to_string())
+        .update_login(
+            &tx,
+            &user.unwrap().id,
+            &req.extension.real_ip.ip().to_string(),
+        )
         .await?;
     tx.commit().await?;
 
     session.renew();
-    session.insert("id", user.id)?;
+    session.insert("_id", user.id)?;
     session.insert("name", user.username.clone())?;
     session.insert("time", user.last_login.unwrap())?;
     if param.remember.is_some_and(|x| x) {
-        session.insert("_ttl", skynet.config.session_remember.get())?;
+        session.insert("_ttl", skynet.config.session.remember)?;
     } else {
-        session.insert("_ttl", skynet.config.session_expire.get())?;
+        session.insert("_ttl", skynet.config.session.expire)?;
     }
     info!(success = true, id = %user.id, name = user.username, "User signin");
-    finish!(Response::ok());
+    finish_ok!();
 }
 
 #[derive(Debug)]
@@ -124,20 +136,20 @@ async fn verify_recaptcha(response: String, ip: String, option: RecaptchaOption)
             ("response", response),
         ])
         .await
-        .map_err(|e| anyhow!(e.to_string()))?;
+        .map_err(|x| anyhow!(x.to_string()))?;
     let rsp = rsp.json::<Response>().await?;
     if !rsp.error_codes.is_empty() {
-        bail!("remote error codes: {:?}", rsp.error_codes)
+        bail!("Remote error codes: {:?}", rsp.error_codes)
     }
     if !rsp.success {
-        bail!("invalid challenge solution or remote IP")
+        bail!("Invalid challenge solution or remote IP")
     }
     Ok(())
 }
 
 pub async fn signout(session: Session) -> RspResult<impl Responder> {
     session.purge();
-    finish!(Response::ok());
+    finish_ok!();
 }
 
 pub async fn get_access(req: Request) -> RspResult<impl Responder> {
@@ -160,20 +172,25 @@ pub async fn get_access(req: Request) -> RspResult<impl Responder> {
     req.perm.into_iter().for_each(|(_, v)| {
         rsp.permission.insert(v.name, v.perm);
     });
-    finish!(Response::data(rsp));
+    finish_data!(rsp);
 }
 
 pub async fn get_token(
     skynet: Data<Skynet>,
-    redis: Data<ConnectionManager>,
+    state: Data<GlobalState>,
 ) -> RspResult<impl Responder> {
-    let token = new_csrf_token(&skynet, &redis).await?;
-    finish!(Response::ok().add_cookie(ResponseCookie {
-        name: CSRF_COOKIE.to_owned(),
-        value: token,
-        max_age: Duration::seconds(skynet.config.csrf_timeout.get()),
-        http_only: false, // http_only must not be set
-        secure: skynet.config.listen_ssl.get(),
-        ..Default::default()
-    }));
+    let token = new_csrf_token(&skynet, &state).await?;
+    finish!(
+        JsonResponse::new(SkynetResponse::Success).builder(move |r| {
+            r.cookie(
+                Cookie::build(CSRF_COOKIE, &token)
+                    .max_age(Duration::seconds(skynet.config.csrf.expire.into()))
+                    .http_only(false)
+                    .path("/")
+                    .same_site(SameSite::Strict)
+                    .secure(skynet.config.listen.ssl)
+                    .finish(),
+            );
+        })
+    );
 }

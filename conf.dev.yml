@@ -3,6 +3,7 @@ database:
   dsn: "sqlite://../data.db?mode=rwc" # database dsn, support sqlite, mysql, postgresql
 
 redis:
+  enable: true # enable redis
   dsn: "redis://127.0.0.1:6379/0" # redis dsn
 
 session:
@@ -16,8 +17,8 @@ listen:
   address: "localhost:8080" # listen address
   worker: 0 # web workers, 0 for cores
   ssl: false # enable ssl
-  ssl_cert: "" # ssl certificate path(.crt)
-  ssl_key: "" # ssl key path(.key)
+  # ssl_cert: "" # ssl certificate path(.crt)
+  # ssl_key: "" # ssl key path(.key)
 
 header:
   csp: "default-src 'none'; script-src https://www.recaptcha.net https://www.gstatic.cn 'self' 'unsafe-eval' 'unsafe-inline'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; base-uri 'self'; frame-src 'self' https://www.recaptcha.net" # Content Security Policy, https://developer.mozilla.org/en-US/docs/Web/HTTP/CSP
@@ -29,13 +30,13 @@ proxy:
 recaptcha:
   enable: false # if enable recaptcha
   url: "https://www.recaptcha.net" # verify url
-  sitekey: "" # recaptcha sitekey
-  secret: "" # recaptcha secret
+  # sitekey: "" # recaptcha sitekey
+  # secret: "" # recaptcha secret
   timeout: 10 # connect timeout seconds
 
 csrf:
   prefix: "csrf_" # redis prefix
-  timeout: 10 # timeout second
+  expire: 10 # timeout second
 
 avatar: "default.webp" # default avatar
 lang: "en-US" # default language

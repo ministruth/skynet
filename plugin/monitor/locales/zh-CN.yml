@@ -4,3 +4,6 @@
   response:
     agent:
       exist: "客户端名已存在"
+    passive_agent:
+      name_exist: "被动客户端名已存在"
+      address_exist: "被动客户端地址已存在"

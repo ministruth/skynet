@@ -1,9 +1,9 @@
 use crate::{migration::m20230101_000001_create_table, ID};
 use sea_orm_migration::{MigrationTrait, MigratorTrait};
-use skynet::{
+use skynet_api::{
     async_trait,
     sea_orm::{
-        sea_query::{Alias, IntoIden},
+        sea_query::{types, Alias, IntoIden},
         DynIden,
     },
 };
@@ -19,4 +19,8 @@ impl MigratorTrait for Migrator {
     fn migration_table_name() -> DynIden {
         Alias::new(format!("seaql_migrations_{ID}")).into_iden()
     }
+}
+
+pub fn table_prefix(table: &impl types::Iden) -> Alias {
+    Alias::new(format!("{}_{}", ID, table.to_string()))
 }

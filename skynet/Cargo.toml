@@ -1,77 +1,37 @@
 [package]
 name = "skynet"
-version = "0.1.0"
+version = "0.2.0"
 edition = "2021"
 authors = ["MXWXZ <matrixwxz@gmail.com>"]
 description = "Service integration and management system, optimized for home-lab use."
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
-serde = { version = "1.0", features = ["derive"] }
-serde_json = "1.0"
-serde-inline-default = "0.2"
-serde_with = "3.6"
-serde_repr = "0.1"
-tracing = "0.1"
-tracing-subscriber = { version = "0.3", features = ["json", "parking_lot"] }
-tracing-actix-web = "0.7"
-colored = "2.1.0"
-chrono = "0.4"
-clap = { version = "4", features = ["derive"] }
-derivative = "2.2"
-uuid = { version = "1.7", features = ["v4", "macro-diagnostics", "fast-rng"] }
-libloading = "0.8"
-anyhow = "1.0"
-parking_lot = "0.12"
-thiserror = "1.0"
-semver = "1.0"
-walkdir = "2.4"
-num_cpus = "1.16"
-enum-as-inner = "0.6"
-enum-map = "2.7"
-rand = "0.8"
-argon2 = "0.5"
-rs-config = { package = "config", version = "0.14", features = ["yaml"] }
-qstring = "0.7"
-paste = "1.0"
-infer = "0.15"
-base64 = "0.22"
-crc32fast = "1.4"
-zip = "1.1.1"
-regex = "1.10"
+derivative = "2.2.0"
+clap = { version = "4.5.15", features = ["derive"] }
+parking_lot = "0.12.3"
+serde = { version = "1.0.208", features = ["derive"] }
+serde_json = "1.0.125"
+enum-map = "2.7.3"
+base64 = "0.22.1"
+argon2 = "0.5.3"
+rand = "0.8.5"
+num_cpus = "1.16.0"
+qstring = "0.7.2"
+thiserror = "1.0.63"
 
-tokio = { version = "1.37", features = ["full"] }
-async-trait = "0.1"
-futures = "0.3"
-awc = { version = "3.4", default-features = false, features = [
+actix-files = "0.6.6"
+validator = { version = "0.18.1", features = ["derive"] }
+actix-web-validator = "6.0.0"
+awc = { version = "3.5.1", default-features = false, features = [
     "cookies",
     "compress-gzip",
-    "rustls-0_22-webpki-roots",
-] }
-actix-web-validator = "5.0"
-validator = { version = "0.16", features = ["derive"] }
-actix-web = { version = "4", features = ["rustls-0_22"] }
-actix-files = "0.6"
-actix-session = { path = "../actix-session", features = [
-    "redis-rs-session",
-    "redis-rs-tls-session",
-] }
-actix-http = "3.6"
-rustls = "0.22"
-rustls-pemfile = "2"
-
-redis = { version = "0.25", features = ["tokio-comp", "tokio-rustls-comp"] }
-sea-orm = { version = "^0", features = [
-    "sqlx-sqlite",
-    "sqlx-postgres",
-    "sqlx-mysql",
-    "runtime-tokio-rustls",
-    "macros",
-    "with-uuid",
-    "debug-print",
+    "rustls-0_23-webpki-roots",
 ] }
 
+skynet_api = { version = "0.1.0", path = "../skynet_api" }
 skynet_macro = { path = "../skynet_macro" }
-skynet_i18n = { path = "../skynet_i18n" }
 migration = { path = "../migration" }
+
+[build-dependencies]
+
+actix-cloud = { version = "0.4.0", features = ["response-build"] }

@@ -1,26 +1,31 @@
 use std::hash::{Hash, Hasher};
 
-use actix_web::{
-    web::{Data, Path},
-    Responder,
-};
 use actix_web_validator::Json;
-use sea_orm::{DatabaseConnection, TransactionTrait};
 use serde::{Deserialize, Serialize};
-use skynet::{
+use skynet_api::{
+    actix_cloud::{
+        actix_web::{
+            web::{Data, Path},
+            Responder,
+        },
+        response::{JsonResponse, RspResult},
+    },
     finish,
     permission::UserPerm,
-    request::{unique_validator, Response, ResponseCode, RspResult},
-    Condition, HyUuid, Skynet,
+    request::{unique_validator, Condition},
+    sea_orm::{DatabaseConnection, TransactionTrait},
+    tracing::info,
+    HyUuid, Skynet,
 };
-use tracing::info;
 use validator::Validate;
+
+use crate::{finish_data, finish_err, finish_ok, SkynetResponse};
 
 pub async fn get(db: Data<DatabaseConnection>, skynet: Data<Skynet>) -> RspResult<impl Responder> {
     let tx = db.begin().await?;
     let data = skynet.perm.find(&tx, Condition::default()).await?.0;
     tx.commit().await?;
-    finish!(Response::data(data));
+    finish_data!(data);
 }
 
 #[derive(Serialize)]
@@ -50,7 +55,7 @@ pub async fn get_group(
 ) -> RspResult<impl Responder> {
     let tx = db.begin().await?;
     if skynet.group.find_by_id(&tx, &gid).await?.is_none() {
-        finish!(Response::not_found());
+        finish!(JsonResponse::not_found());
     }
     let data: Vec<GetRsp> = skynet
         .perm
@@ -68,7 +73,7 @@ pub async fn get_group(
         })
         .collect();
     tx.commit().await?;
-    finish!(Response::data(data));
+    finish_data!(data);
 }
 
 pub async fn get_user(
@@ -78,7 +83,7 @@ pub async fn get_user(
 ) -> RspResult<impl Responder> {
     let tx = db.begin().await?;
     if skynet.user.find_by_id(&tx, &uid).await?.is_none() {
-        finish!(Response::not_found());
+        finish!(JsonResponse::not_found());
     }
     let data: Vec<GetRsp> = skynet
         .get_user_perm(&tx, &uid)
@@ -103,14 +108,14 @@ pub async fn get_user(
         })
         .collect();
     tx.commit().await?;
-    finish!(Response::data(data));
+    finish_data!(data);
 }
 
 #[derive(Debug, Eq, Validate, Deserialize, Serialize)]
 pub struct PutReq {
-    id: HyUuid,
+    pub id: HyUuid,
     #[validate(range(min = -1, max = 7))]
-    perm: i32,
+    pub perm: i32,
 }
 
 impl PartialEq for PutReq {
@@ -128,9 +133,9 @@ impl Hash for PutReq {
 #[derive(Debug, Validate, Deserialize)]
 #[serde(transparent)]
 pub struct VecPutReq {
-    #[validate]
-    #[validate(length(min = 1), custom = "unique_validator")]
-    inner: Vec<PutReq>,
+    #[validate(nested)]
+    #[validate(length(min = 1), custom(function = "unique_validator"))]
+    pub inner: Vec<PutReq>,
 }
 
 pub async fn put_group(
@@ -141,7 +146,7 @@ pub async fn put_group(
 ) -> RspResult<impl Responder> {
     let tx = db.begin().await?;
     if skynet.group.find_by_id(&tx, &gid).await?.is_none() {
-        finish!(Response::not_found());
+        finish!(JsonResponse::not_found());
     }
     let perm: Vec<HyUuid> = skynet
         .perm
@@ -153,7 +158,7 @@ pub async fn put_group(
         .collect();
     for i in &param.inner {
         if !perm.contains(&i.id) {
-            finish!(Response::new(ResponseCode::CodePermissionNotExist));
+            finish_err!(SkynetResponse::PermissionNotExist);
         }
     }
     for i in &param.inner {
@@ -169,7 +174,7 @@ pub async fn put_group(
         perm = ?param.inner,
         "Put group permission",
     );
-    finish!(Response::ok());
+    finish_ok!();
 }
 
 pub async fn put_user(
@@ -179,11 +184,11 @@ pub async fn put_user(
     skynet: Data<Skynet>,
 ) -> RspResult<impl Responder> {
     if uid.is_nil() {
-        finish!(Response::new(ResponseCode::CodeUserRoot));
+        finish_err!(SkynetResponse::UserRoot);
     }
     let tx = db.begin().await?;
     if skynet.user.find_by_id(&tx, &uid).await?.is_none() {
-        finish!(Response::not_found());
+        finish!(JsonResponse::not_found());
     }
     let perm: Vec<HyUuid> = skynet
         .perm
@@ -195,7 +200,7 @@ pub async fn put_user(
         .collect();
     for i in &param.inner {
         if !perm.contains(&i.id) {
-            finish!(Response::new(ResponseCode::CodePermissionNotExist));
+            finish_err!(SkynetResponse::PermissionNotExist);
         }
     }
     for i in &param.inner {
@@ -206,5 +211,5 @@ pub async fn put_user(
     }
     tx.commit().await?;
     info!(success = true, uid = %uid, perm = ?param.inner, "Put user permission");
-    finish!(Response::ok());
+    finish_ok!();
 }

@@ -1,18 +1,22 @@
 use std::{fs, path::PathBuf};
 
-use sea_orm::{DatabaseConnection, TransactionTrait};
-use skynet::Skynet;
-use tracing::{debug, error, info};
+use skynet_api::{
+    logger::Logger,
+    sea_orm::{DatabaseConnection, TransactionTrait},
+    tracing::{debug, error, info},
+    Skynet,
+};
 
 use crate::{Cli, UserCli, UserCommands};
 
-use super::run::init_skynet;
+use super::init;
 
 async fn create(
     skynet: &Skynet,
     db: &DatabaseConnection,
     avatar: &Option<PathBuf>,
     username: &str,
+    root: bool,
 ) {
     let mut avatar_file: Option<Vec<u8>> = None;
     if let Some(x) = avatar {
@@ -31,7 +35,7 @@ async fn create(
     } else {
         let user = skynet
             .user
-            .create(&tx, username, None, avatar_file)
+            .create(&tx, username, None, avatar_file, root)
             .await
             .unwrap();
         info!("New pass: {}", user.password);
@@ -39,12 +43,14 @@ async fn create(
     tx.commit().await.unwrap();
 }
 
-pub async fn command(cli: &Cli, skynet: Skynet, user_cli: &UserCli) {
-    let (skynet, db, redis) = init_skynet(cli, skynet).await;
+pub async fn command(cli: &Cli, logger: Logger, user_cli: &UserCli) {
+    let (skynet, state, db) = init(cli, logger).await;
 
     match &user_cli.command {
         // skynet user add
-        UserCommands::Add { avatar, username } => create(&skynet, &db, avatar, username).await,
+        UserCommands::Add { avatar, username } => {
+            create(&skynet, &db, avatar, username, false).await
+        }
         // skynet user reset
         UserCommands::Reset { username } => {
             let tr = db.begin().await.unwrap();
@@ -52,7 +58,7 @@ pub async fn command(cli: &Cli, skynet: Skynet, user_cli: &UserCli) {
             if let Some(x) = user {
                 let x = skynet
                     .user
-                    .reset(&tr, &redis, &skynet, &x.id)
+                    .reset(&tr, state.memorydb, &skynet, &x.id)
                     .await
                     .unwrap()
                     .unwrap();
@@ -63,6 +69,6 @@ pub async fn command(cli: &Cli, skynet: Skynet, user_cli: &UserCli) {
             };
             tr.commit().await.unwrap();
         }
-        UserCommands::Init { avatar } => create(&skynet, &db, avatar, "root").await,
+        UserCommands::Init { avatar } => create(&skynet, &db, avatar, "root", true).await,
     }
 }

@@ -1,29 +1,28 @@
-use std::{collections::HashMap, env, io, path::PathBuf, process::Command};
+use std::{io, path::PathBuf};
 
-use chrono::DateTime;
 use clap::{Args, Parser, Subcommand};
 use cmd::{check, run, user};
-use enum_as_inner::EnumAsInner;
-use enum_map::EnumMap;
-use handler_impl::{
-    group::DefaultGroupHandler, notifications::DefaultNotificationHandler,
-    permission::DefaultPermHandler, setting::DefaultSettingHandler, user::DefaultUserHandler,
+use handler::logger::start_logger;
+use skynet_api::{
+    actix_cloud::{self, utils},
+    tracing::error,
 };
-use parking_lot::RwLock;
-use skynet::{config::Config, logger::Logger, plugin::PluginManager};
+
+include!(concat!(env!("OUT_DIR"), "/response.rs"));
 
 mod api;
 mod cmd;
-mod handler_impl;
+mod db;
+mod handler;
+mod request;
 
-#[allow(clippy::struct_excessive_bools)]
 #[derive(Parser, Clone)]
 #[command(author, version, about, long_about = None)]
 struct Cli {
     #[command(subcommand)]
     command: Commands,
 
-    /// Config file
+    /// Config file.
     #[arg(
         short,
         long,
@@ -33,7 +32,7 @@ struct Cli {
     )]
     config: PathBuf,
 
-    /// Plugin folder path
+    /// Plugin folder path.
     #[arg(
         short,
         long,
@@ -43,26 +42,26 @@ struct Cli {
     )]
     plugin: PathBuf,
 
-    /// Show verbose/debug log
+    /// Show verbose/debug log.
     #[arg(short, long, global = true)]
     verbose: bool,
 
-    /// Do not print any log
+    /// Do not print any log.
     #[arg(short, long, global = true)]
     quiet: bool,
 
-    /// Persist previous session when initialized
+    /// Persist previous session when initialized.
     #[arg(long, global = true)]
     persist_session: bool,
 
-    /// Use JSON to format log
+    /// Use JSON to format log.
     #[arg(long, global = true)]
     log_json: bool,
 }
 
-#[derive(Subcommand, EnumAsInner, Clone)]
+#[derive(Subcommand, Clone)]
 enum Commands {
-    /// Run skynet
+    /// Run skynet.
     Run {
         /// Do not print the cover (ascii picture) when start.
         #[arg(long)]
@@ -76,9 +75,9 @@ enum Commands {
         #[arg(short, long)]
         daemon: bool,
     },
-    /// User management
+    /// User management.
     User(UserCli),
-    /// Check config file
+    /// Check config file.
     Check,
 }
 
@@ -88,59 +87,36 @@ struct UserCli {
     command: UserCommands,
 }
 
-#[derive(Subcommand, EnumAsInner, Clone)]
+#[derive(Subcommand, Clone)]
 enum UserCommands {
-    /// Add new user
+    /// Add new user.
     Add {
-        /// User avatar
+        /// User avatar.
         #[arg(short, long, value_name = "FILE")]
         avatar: Option<PathBuf>,
 
-        /// New username
+        /// New username.
         username: String,
     },
 
-    /// Init root user
+    /// Init root user.
     Init {
-        /// User avatar
+        /// User avatar.
         #[arg(short, long, value_name = "FILE")]
         avatar: Option<PathBuf>,
     },
 
-    /// Reset user
+    /// Reset user.
     Reset {
-        /// Reset username
+        /// Reset username.
         username: String,
     },
 }
 
-#[actix_web::main]
+#[actix_cloud::main]
 async fn main() -> io::Result<()> {
     let cli = Cli::parse();
-    let mut skynet = skynet::Skynet {
-        logger: Logger::new(),
-        user: Box::new(DefaultUserHandler::new()),
-        group: Box::new(DefaultGroupHandler::new()),
-        perm: Box::new(DefaultPermHandler::new()),
-        notification: Box::new(DefaultNotificationHandler::new()),
-        setting: Box::new(DefaultSettingHandler::new()),
-
-        default_id: EnumMap::default(),
-        config: Config::new(),
-        locale: HashMap::new(),
-
-        plugin: PluginManager::new(),
-        menu: Vec::new(),
-
-        running: RwLock::new(false),
-        start_time: DateTime::default(),
-
-        shared_api: HashMap::new(),
-    };
-    // init logger first
-    skynet
-        .logger
-        .start_logger(!cli.quiet, cli.log_json, cli.verbose);
+    let (logger, _guard) = start_logger(!cli.quiet, cli.log_json, cli.verbose);
 
     let mut restart = false;
     match &cli.command {
@@ -150,17 +126,15 @@ async fn main() -> io::Result<()> {
             daemon,
         } => {
             restart = *daemon;
-            Box::pin(run::command(&cli, skynet, *skip_cover, *disable_csrf)).await;
+            run::command(&cli, logger, *skip_cover, *disable_csrf).await;
         }
-        Commands::User(user_cli) => Box::pin(user::command(&cli, skynet, user_cli)).await,
+        Commands::User(user_cli) => user::command(&cli, logger, user_cli).await,
         Commands::Check => check::command(&cli),
     }
     if restart {
-        return Command::new(env::current_exe().unwrap())
-            .args(env::args().skip(1))
-            .spawn()
-            .map_err(Into::into)
-            .and(Ok(()));
+        if let Err(e) = utils::restart() {
+            error!(error = %e, "Failed to restart program");
+        }
     }
     Ok(())
 }

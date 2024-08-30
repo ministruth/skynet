@@ -1,0 +1,47 @@
+syntax = "proto3";
+package msg;
+
+message FrontendMessage {
+  optional string id = 1; // agent id
+  oneof data {
+    ShellOutputMessage shell_output = 10;
+    ShellErrorMessage shell_error = 11;
+
+    ShellConnectMessage shell_connect = 50;
+    ShellInputMessage shell_input = 51;
+    ShellResizeMessage shell_resize = 52;
+    ShellDisconnectMessage shell_disconnect = 53;
+  }
+}
+
+message ShellOutputMessage {
+  optional string token = 1; // shell token
+  bytes data = 2;            // output data
+}
+
+message ShellErrorMessage {
+  optional string token = 1; // shell token
+  string error = 2;          // error
+}
+
+message ShellConnectMessage {
+  string token = 1; // shell token
+  string cmd = 2;   // exe cmd
+  uint32 rows = 3;  // row
+  uint32 cols = 4;  // col
+}
+
+message ShellInputMessage {
+  optional string token = 1; // shell token
+  bytes data = 2;            // input data
+}
+
+message ShellResizeMessage {
+  optional string token = 1; // shell token
+  uint32 rows = 2;           // row
+  uint32 cols = 3;           // col
+}
+
+message ShellDisconnectMessage {
+  optional string token = 1; // shell token
+}

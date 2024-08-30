@@ -27,6 +27,3 @@ response:
     notexist: "Permission does not exist"
   plugin:
     loaded: "Plugin is already loaded"
-    exist: "Plugin already exists"
-    invalid: "Plugin file is invalid"
-    invalid_hash: "Plugin hash mismatch"

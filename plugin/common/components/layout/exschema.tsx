@@ -13,6 +13,7 @@ export interface ExSchemaProps {
 
 export type ExSchemaHandle = {
   enableSubmit: (enable: boolean) => void;
+  refresh: () => void;
 };
 
 const ExSchema = forwardRef<
@@ -31,9 +32,12 @@ const ExSchema = forwardRef<
         enableSubmit(enable: boolean) {
           setChanged(enable);
         },
+        refresh() {
+          setSeed(seed + 1);
+        },
       };
     },
-    [],
+    [seed, changed],
   );
 
   return (
