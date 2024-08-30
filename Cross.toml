@@ -1,17 +1,13 @@
-[target.i686-unknown-linux-musl]
+[target.i686-unknown-linux-gnu]
 pre-build = [
     "apt-get update && apt-get install --assume-yes unzip",
     "curl -LO https://github.com/protocolbuffers/protobuf/releases/download/v27.3/protoc-27.3-linux-x86_64.zip",
     "unzip protoc-27.3-linux-x86_64.zip -d $HOME/.local",
     "rm protoc-27.3-linux-x86_64.zip",
     "mv $HOME/.local/bin/* /usr/bin/",
-    "curl https://sh.rustup.rs -sSf | sh -s -- -y",
-    "$HOME/.cargo/bin/cargo install bindgen-cli",
-    "cp $HOME/.cargo/bin/bindgen /usr/bin/",
-    "$HOME/.cargo/bin/rustup self uninstall -y",
 ]
 
-[target.aarch64-unknown-linux-musl]
+[target.aarch64-unknown-linux-gnu]
 pre-build = [
     "apt-get update && apt-get install --assume-yes unzip",
     "curl -LO https://github.com/protocolbuffers/protobuf/releases/download/v27.3/protoc-27.3-linux-x86_64.zip",
