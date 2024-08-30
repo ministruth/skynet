@@ -1,15 +1,5 @@
-[target.x86_64-unknown-linux-gnu]
+[target.i686-unknown-linux-musl]
 pre-build = [
-    "apt-get update && apt-get remove -y gcc g++ && apt-get install -y gcc-10 g++-10",
-    "ln -s /usr/bin/gcc-10 /usr/bin/gcc",
-    "ln -s /usr/bin/g++-10 /usr/bin/g++",
-]
-
-[target.i686-unknown-linux-gnu]
-pre-build = [
-    "apt-get update && apt-get remove -y gcc g++ && apt-get install -y gcc-10 g++-10",
-    "ln -s /usr/bin/gcc-10 /usr/bin/gcc",
-    "ln -s /usr/bin/g++-10 /usr/bin/g++",
     "apt-get update && apt-get install --assume-yes unzip",
     "curl -LO https://github.com/protocolbuffers/protobuf/releases/download/v27.3/protoc-27.3-linux-x86_64.zip",
     "unzip protoc-27.3-linux-x86_64.zip -d $HOME/.local",
@@ -17,11 +7,8 @@ pre-build = [
     "mv $HOME/.local/bin/* /usr/bin/",
 ]
 
-[target.aarch64-unknown-linux-gnu]
+[target.aarch64-unknown-linux-musl]
 pre-build = [
-    "apt-get update && apt-get remove -y gcc g++ && apt-get install -y gcc-10 g++-10",
-    "ln -s /usr/bin/gcc-10 /usr/bin/gcc",
-    "ln -s /usr/bin/g++-10 /usr/bin/g++",
     "apt-get update && apt-get install --assume-yes unzip",
     "curl -LO https://github.com/protocolbuffers/protobuf/releases/download/v27.3/protoc-27.3-linux-x86_64.zip",
     "unzip protoc-27.3-linux-x86_64.zip -d $HOME/.local",

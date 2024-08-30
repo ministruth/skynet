@@ -36,22 +36,22 @@ jobs:
         platform:
           - os_name: linux-x86_64
             os: ubuntu-20.04
-            target: x86_64-unknown-linux-gnu
+            target: x86_64-unknown-linux-musl
             bin: skynet
             name: skynet-linux-x86_64.tar.gz
           - os_name: linux-i686
             os: ubuntu-20.04
-            target: i686-unknown-linux-gnu
+            target: i686-unknown-linux-musl
             bin: skynet
             name: skynet-linux-i686.tar.gz
           - os_name: linux-aarch64
             os: ubuntu-20.04
-            target: aarch64-unknown-linux-gnu
+            target: aarch64-unknown-linux-musl
             bin: skynet
             name: skynet-linux-aarch64.tar.gz
           - os_name: windows-x86_64
             os: windows-latest
-            target: x86_64-pc-windows-gnu
+            target: x86_64-pc-windows-msvc
             bin: skynet.exe
             name: skynet-windows-x86_64.zip
           - os_name: macOS-x86_64
@@ -82,6 +82,10 @@ jobs:
           echo "${{ steps.protoc-install.outputs.path }}" >> $GITHUB_PATH
       - name: Build binary
         uses: houseabsolute/actions-rust-cross@v0
+        env:
+          CARGO_TARGET_X86_64_UNKNOWN_LINUX_MUSL_RUSTFLAGS: "-C target-feature=-crt-static"
+          CARGO_TARGET_I686_UNKNOWN_LINUX_MUSL_RUSTFLAGS: "-C target-feature=-crt-static"
+          CARGO_TARGET_AARCH64_UNKNOWN_LINUX_MUSL_RUSTFLAGS: "-C target-feature=-crt-static"
         with:
           command: "both"
           target: ${{ matrix.platform.target }}
