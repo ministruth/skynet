@@ -5,6 +5,7 @@ pre-build = [
     "unzip protoc-27.3-linux-x86_64.zip -d $HOME/.local",
     "rm protoc-27.3-linux-x86_64.zip",
     "mv $HOME/.local/bin/* /usr/bin/",
+    "cargo install --force --locked bindgen-cli",
 ]
 
 [target.aarch64-unknown-linux-musl]
