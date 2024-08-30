@@ -74,6 +74,7 @@ jobs:
         with:
           repo-token: ${{ secrets.GITHUB_TOKEN }}
       - name: Set protoc env
+        shell: bash
         run: |
           if [[ "${{ matrix.platform.os }}" == "windows-latest" ]]; then
             echo "PROTOC=${{ steps.protoc-install.outputs.path }}/protoc.exe" >> "$GITHUB_ENV"
