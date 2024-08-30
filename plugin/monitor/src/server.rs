@@ -6,13 +6,6 @@ use aes_gcm::aead::{Aead, OsRng};
 use aes_gcm::{AeadCore, Aes256Gcm, KeyInit, Nonce};
 use derivative::Derivative;
 use miniz_oxide::deflate::compress_to_vec;
-use monitor_api::{
-    ecies::{self, SecretKey},
-    message::Data,
-    prost::Message as _,
-    AgentStatus, HandshakeReqMessage, HandshakeRspMessage, HandshakeStatus, InfoMessage, Message,
-    StatusReqMessage, StatusRspMessage, UpdateMessage, ID,
-};
 use skynet_api::actix_cloud::bail;
 use skynet_api::actix_cloud::chrono::{DateTime, Utc};
 use skynet_api::actix_cloud::tokio::io::{AsyncReadExt, AsyncWriteExt};
@@ -30,6 +23,13 @@ use skynet_api::{
     sea_orm::TransactionTrait,
     tracing::{debug, error, field, info, info_span, warn, Instrument, Span},
     HyUuid, Result,
+};
+use skynet_api_monitor::{
+    ecies::{self, SecretKey},
+    message::Data,
+    prost::Message as _,
+    AgentStatus, HandshakeReqMessage, HandshakeRspMessage, HandshakeStatus, InfoMessage, Message,
+    StatusReqMessage, StatusRspMessage, UpdateMessage, ID,
 };
 
 use crate::ws_handler::{ShellError, ShellOutput};
@@ -224,9 +224,9 @@ impl Handler {
             .await?;
         tx.commit().await?;
         if let Some(x) = AGENT_API.get() {
-            if agent_api::Service::check_version(&version) {
-                let sys = agent_api::System::parse(&sys);
-                let arch = agent_api::Arch::parse(&arch);
+            if skynet_api_agent::Service::check_version(&version) {
+                let sys = skynet_api_agent::System::parse(&sys);
+                let arch = skynet_api_agent::Arch::parse(&arch);
                 if sys.is_none() || arch.is_none() {
                     warn!(
                         arch = ?arch,
@@ -468,7 +468,7 @@ pub struct Server {
 }
 
 #[async_trait]
-impl monitor_api::Server for Server {
+impl skynet_api_monitor::Server for Server {
     async fn start(&self, addr: &str, key: SecretKey) -> Result<()> {
         let (tx, mut rx) = channel(1);
         let (passive_tx, passive_rx) = unbounded_channel();

@@ -3,10 +3,6 @@ use std::sync::Arc;
 use std::{cmp::max, collections::HashMap};
 
 use itertools::Itertools;
-use monitor_api::entity::passive_agents;
-use monitor_api::message::Data;
-use monitor_api::{ecies::SecretKey, entity::agents, Agent, AgentStatus, ID};
-use monitor_api::{InfoMessage, StatusRspMessage};
 use once_cell::sync::Lazy;
 use serde_json::Value;
 use skynet_api::actix_cloud::anyhow;
@@ -21,13 +17,17 @@ use skynet_api::{
     sea_orm::{ActiveModelTrait, ColumnTrait, DatabaseTransaction, EntityTrait, QueryFilter, Set},
     HyUuid, Result, Skynet,
 };
+use skynet_api_monitor::entity::passive_agents;
+use skynet_api_monitor::message::Data;
+use skynet_api_monitor::{ecies::SecretKey, entity::agents, Agent, AgentStatus, ID};
+use skynet_api_monitor::{InfoMessage, StatusRspMessage};
 
 static SETTING_ADDRESS: Lazy<String> = Lazy::new(|| format!("plugin_{ID}_address"));
 static SETTING_CERTIFICATE: Lazy<String> = Lazy::new(|| format!("plugin_{ID}_certificate"));
 static SETTING_SHELL: Lazy<String> = Lazy::new(|| format!("plugin_{ID}_shell"));
 
 pub struct Service {
-    pub server: Arc<Box<dyn monitor_api::Server>>,
+    pub server: Arc<Box<dyn skynet_api_monitor::Server>>,
     pub view_id: HyUuid,
     pub manage_id: HyUuid,
     pub agent: Arc<RwLock<HashMap<HyUuid, Agent>>>,
@@ -351,8 +351,8 @@ impl Service {
 }
 
 #[async_trait]
-impl monitor_api::Service for Service {
-    fn get_server(&self) -> Arc<Box<dyn monitor_api::Server>> {
+impl skynet_api_monitor::Service for Service {
+    fn get_server(&self) -> Arc<Box<dyn skynet_api_monitor::Server>> {
         self.server.clone()
     }
 

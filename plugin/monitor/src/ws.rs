@@ -1,10 +1,6 @@
 use actix::{Actor, ActorContext, Addr, AsyncContext, StreamHandler};
 use actix_web_actors::ws::{self, start, ProtocolError, WebsocketContext};
 use derivative::Derivative;
-use monitor_api::{
-    frontend_message::Data, message, prost::Message as _, FrontendMessage, ShellDisconnectMessage,
-    ShellErrorMessage,
-};
 use skynet_api::{
     actix_cloud::{
         actix_web::{
@@ -16,6 +12,10 @@ use skynet_api::{
     anyhow,
     tracing::{debug, Instrument},
     HyUuid, Result,
+};
+use skynet_api_monitor::{
+    frontend_message::Data, message, prost::Message as _, FrontendMessage, ShellDisconnectMessage,
+    ShellErrorMessage,
 };
 use skynet_macro::plugin_api;
 

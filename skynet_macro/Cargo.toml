@@ -3,12 +3,15 @@ name = "skynet_macro"
 version = "0.1.0"
 edition = "2021"
 authors = ["MXWXZ <matrixwxz@gmail.com>"]
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+description = "Macros for Skynet."
+license = "GPL-3.0"
+repository = "https://github.com/MXWXZ/skynet"
+keywords = ["framework", "api", "ffi", "plugin"]
+categories = ["api-bindings", "external-ffi-bindings"]
 
 [dependencies]
 quote = "1.0.36"
-syn = "2.0.74"
+syn = { version = "2.0.74", features = ["full", "extra-traits"] }
 
 [lib]
 proc-macro = true

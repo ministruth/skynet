@@ -1,10 +1,10 @@
 use std::io::{ErrorKind, Read, Write};
 
-use monitor_api::{message::Data, ShellOutputMessage};
 use portable_pty::{native_pty_system, Child, CommandBuilder, PtyPair, PtySize};
 use skynet_api::actix_cloud::tokio::spawn;
 use skynet_api::actix_cloud::tokio::sync::mpsc::UnboundedSender;
 use skynet_api::Result;
+use skynet_api_monitor::{message::Data, ShellOutputMessage};
 
 pub struct ShellInstance {
     writer: Box<dyn Write + Send>,

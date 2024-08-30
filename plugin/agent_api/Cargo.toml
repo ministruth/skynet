@@ -1,13 +1,16 @@
 [package]
-name = "agent_api"
+name = "skynet_api_agent"
 version = "0.2.0"
 edition = "2021"
 authors = ["MXWXZ <matrixwxz@gmail.com>"]
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+description = "API for Skynet agent plugin."
+license = "GPL-3.0"
+repository = "https://github.com/MXWXZ/skynet"
+keywords = ["framework", "api", "ffi", "plugin"]
+categories = ["api-bindings", "external-ffi-bindings"]
 
 [dependencies]
 version-compare = "0.2.0"
 enum-as-inner = "0.6.0"
 
-skynet_api = { path = "../../skynet_api" }
+skynet_api = { version = "0.1.0", path = "../../skynet_api" }

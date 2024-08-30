@@ -3,9 +3,9 @@ use byte_unit::{Byte, UnitType};
 use clap::{command, Args, Parser, Subcommand};
 use client::run;
 use logger::start_logger;
-use monitor_api::ecies::PublicKey;
 use sha3::{digest::ExtendableOutput, Shake256};
 use skynet_api::actix_cloud::tokio;
+use skynet_api_monitor::ecies::PublicKey;
 use std::{env::consts, fs, net::IpAddr, path::PathBuf};
 use sysinfo::{
     CpuRefreshKind, Disks, MemoryRefreshKind, NetworkData, Networks, RefreshKind, System,

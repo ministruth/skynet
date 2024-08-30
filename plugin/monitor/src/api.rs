@@ -2,11 +2,6 @@ use std::{sync::Arc, time::Duration};
 
 use actix_web_validator::{Json, QsQuery};
 use base64::{engine::general_purpose::STANDARD, Engine};
-use monitor_api::{
-    ecies::{utils::generate_keypair, PublicKey},
-    entity::passive_agents,
-    AgentStatus, ReconnectMessage, Service, ID,
-};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use skynet_api::{
@@ -25,6 +20,11 @@ use skynet_api::{
     sea_orm::{ColumnTrait, IntoSimpleExpr, TransactionTrait},
     tracing::{error, info, Instrument},
     HyUuid, Skynet,
+};
+use skynet_api_monitor::{
+    ecies::{utils::generate_keypair, PublicKey},
+    entity::passive_agents,
+    AgentStatus, ReconnectMessage, Service, ID,
 };
 use skynet_macro::{common_req, plugin_api};
 use validator::Validate;
@@ -340,7 +340,9 @@ pub async fn put_settings(
 pub async fn reconnect_agent(aid: Path<HyUuid>) -> RspResult<impl Responder> {
     if let Some(agent) = SERVICE.get().unwrap().agent.read().get(&aid) {
         if let Some(x) = &agent.message {
-            x.send(monitor_api::message::Data::Reconnect(ReconnectMessage {}))?;
+            x.send(skynet_api_monitor::message::Data::Reconnect(
+                ReconnectMessage {},
+            ))?;
         }
     } else {
         finish!(JsonResponse::not_found());

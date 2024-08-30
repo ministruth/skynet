@@ -21,8 +21,8 @@ aes-gcm = "0.10.3"
 crc32fast = "1.4.2"
 miniz_oxide = "0.8.0"
 
-monitor_api = { path = "../monitor_api" }
-agent_api = { path = "../agent_api" }
+skynet_api_monitor = { version = "0.2.0", path = "../monitor_api" }
+skynet_api_agent = { version = "0.2.0", path = "../agent_api" }
 skynet_api = { path = "../../skynet_api" }
 skynet_macro = { path = "../../skynet_macro" }
 sea-orm-migration = { version = "1.0.1", features = [

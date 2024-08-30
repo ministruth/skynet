@@ -420,7 +420,6 @@ name = "agent"
 version = "0.2.0"
 dependencies = [
  "aes-gcm",
- "agent_api",
  "base64 0.22.1",
  "byte-unit",
  "clap",
@@ -429,22 +428,14 @@ dependencies = [
  "hex",
  "machine-uid",
  "miniz_oxide 0.8.0",
- "monitor_api",
  "portable-pty",
  "self-replace",
  "sha3",
  "skynet_api",
+ "skynet_api_agent",
+ "skynet_api_monitor",
  "sysinfo",
  "thiserror",
-]
-
-[[package]]
-name = "agent_api"
-version = "0.2.0"
-dependencies = [
- "enum-as-inner",
- "skynet_api",
- "version-compare",
 ]
 
 [[package]]
@@ -2552,37 +2543,20 @@ dependencies = [
  "actix-web-actors",
  "actix-web-validator",
  "aes-gcm",
- "agent_api",
  "base64 0.22.1",
  "crc32fast",
  "derivative",
  "itertools 0.13.0",
  "miniz_oxide 0.8.0",
- "monitor_api",
  "once_cell",
  "sea-orm-migration",
  "serde",
  "serde_json",
  "skynet_api",
- "skynet_macro",
+ "skynet_api_agent",
+ "skynet_api_monitor",
+ "skynet_macro 0.1.0",
  "validator",
-]
-
-[[package]]
-name = "monitor_api"
-version = "0.2.0"
-dependencies = [
- "derivative",
- "ecies",
- "enum-as-inner",
- "prost",
- "prost-build",
- "serde",
- "serde_repr",
- "skynet_api",
- "skynet_macro",
- "tokio",
- "walkdir",
 ]
 
 [[package]]
@@ -4155,7 +4129,7 @@ dependencies = [
  "serde",
  "serde_json",
  "skynet_api",
- "skynet_macro",
+ "skynet_macro 0.1.0",
  "thiserror",
  "validator",
 ]
@@ -4180,7 +4154,7 @@ dependencies = [
  "serde-inline-default",
  "serde_repr",
  "serde_with",
- "skynet_macro",
+ "skynet_macro 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "thiserror",
  "uuid",
  "validator",
@@ -4189,8 +4163,44 @@ dependencies = [
 ]
 
 [[package]]
+name = "skynet_api_agent"
+version = "0.2.0"
+dependencies = [
+ "enum-as-inner",
+ "skynet_api",
+ "version-compare",
+]
+
+[[package]]
+name = "skynet_api_monitor"
+version = "0.2.0"
+dependencies = [
+ "derivative",
+ "ecies",
+ "enum-as-inner",
+ "prost",
+ "prost-build",
+ "serde",
+ "serde_repr",
+ "skynet_api",
+ "skynet_macro 0.1.0",
+ "tokio",
+ "walkdir",
+]
+
+[[package]]
 name = "skynet_macro"
 version = "0.1.0"
+dependencies = [
+ "quote",
+ "syn 2.0.76",
+]
+
+[[package]]
+name = "skynet_macro"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ee8f04528a5a83553ae2c1f47b0d0944d580a7f8f94f7b6b7b2ceec60413adbc"
 dependencies = [
  "quote",
  "syn 2.0.76",

@@ -22,8 +22,8 @@ portable-pty = "0.8.1"
 thiserror = "1.0.63"
 aes-gcm = "0.10.3"
 
-agent_api = { path = "../agent_api" }
-monitor_api = { path = "../monitor_api" }
+skynet_api_monitor = { version = "0.2.0", path = "../monitor_api" }
+skynet_api_agent = { version = "0.2.0", path = "../agent_api" }
 skynet_api = { path = "../../skynet_api" }
 
 [lib]

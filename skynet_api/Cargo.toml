@@ -57,4 +57,4 @@ actix-cloud = { version = "0.4.0", features = [
     "seaorm",
     "csrf",
 ] }
-skynet_macro = { path = "../skynet_macro" }
+skynet_macro = "0.1.0"

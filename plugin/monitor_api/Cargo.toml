@@ -1,8 +1,13 @@
 [package]
-name = "monitor_api"
+name = "skynet_api_monitor"
 version = "0.2.0"
 edition = "2021"
 authors = ["MXWXZ <matrixwxz@gmail.com>"]
+description = "API for Skynet monitor plugin."
+license = "GPL-3.0"
+repository = "https://github.com/MXWXZ/skynet"
+keywords = ["framework", "api", "ffi", "plugin"]
+categories = ["api-bindings", "external-ffi-bindings"]
 
 [dependencies]
 derivative = "2.2.0"
@@ -16,8 +21,8 @@ ecies = { version = "0.2.7", default-features = false, features = [
 prost = "0.13.1"
 tokio = { version = "1.39.3", features = ["full"] }
 
-skynet_api = { path = "../../skynet_api" }
-skynet_macro = { path = "../../skynet_macro" }
+skynet_api = { version = "0.1.0", path = "../../skynet_api" }
+skynet_macro = { version = "0.1.0", path = "../../skynet_macro" }
 
 [build-dependencies]
 prost-build = "0.13.1"

@@ -3,11 +3,6 @@ use aes_gcm::{
     AeadCore, Aes256Gcm, KeyInit, Nonce,
 };
 use derivative::Derivative;
-use monitor_api::prost::Message as _;
-use monitor_api::{
-    ecies::{encrypt, PublicKey},
-    Message,
-};
 use skynet_api::{actix_cloud::bail, Result};
 use skynet_api::{
     actix_cloud::tokio::{
@@ -15,6 +10,11 @@ use skynet_api::{
         net::TcpStream,
     },
     anyhow,
+};
+use skynet_api_monitor::prost::Message as _;
+use skynet_api_monitor::{
+    ecies::{encrypt, PublicKey},
+    Message,
 };
 
 const NONCE_SIZE: usize = 12;

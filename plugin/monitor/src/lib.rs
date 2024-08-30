@@ -1,5 +1,4 @@
 use migration::migrator::Migrator;
-use monitor_api::{ecies::utils::generate_keypair, Service, ID};
 use skynet_api::{
     actix_cloud::{
         self,
@@ -18,6 +17,7 @@ use skynet_api::{
     tracing::{error, info, warn},
     uuid, HyUuid, Result, Skynet,
 };
+use skynet_api_monitor::{ecies::utils::generate_keypair, Service, ID};
 use std::{
     collections::HashMap,
     path::PathBuf,
@@ -32,7 +32,7 @@ mod ws;
 mod ws_handler;
 
 include!(concat!(env!("OUT_DIR"), "/response.rs"));
-static AGENT_API: OnceLock<Arc<agent_api::Service>> = OnceLock::new();
+static AGENT_API: OnceLock<Arc<skynet_api_agent::Service>> = OnceLock::new();
 static SERVICE: OnceLock<Arc<service::Service>> = OnceLock::new();
 static RUNTIME: OnceLock<Runtime> = OnceLock::new();
 static DB: OnceLock<DatabaseConnection> = OnceLock::new();
@@ -52,7 +52,10 @@ impl Plugin for Monitor {
         RUNTIME.set(Runtime::new().unwrap()).unwrap();
         WEB_ADDRESS.set(RwLock::default()).unwrap();
 
-        if let Some(api) = skynet.shared_api.get(&agent_api::ID, agent_api::VERSION) {
+        if let Some(api) = skynet
+            .shared_api
+            .get(&skynet_api_agent::ID, skynet_api_agent::VERSION)
+        {
             AGENT_API.set(api).unwrap();
         } else {
             warn!("Agent plugin not enabled, auto update disabled");
@@ -147,7 +150,7 @@ impl Plugin for Monitor {
         });
         skynet.shared_api.set(
             &ID,
-            monitor_api::VERSION,
+            skynet_api_monitor::VERSION,
             Box::new(SERVICE.get().unwrap().to_owned()),
         );
         (skynet, state, Ok(()))

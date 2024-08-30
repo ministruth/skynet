@@ -10,11 +10,6 @@ use std::{
 };
 
 use miniz_oxide::inflate::decompress_to_vec;
-use monitor_api::{
-    ecies::PublicKey, message::Data, HandshakeStatus, InfoMessage, Message, ShellConnectMessage,
-    ShellDisconnectMessage, ShellErrorMessage, ShellInputMessage, ShellResizeMessage,
-    StatusReqMessage, StatusRspMessage, UpdateMessage,
-};
 use skynet_api::{
     actix_cloud::{
         bail,
@@ -30,6 +25,11 @@ use skynet_api::{
 use skynet_api::{
     tracing::{debug, error, info, info_span, warn, Instrument},
     HyUuid, Result,
+};
+use skynet_api_monitor::{
+    ecies::PublicKey, message::Data, HandshakeStatus, InfoMessage, Message, ShellConnectMessage,
+    ShellDisconnectMessage, ShellErrorMessage, ShellInputMessage, ShellResizeMessage,
+    StatusReqMessage, StatusRspMessage, UpdateMessage,
 };
 use sysinfo::{CpuRefreshKind, Disks, MemoryRefreshKind, Networks, RefreshKind, System};
 

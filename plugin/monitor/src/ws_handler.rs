@@ -1,5 +1,5 @@
 use actix::{Handler, Message};
-use monitor_api::{
+use skynet_api_monitor::{
     frontend_message::Data, prost::Message as _, FrontendMessage, ShellErrorMessage,
     ShellOutputMessage,
 };
