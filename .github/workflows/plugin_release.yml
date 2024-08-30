@@ -62,18 +62,15 @@ jobs:
       - uses: actions/checkout@v4
       - name: Cache cargo & target directories
         uses: Swatinem/rust-cache@v2
-      - name: Install Protoc
-        id: protoc-install
-        uses: arduino/setup-protoc@v3
-        with:
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Set protoc env
+      - name: Install dependencies
         shell: bash
         run: |
           if [[ "${{ matrix.platform.os }}" == "windows-latest" ]]; then
-            echo "PROTOC=${{ steps.protoc-install.outputs.path }}/protoc.exe" >> "$GITHUB_ENV"
+            choco install protoc
+          elif [[ "${{ matrix.platform.os }}" == "ubuntu-latest" ]]; then
+            sudo apt install -y protobuf-compiler
           else
-            echo "PROTOC=${{ steps.protoc-install.outputs.path }}/protoc" >> "$GITHUB_ENV"
+            brew install protobuf
           fi
       - name: Build binary
         uses: houseabsolute/actions-rust-cross@v0
