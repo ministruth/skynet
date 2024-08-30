@@ -81,11 +81,14 @@ jobs:
         shell: bash
         run: |
           echo "${{ steps.protoc-install.outputs.path }}" >> $GITHUB_PATH
+      - name: Update gcc
+        if: ${{ matrix.platform.os == 'ubuntu-20.04'}}
+        shell: bash
+        run: |
+          echo "CC=gcc-10" >> $GITHUB_ENV
+          echo "CXX=g++-10" >> $GITHUB_ENV
       - name: Build binary
         uses: houseabsolute/actions-rust-cross@v0
-        env:
-          CC: gcc-10
-          CXX: g++-10
         with:
           command: "both"
           target: ${{ matrix.platform.target }}
