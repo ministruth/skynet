@@ -5,8 +5,10 @@ pre-build = [
     "unzip protoc-27.3-linux-x86_64.zip -d $HOME/.local",
     "rm protoc-27.3-linux-x86_64.zip",
     "mv $HOME/.local/bin/* /usr/bin/",
-    "curl --proto '=https' --tlsv1.2 -LsSf https://github.com/rust-lang/rust-bindgen/releases/download/v0.70.1/bindgen-cli-installer.sh | sh",
+    "curl https://sh.rustup.rs -sSf | sh -s -- -y",
+    "$HOME/.cargo/bin/cargo install bindgen-cli",
     "cp $HOME/.cargo/bin/bindgen /usr/bin/",
+    "$HOME/.cargo/bin/rustup self uninstall -y",
 ]
 
 [target.aarch64-unknown-linux-musl]
