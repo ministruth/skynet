@@ -21,6 +21,7 @@ use derivative::Derivative;
 use enum_as_inner::EnumAsInner;
 use libloading::{Library, Symbol};
 use parking_lot::RwLock;
+use rustls::crypto::aws_lc_rs;
 use sea_orm::{ConnectOptions, Database, DatabaseConnection, DatabaseTransaction};
 use sea_orm_migration::MigratorTrait;
 use semver::{Version, VersionReq};
@@ -49,6 +50,10 @@ where
     Ok(db)
 }
 
+pub fn init_rustls() {
+    aws_lc_rs::default_provider().install_default().unwrap();
+}
+
 /// Plugin interface, all plugins should implement this trait.
 ///
 /// # Lifecycle
@@ -73,6 +78,7 @@ pub trait Plugin: Send + Sync {
     ///
     /// Will return `Err` if context cannot be set.
     fn _init(&self, skynet: &Skynet) -> Result<()> {
+        init_rustls();
         skynet.logger.init();
         Ok(())
     }

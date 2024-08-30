@@ -29,9 +29,9 @@ dependencies = [
 
 [[package]]
 name = "actix-cloud"
-version = "0.4.0"
+version = "0.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "98926f2512c174a78b3e313a4951307ced194021870a6833773e4d21b463ccfd"
+checksum = "0f62968510bd3deaf27e52a69d4731c7acbfffa9d1ce6437e7f789b4f77b9c58"
 dependencies = [
  "actix-cloud-codegen",
  "actix-utils",
@@ -2536,7 +2536,7 @@ checksum = "c9be0862c1b3f26a88803c4a49de6889c10e608b3ee9344e6ef5b45fb37ad3d1"
 
 [[package]]
 name = "monitor"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "actix",
  "actix-cloud",
@@ -4110,7 +4110,7 @@ checksum = "56199f7ddabf13fe5074ce809e7d3f42b42ae711800501b5b16ea82ad029c39d"
 
 [[package]]
 name = "skynet"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "actix-cloud",
  "actix-files",
@@ -4136,7 +4136,7 @@ dependencies = [
 
 [[package]]
 name = "skynet_api"
-version = "0.1.1"
+version = "0.1.2"
 dependencies = [
  "actix-cloud",
  "base64 0.22.1",
@@ -4147,6 +4147,7 @@ dependencies = [
  "libloading",
  "parking_lot",
  "paste",
+ "rustls 0.23.12",
  "sea-orm",
  "sea-orm-migration",
  "semver",
@@ -4164,7 +4165,7 @@ dependencies = [
 
 [[package]]
 name = "skynet_api_agent"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "enum-as-inner",
  "skynet_api",
@@ -4173,7 +4174,7 @@ dependencies = [
 
 [[package]]
 name = "skynet_api_monitor"
-version = "0.2.0"
+version = "0.2.1"
 dependencies = [
  "derivative",
  "ecies",

@@ -20,6 +20,7 @@ use skynet_api::{
         utils,
     },
     logger::Logger,
+    plugin::init_rustls,
     tracing::{info, warn},
     Skynet,
 };
@@ -162,6 +163,7 @@ pub async fn command(cli: &Cli, logger: Logger, skip_cover: bool, disable_csrf: 
             .unwrap()
             .run()
     } else {
+        init_rustls();
         server.bind(address).unwrap().run()
     };
     info!("Listening on {address}");

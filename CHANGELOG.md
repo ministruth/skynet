@@ -1,3 +1,7 @@
+# 0.2.1
+## Bug fix
+1. Fix `no process-level CryptoProvider` for rustls 0.23. 
+
 # 0.2.0
 ## Breaking changes
 1. `skynet` crate is split to `skynet` and `skynet_api`, plugins now should depend on `skynet_api`.

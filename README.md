@@ -19,7 +19,7 @@ Security is considered as **TOP** priority in Skynet, we will not consider featu
 **We do not recommend this method, use at your own risk!**
 
 1. Download the release and extract.
-2. Install redis on your machine.
+2. (Optional) Install redis on your machine.
 3. `vim conf.yml` to modify your config.
 4. `touch data.db` or copy your existing database.
 5. `./skynet check` to verify your config.

@@ -96,7 +96,7 @@ fn filter(item: &LogItem) -> bool {
         return false;
     }
     // ignore https suite log
-    if item.target.starts_with("rustls::server::hs") && item.level > Level::INFO {
+    if item.target.starts_with("rustls::") && item.level > Level::INFO {
         return false;
     }
     // ignore middleware log, use our own

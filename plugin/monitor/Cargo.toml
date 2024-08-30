@@ -1,10 +1,8 @@
 [package]
 name = "monitor"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 authors = ["MXWXZ <matrixwxz@gmail.com>"]
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
 derivative = "2.2.0"
@@ -37,4 +35,4 @@ crate-type = ["cdylib"]
 
 [build-dependencies]
 
-actix-cloud = { version = "0.4.0", features = ["response-build"] }
+actix-cloud = { version = "0.4.1", features = ["response-build"] }

@@ -1,6 +1,6 @@
 [package]
 name = "skynet_api_agent"
-version = "0.2.0"
+version = "0.2.1"
 edition = "2021"
 authors = ["MXWXZ <matrixwxz@gmail.com>"]
 description = "API for Skynet agent plugin."
@@ -13,4 +13,4 @@ categories = ["api-bindings", "external-ffi-bindings"]
 version-compare = "0.2.0"
 enum-as-inner = "0.6.0"
 
-skynet_api = { version = "0.1.1", path = "../../skynet_api" }
+skynet_api = { version = "0.1.2", path = "../../skynet_api" }
