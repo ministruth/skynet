@@ -5,7 +5,8 @@ pre-build = [
     "unzip protoc-27.3-linux-x86_64.zip -d $HOME/.local",
     "rm protoc-27.3-linux-x86_64.zip",
     "mv $HOME/.local/bin/* /usr/bin/",
-    "cargo install --force --locked bindgen-cli",
+    "curl --proto '=https' --tlsv1.2 -LsSf https://github.com/rust-lang/rust-bindgen/releases/download/v0.70.1/bindgen-cli-installer.sh | sh",
+    "cp $HOME/.cargo/bin/bindgen /usr/bin/",
 ]
 
 [target.aarch64-unknown-linux-musl]
