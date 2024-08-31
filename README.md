@@ -9,6 +9,7 @@ Security is considered as **TOP** priority in Skynet, we will not consider featu
 ## Quick start
 
 ### Run in docker
+We offer pre-built `x86_64` and `aarch64` docker images.
 
 1. Copy `docker-compose.yml` and `conf.yml` to your folder.
 2. `docker-compose up`
@@ -25,6 +26,11 @@ Security is considered as **TOP** priority in Skynet, we will not consider featu
 5. `./skynet check` to verify your config.
 6. `./skynet run` to start up the server.
 7. Visit `localhost:8080`.
+
+### Pre-built libraries
+You can download pre-built libraries in our [release](https://github.com/MXWXZ/skynet/releases) page.
+
+We offer linux-{x86_64,i686,aarch64}, darwin-{x86_64,aarch64} and windows-x86_64 binaries. You might build from source if your platform is not included.
 
 ### Create initial user
 
