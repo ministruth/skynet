@@ -10,12 +10,12 @@ use skynet_api::actix_cloud::bail;
 use skynet_api::actix_cloud::chrono::{DateTime, Utc};
 use skynet_api::actix_cloud::tokio::io::{AsyncReadExt, AsyncWriteExt};
 use skynet_api::actix_cloud::tokio::net::{TcpListener, TcpStream};
-use skynet_api::actix_cloud::tokio::select;
 use skynet_api::actix_cloud::tokio::sync::broadcast::{channel, Receiver, Sender};
 use skynet_api::actix_cloud::tokio::sync::mpsc::{
     unbounded_channel, UnboundedReceiver, UnboundedSender,
 };
 use skynet_api::actix_cloud::tokio::time::sleep;
+use skynet_api::actix_cloud::tokio::{select, spawn};
 use skynet_api::request::Condition;
 use skynet_api::{
     anyhow, async_trait,
@@ -33,7 +33,7 @@ use skynet_api_monitor::{
 };
 
 use crate::ws_handler::{ShellError, ShellOutput};
-use crate::{AGENT_API, DB, RUNTIME, SERVICE, WEB_ADDRESS};
+use crate::{AGENT_API, DB, SERVICE, WEB_ADDRESS};
 
 const AES256_KEY_SIZE: usize = 32;
 const SECRET_KEY_SIZE: usize = 32;
@@ -432,7 +432,7 @@ impl Listener {
                     match c {
                         Ok((stream, addr)) => {
                             let rx = self.shutdown_rx.resubscribe();
-                            RUNTIME.get().unwrap().spawn(async move {
+                            spawn(async move {
                                 let trace_id = HyUuid::new();
                                 Handler::new(trace_id, addr, rx)
                                     .process(stream, key)
@@ -445,7 +445,7 @@ impl Listener {
                 },
                 Some(apid) = self.passive.recv() => {
                     let rx = self.shutdown_rx.resubscribe();
-                    RUNTIME.get().unwrap().spawn(async move {
+                    spawn(async move {
                         if let Err(e) =Self::passive_loop(key, rx, apid).await{
                             error!(plugin = %ID, error = %e, "Monitor passive agent error");
                         }

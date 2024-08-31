@@ -1,3 +1,10 @@
+# plugin-2024083102
+## Components
+- monitor: 0.2.2 => 0.2.3
+
+## Bug fix
+1. Fix postgres backend bug.
+
 # 0.2.2
 ## Bug fix
 1. Fix postgres backend bug.
