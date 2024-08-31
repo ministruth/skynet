@@ -224,7 +224,7 @@ impl Handler {
             .await?;
         tx.commit().await?;
         if let Some(x) = AGENT_API.get() {
-            if skynet_api_agent::Service::check_version(&version) {
+            if AGENT_API.get().unwrap().check_version(&version) {
                 let sys = skynet_api_agent::System::parse(&sys);
                 let arch = skynet_api_agent::Arch::parse(&arch);
                 if sys.is_none() || arch.is_none() {

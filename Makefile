@@ -1,10 +1,13 @@
 SHELL = /bin/bash
 OUTPUT_DIR = $$(pwd)/bin
-TARGET_DIR = $$(pwd)/target
+BUILD_TYPE = debug
+TARGET_DIR = $$(pwd)/target/$(BUILD_TYPE)
 PLUGIN_DIR = $$(pwd)/plugin
+EXE_SUFFIX =
 PLUGIN_SUFFIX =
 
 ifeq ($(OS),Windows_NT)
+	EXE_SUFFIX = .exe
     PLUGIN_SUFFIX = .dll
 else
     UNAME_S := $(shell uname -s)
@@ -17,7 +20,7 @@ else
 endif
 
 .ONESHELL:
-.PHONY: check build run dev static clean help
+.PHONY: check build build_release run dev static clean help
 
 all: help
 
@@ -26,57 +29,69 @@ check:
 	@cargo clippy -- -D clippy::all
 	@cargo fmt --all -- --check
 
-## build: Build skynet(dev).
+## build: Build skynet(debug).
 build:
-	@echo Building...
 	@cargo build
+
+## build_release: Build skynet(release).
+build_release:
+	@cargo build --locked --release
+
+## output: Output build files from TARGET_DIR to OUTPUT_DIR (bin), not delete OUTPUT_DIR.
+output:
+	@echo OUTPUT_DIR=$(OUTPUT_DIR)
+	@echo TARGET_DIR=$(TARGET_DIR)
+	@echo Output Skynet...
 	@mkdir -p $(OUTPUT_DIR)
-	@cp conf.dev.yml $(OUTPUT_DIR)/conf.yml
+	@cp conf.yml $(OUTPUT_DIR)
 	@cp conf.schema.json $(OUTPUT_DIR)
 	@cp default.webp $(OUTPUT_DIR)
-	@cp $(TARGET_DIR)/debug/skynet $(OUTPUT_DIR)
-	@mkdir -p $(OUTPUT_DIR)/plugin
-	@for d in `ls $(PLUGIN_DIR)`;do	\
-		if [ -f $(PLUGIN_DIR)/$$d/config.yml ];then		\
-			mkdir -p $(OUTPUT_DIR)/plugin/$$d; 		\
-			cp $(TARGET_DIR)/debug/lib$$d$(PLUGIN_SUFFIX) $(OUTPUT_DIR)/plugin/$$d; \
-			cp $(PLUGIN_DIR)/$$d/config.yml $(OUTPUT_DIR)/plugin/$$d;	\
+	@cp $(TARGET_DIR)/skynet$(EXE_SUFFIX) $(OUTPUT_DIR)
+	@rm -rf $(OUTPUT_DIR)/plugin && mkdir -p $(OUTPUT_DIR)/plugin
+	@for d in `ls $(PLUGIN_DIR)`;do							\
+		if [ -f $(PLUGIN_DIR)/$$d/config.yml ];then			\
+			echo Output $$d...;							\
+			o=$(OUTPUT_DIR)/plugin/$$d;						\
+			rm -rf $$o && mkdir -p $$o;						\
+			cp $(TARGET_DIR)/lib$$d$(PLUGIN_SUFFIX) $$o;	\
+			cp $(PLUGIN_DIR)/$$d/config.yml $$o;		\
 			if [ -f $(PLUGIN_DIR)/$$d/Makefile ];then	\
-				t=$(TARGET_DIR);					\
-				o=$(OUTPUT_DIR)/plugin/$$d;			\
-				pushd . > /dev/null;				\
+				pushd . > /dev/null;					\
+				t=$(TARGET_DIR);						\
 				cd $(PLUGIN_DIR)/$$d;					\
-				make --no-print-directory build TARGET_DIR=$$t OUTPUT_DIR=$$o; 	\
-				popd > /dev/null;					\
-			fi										\
-		fi											\
+				make --no-print-directory output TARGET_DIR=$$t OUTPUT_DIR=$$o; 	\
+				popd > /dev/null;						\
+			fi											\
+		fi												\
 	done
-	@echo Success
 
-## run: Run skynet (dev).
-run: build
+## run: Run skynet (debug).
+run: build output
+	@cp conf.dev.yml $(OUTPUT_DIR)/conf.yml
 	@cd $(OUTPUT_DIR) && RUST_BACKTRACE=1 ./skynet run -v --persist-session --disable-csrf
 
 ## dev: Run dev server, auto reload on save.
 dev:
 	@cargo watch -i frontend -- make run 
 
-## static: Make static files.
+## static: Build static files, delete assets folders.
 static:
+	@echo OUTPUT_DIR=$(OUTPUT_DIR)
+	@echo Building Skynet...
 	@cd ./skynet/frontend && yarn && yarn build
 	@mkdir -p $(OUTPUT_DIR)
 	@rm -rf $(OUTPUT_DIR)/assets
 	@cp -r ./skynet/frontend/dist/. $(OUTPUT_DIR)/assets && mkdir $(OUTPUT_DIR)/assets/_plugin
-	@for d in `ls $(PLUGIN_DIR)`;do	\
-		if [ -d $(PLUGIN_DIR)/$$d/frontend ];then								\
+	@for d in `ls $(PLUGIN_DIR)`;do					\
+		if [[ -f $(PLUGIN_DIR)/$$d/Makefile && -f $(PLUGIN_DIR)/$$d/config.yml ]];then	\
+			echo Building $$d...;					\
 		    id=`cat $(PLUGIN_DIR)/$$d/config.yml | head -n 1 | cut -d \" -f 2`;	\
-		    mkdir -p $(OUTPUT_DIR)/assets/_plugin/$$id;	\
-			pushd . > /dev/null;						\
-			cd $(PLUGIN_DIR)/$$d/frontend;					\
-			yarn build; 								\
-			popd > /dev/null;							\
-			cp -r $(PLUGIN_DIR)/$$d/frontend/dist/. $(OUTPUT_DIR)/assets/_plugin/$$id; \
-		fi												\
+			o=$(OUTPUT_DIR)/assets/_plugin/$$id;	\
+			pushd . > /dev/null;					\
+			cd $(PLUGIN_DIR)/$$d;					\
+			make --no-print-directory static OUTPUT_DIR=$$o; 	\
+			popd > /dev/null;						\
+		fi											\
 	done
 
 ## clean: Clean all build files.

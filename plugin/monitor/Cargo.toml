@@ -1,6 +1,6 @@
 [package]
 name = "monitor"
-version = "0.2.1"
+version = "0.2.2"
 edition = "2021"
 authors = ["MXWXZ <matrixwxz@gmail.com>"]
 
@@ -20,7 +20,7 @@ crc32fast = "1.4.2"
 miniz_oxide = "0.8.0"
 
 skynet_api_monitor = { version = "0.2.0", path = "../monitor_api" }
-skynet_api_agent = { version = "0.2.0", path = "../agent_api" }
+skynet_api_agent = { version = "0.3.0", path = "../agent_api" }
 skynet_api = { path = "../../skynet_api" }
 skynet_macro = { path = "../../skynet_macro" }
 sea-orm-migration = { version = "1.0.1", features = [

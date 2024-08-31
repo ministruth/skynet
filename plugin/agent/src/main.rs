@@ -70,6 +70,10 @@ pub struct RunArgs {
     /// Interface name, sum all specified.
     #[arg(short, long, required = true)]
     interface: Vec<String>,
+
+    /// Whether to restart on update.
+    #[arg(long, default_value = "false")]
+    restart: bool,
 }
 
 #[derive(Subcommand, Clone)]

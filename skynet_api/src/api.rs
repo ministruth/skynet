@@ -21,7 +21,7 @@ impl APIManager {
     ///
     /// `ver` follows typical semver comparators, we strongly suggest only accept these two types:
     /// - `1.0.0`: exact match
-    /// - `~1.0.0`: >=1.0.0 and <=1.1.0
+    /// - `~1.0.0`: >=1.0.0 and <1.1.0
     ///
     /// # Panics
     ///

@@ -30,7 +30,15 @@ We offer pre-built `x86_64` and `aarch64` docker images.
 ### Pre-built libraries
 You can download pre-built libraries in our [release](https://github.com/MXWXZ/skynet/releases) page.
 
-We offer linux-{x86_64,i686,aarch64}, darwin-{x86_64,aarch64} and windows-x86_64 binaries. You might build from source if your platform is not included.
+We offer `linux-{x86_64,i686,aarch64}`, `darwin-{x86_64,aarch64}` and `windows-x86_64` binaries. You might build from source if your platform is not included.
+
+```
+make build_release
+make output BUILD_TYPE=release
+make static
+```
+
+You are ready to go with files in `bin` :)
 
 ### Create initial user
 

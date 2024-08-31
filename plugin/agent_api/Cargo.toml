@@ -1,6 +1,6 @@
 [package]
 name = "skynet_api_agent"
-version = "0.2.1"
+version = "0.3.0"
 edition = "2021"
 authors = ["MXWXZ <matrixwxz@gmail.com>"]
 description = "API for Skynet agent plugin."

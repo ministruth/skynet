@@ -35,6 +35,6 @@ else
 	endif
 endif
 
-build:
+output:
 	@mkdir -p $(OUTPUT_DIR)/bin
-	@cp $(TARGET_DIR)/debug/agent $(OUTPUT_DIR)/bin/agent_$(PLATFORM)_$(MACHINE)$(SUFFIX);
+	@cp $(TARGET_DIR)/agent$(SUFFIX) $(OUTPUT_DIR)/bin/agent_$(PLATFORM)_$(MACHINE)$(SUFFIX);

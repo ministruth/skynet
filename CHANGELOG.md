@@ -1,3 +1,17 @@
+# 0.2.2
+## Bug fix
+1. Fix postgres backend bug.
+
+# plugin-2024083101
+## Components
+- agent: 0.2.1 => 0.3.0
+- skynet_api_agent: 0.2.1 => 0.3.0
+- monitor: 0.2.1 => 0.2.2
+
+## New features
+1. `agent`: Support `restart` option.
+2. `monitor`, `skynet_api_agent`: Version check will depend on `agent` version instead of `skynet_api_agent` version.
+
 # 0.2.1
 ## Bug fix
 1. Fix `no process-level CryptoProvider` for rustls 0.23. 

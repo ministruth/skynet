@@ -85,17 +85,18 @@ impl Display for Arch {
 #[derive(Debug)]
 pub struct Service {
     path: PathBuf,
+    version: String,
 }
 
 impl Service {
     #[must_use]
-    pub const fn new(path: PathBuf) -> Self {
-        Self { path }
+    pub const fn new(path: PathBuf, version: String) -> Self {
+        Self { path, version }
     }
 
     #[must_use]
-    pub fn check_version(v: &str) -> bool {
-        compare(VERSION, v) == Ok(Cmp::Gt)
+    pub fn check_version(&self, v: &str) -> bool {
+        compare(&self.version, v) == Ok(Cmp::Gt)
     }
 
     #[must_use]

@@ -175,7 +175,7 @@ fn transformer(mut item: LogItem) -> LogItem {
         }
         thread::spawn(move || {
             runtime::Builder::new_current_thread()
-                .enable_time()
+                .enable_all()
                 .build()
                 .unwrap()
                 .block_on(async {

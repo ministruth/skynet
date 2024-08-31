@@ -62,6 +62,7 @@ struct ConnectionState {
     disable_shell: bool,
     ip: Option<IpAddr>,
     output: Option<UnboundedSender<Data>>,
+    restart: bool,
 }
 
 impl ConnectionState {
@@ -71,6 +72,7 @@ impl ConnectionState {
         disable_shell: bool,
         disk: Vec<String>,
         interface: Vec<String>,
+        restart: bool,
     ) -> Self {
         Self {
             client_seq: 0,
@@ -87,6 +89,7 @@ impl ConnectionState {
             report_rate,
             disable_shell,
             ip,
+            restart,
         }
     }
 
@@ -162,7 +165,7 @@ fn input_handler(
 
 async fn update_handler(
     frame: &mut Frame,
-    _state: &mut ConnectionState,
+    state: &mut ConnectionState,
     data: UpdateMessage,
 ) -> Result<Option<Result<()>>> {
     let exe = env::current_exe()?;
@@ -175,11 +178,15 @@ async fn update_handler(
         fs::remove_file(new_path)?;
         let _ = frame.close().await;
         info!(crc32 = crc, "Trigger update");
-        return Command::new(exe)
-            .args(env::args().skip(1))
-            .spawn()
-            .map_err(Into::into)
-            .and(Ok(Some(Ok(()))));
+        if state.restart {
+            return Command::new(exe)
+                .args(env::args().skip(1))
+                .spawn()
+                .map_err(Into::into)
+                .and(Ok(Some(Ok(()))));
+        } else {
+            return Ok(Some(Ok(())));
+        }
     }
     bail!("Update: CRC32 mismatch");
 }
@@ -408,6 +415,7 @@ pub async fn run(args: RunArgs, pubkey: PublicKey) {
                                         args.disable_shell,
                                         disk,
                                         interface,
+                                        args.restart,
                                     );
                                     info!("Connection received {addr}");
                                     if let Err(e) = connect(stream, addr, &pubkey, state).await {
@@ -440,6 +448,7 @@ pub async fn run(args: RunArgs, pubkey: PublicKey) {
                 args.disable_shell,
                 args.disk.clone(),
                 args.interface.clone(),
+                args.restart,
             );
             if let Err(e) = active(&args.addr, &pubkey, state).await {
                 if e.to_string() == SocketError::Reconnect.to_string() {

@@ -20,7 +20,10 @@ impl Plugin for Agent {
         mut skynet: Skynet,
         state: GlobalState,
     ) -> (Skynet, GlobalState, Result<()>) {
-        let _ = SERVICE.set(Arc::new(Service::new(path)));
+        let _ = SERVICE.set(Arc::new(Service::new(
+            path,
+            env!("CARGO_PKG_VERSION").to_owned(),
+        )));
         skynet
             .shared_api
             .set(&ID, VERSION, Box::new(SERVICE.get().unwrap().to_owned()));
