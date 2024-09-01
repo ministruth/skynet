@@ -1,4 +1,4 @@
-FROM ubuntu:22.04
+FROM ubuntu:latest
 ARG TARGETARCH
 
 RUN useradd -s /usr/sbin/nologin -r -c "Skynet User" skynet
