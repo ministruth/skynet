@@ -35,15 +35,15 @@ jobs:
       matrix:
         platform:
           - os_name: linux-x86_64
-            os: ubuntu-20.04
+            os: ubuntu-22.04
             target: x86_64-unknown-linux-gnu
             lib: lib$d.so
           - os_name: linux-i686
-            os: ubuntu-20.04
+            os: ubuntu-22.04
             target: i686-unknown-linux-gnu
             lib: lib$d.so
           - os_name: linux-aarch64
-            os: ubuntu-20.04
+            os: ubuntu-22.04
             target: aarch64-unknown-linux-gnu
             lib: lib$d.so
           - os_name: windows-x86_64
@@ -74,12 +74,6 @@ jobs:
         shell: bash
         run: |
           echo "${{ steps.protoc-install.outputs.path }}" >> $GITHUB_PATH
-      - name: Update gcc
-        if: ${{ matrix.platform.os == 'ubuntu-20.04'}}
-        shell: bash
-        run: |
-          echo "CC=gcc-10" >> $GITHUB_ENV
-          echo "CXX=g++-10" >> $GITHUB_ENV
       - name: Build binary
         uses: houseabsolute/actions-rust-cross@v0
         with:

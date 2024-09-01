@@ -15,9 +15,10 @@ We offer pre-built `x86_64` and `aarch64` docker images.
 2. `docker-compose up`
 3. Visit `localhost:8080`.
 
-### Run natively
-
+### Pre-built libraries
 **We do not recommend this method, use at your own risk!**
+
+You can download pre-built libraries in our [release](https://github.com/MXWXZ/skynet/releases) page. Linux versions are built under ubuntu-22.04. If you meet glibc version errors, please build from source.
 
 1. Download the release and extract.
 2. (Optional) Install redis on your machine.
@@ -27,10 +28,7 @@ We offer pre-built `x86_64` and `aarch64` docker images.
 6. `./skynet run` to start up the server.
 7. Visit `localhost:8080`.
 
-### Pre-built libraries
-You can download pre-built libraries in our [release](https://github.com/MXWXZ/skynet/releases) page.
-
-We offer `linux-{x86_64,i686,aarch64}`, `darwin-{x86_64,aarch64}` and `windows-x86_64` binaries. You might build from source if your platform is not included.
+### Build from source
 
 ```
 make build_release
