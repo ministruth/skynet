@@ -2536,7 +2536,7 @@ checksum = "c9be0862c1b3f26a88803c4a49de6889c10e608b3ee9344e6ef5b45fb37ad3d1"
 
 [[package]]
 name = "monitor"
-version = "0.2.3"
+version = "0.2.4"
 dependencies = [
  "actix",
  "actix-cloud",
