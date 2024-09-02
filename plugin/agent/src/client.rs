@@ -353,7 +353,7 @@ async fn connect(
             .send_msg(&state.new_client_msg(Data::Info(InfoMessage {
                 endpoint: addr.to_string(),
                 version: env!("CARGO_PKG_VERSION").to_owned(),
-                os: System::name(),
+                os: Some(consts::OS.to_owned()),
                 system: System::long_os_version(),
                 arch: Some(consts::ARCH.to_owned()),
                 hostname: System::host_name(),

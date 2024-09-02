@@ -1,3 +1,16 @@
+# plugin-v2024090102
+## Components
+- agent: 0.3.0 => 0.3.1
+- skynet_api_agent: 0.3.0 => 0.3.1
+- monitor: 0.2.4 => 0.2.5
+
+## Changes
+1. agent now use rust env to determine OS type.
+
+## Bug fix
+1. `agent`, `monitor`: Fix potential data corrupt.
+2. `agent`: Fix potential dead lock.
+
 # plugin-v2024090101
 ## Components
 - monitor: 0.2.3 => 0.2.4

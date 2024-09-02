@@ -1,15 +1,21 @@
+use std::io;
+
 use aes_gcm::{
     aead::{Aead, OsRng},
     AeadCore, Aes256Gcm, KeyInit, Nonce,
 };
+use bytes::BytesMut;
 use derivative::Derivative;
-use skynet_api::{actix_cloud::bail, Result};
 use skynet_api::{
     actix_cloud::tokio::{
         io::{AsyncReadExt, AsyncWriteExt},
         net::TcpStream,
     },
     anyhow,
+};
+use skynet_api::{
+    actix_cloud::{bail, tokio::io::AsyncRead},
+    Result,
 };
 use skynet_api_monitor::prost::Message as _;
 use skynet_api_monitor::{
@@ -41,11 +47,40 @@ pub enum SocketError {
     ShellDisabled,
 }
 
+#[derive(Derivative)]
+#[derivative(Default(new = "true"))]
+struct FrameLen {
+    data: [u8; 4],
+    len: usize,
+}
+
+impl FrameLen {
+    async fn next<R>(&mut self, io: &mut R) -> Result<u32>
+    where
+        R: AsyncRead + Unpin,
+    {
+        while self.len < 4 {
+            let cnt = io.read(&mut self.data[self.len..]).await?;
+            if cnt == 0 {
+                self.len = 0;
+                return Err(io::Error::from(io::ErrorKind::UnexpectedEof).into());
+            }
+            self.len += cnt;
+        }
+        Ok(u32::from_be_bytes(self.data))
+    }
+
+    fn reset(&mut self) {
+        self.len = 0;
+    }
+}
+
 pub struct Frame {
     pk: [u8; PUBLIC_KEY_SIZE],
     key: [u8; AES256_KEY_SIZE],
     stream: TcpStream,
     cipher: Aes256Gcm,
+    len: FrameLen,
 }
 
 impl Frame {
@@ -56,6 +91,7 @@ impl Frame {
             stream,
             cipher: Aes256Gcm::new(&key),
             key: key.into(),
+            len: FrameLen::new(),
         }
     }
 
@@ -92,12 +128,20 @@ impl Frame {
     }
 
     pub async fn read(&mut self) -> Result<Vec<u8>> {
-        let len = self.stream.read_u32().await?;
-        let mut buf = vec![0; len.try_into()?];
-        self.stream.read_exact(&mut buf).await?;
-        Ok(buf)
+        let len = self.len.next(&mut self.stream).await?;
+        let mut ret = BytesMut::with_capacity(len.try_into()?);
+        if self.stream.read_buf(&mut ret).await? == 0 {
+            self.len.reset();
+            return Err(io::Error::from(io::ErrorKind::UnexpectedEof).into());
+        }
+        self.len.reset();
+        Ok(ret.into())
     }
 
+    /// Read message from frame.
+    ///
+    /// # Cancel safety
+    /// This function is cancellation safe.
     pub async fn read_msg(&mut self) -> Result<Message> {
         let buf = self.read().await?;
         let nonce = Nonce::from_slice(&buf[0..NONCE_SIZE]);

@@ -1,7 +1,9 @@
-use std::io::{ErrorKind, Read, Write};
+use std::{
+    io::{ErrorKind, Read, Write},
+    thread,
+};
 
 use portable_pty::{native_pty_system, Child, CommandBuilder, PtyPair, PtySize};
-use skynet_api::actix_cloud::tokio::spawn;
 use skynet_api::actix_cloud::tokio::sync::mpsc::UnboundedSender;
 use skynet_api::Result;
 use skynet_api_monitor::{message::Data, ShellOutputMessage};
@@ -33,25 +35,23 @@ impl ShellInstance {
 
         // safe to detach, terminated when reader closed.
         let token = token.to_owned();
-        spawn(async move {
-            loop {
-                let mut buffer = [0; 64];
-                match reader.read(&mut buffer) {
-                    Ok(n) => {
-                        if n == 0 {
-                            break;
-                        }
-                        if let Some(x) = &sender {
-                            let _ = x.send(Data::ShellOutput(ShellOutputMessage {
-                                token: Some(token.clone()),
-                                data: buffer[..n].to_vec(),
-                            }));
-                        }
+        thread::spawn(move || loop {
+            let mut buffer = [0; 64];
+            match reader.read(&mut buffer) {
+                Ok(n) => {
+                    if n == 0 {
+                        break;
                     }
-                    Err(e) => {
-                        if e.kind() != ErrorKind::Interrupted {
-                            break;
-                        }
+                    if let Some(x) = &sender {
+                        let _ = x.send(Data::ShellOutput(ShellOutputMessage {
+                            token: Some(token.clone()),
+                            data: buffer[..n].to_vec(),
+                        }));
+                    }
+                }
+                Err(e) => {
+                    if e.kind() != ErrorKind::Interrupted {
+                        break;
                     }
                 }
             }

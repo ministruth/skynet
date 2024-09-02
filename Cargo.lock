@@ -417,11 +417,12 @@ dependencies = [
 
 [[package]]
 name = "agent"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "aes-gcm",
  "base64 0.22.1",
  "byte-unit",
+ "bytes",
  "clap",
  "crc32fast",
  "derivative",
@@ -2536,7 +2537,7 @@ checksum = "c9be0862c1b3f26a88803c4a49de6889c10e608b3ee9344e6ef5b45fb37ad3d1"
 
 [[package]]
 name = "monitor"
-version = "0.2.4"
+version = "0.2.5"
 dependencies = [
  "actix",
  "actix-cloud",
@@ -2544,6 +2545,7 @@ dependencies = [
  "actix-web-validator",
  "aes-gcm",
  "base64 0.22.1",
+ "bytes",
  "crc32fast",
  "derivative",
  "itertools 0.13.0",
@@ -4165,7 +4167,7 @@ dependencies = [
 
 [[package]]
 name = "skynet_api_agent"
-version = "0.3.0"
+version = "0.3.1"
 dependencies = [
  "enum-as-inner",
  "skynet_api",

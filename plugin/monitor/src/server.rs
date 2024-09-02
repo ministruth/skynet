@@ -1,14 +1,16 @@
+use std::io;
 use std::net::SocketAddr;
 use std::time::Duration;
 
 use actix::clock::{interval, Instant, Interval};
 use aes_gcm::aead::{Aead, OsRng};
 use aes_gcm::{AeadCore, Aes256Gcm, KeyInit, Nonce};
+use bytes::BytesMut;
 use derivative::Derivative;
 use miniz_oxide::deflate::compress_to_vec;
 use skynet_api::actix_cloud::bail;
 use skynet_api::actix_cloud::chrono::{DateTime, Utc};
-use skynet_api::actix_cloud::tokio::io::{AsyncReadExt, AsyncWriteExt};
+use skynet_api::actix_cloud::tokio::io::{AsyncRead, AsyncReadExt, AsyncWriteExt};
 use skynet_api::actix_cloud::tokio::net::{TcpListener, TcpStream};
 use skynet_api::actix_cloud::tokio::sync::broadcast::{channel, Receiver, Sender};
 use skynet_api::actix_cloud::tokio::sync::mpsc::{
@@ -39,10 +41,39 @@ const AES256_KEY_SIZE: usize = 32;
 const SECRET_KEY_SIZE: usize = 32;
 const MAGIC_NUMBER: &[u8] = b"SKNT";
 
+#[derive(Derivative)]
+#[derivative(Default(new = "true"))]
+struct FrameLen {
+    data: [u8; 4],
+    len: usize,
+}
+
+impl FrameLen {
+    async fn next<R>(&mut self, io: &mut R) -> Result<u32>
+    where
+        R: AsyncRead + Unpin,
+    {
+        while self.len < 4 {
+            let cnt = io.read(&mut self.data[self.len..]).await?;
+            if cnt == 0 {
+                self.len = 0;
+                return Err(io::Error::from(io::ErrorKind::UnexpectedEof).into());
+            }
+            self.len += cnt;
+        }
+        Ok(u32::from_be_bytes(self.data))
+    }
+
+    fn reset(&mut self) {
+        self.len = 0;
+    }
+}
+
 struct Frame {
     stream: TcpStream,
     cipher: Option<Aes256Gcm>,
     sk: [u8; SECRET_KEY_SIZE],
+    len: FrameLen,
 }
 
 impl Frame {
@@ -51,6 +82,7 @@ impl Frame {
             stream,
             cipher: None,
             sk: sk.serialize(),
+            len: FrameLen::new(),
         }
     }
 
@@ -81,13 +113,21 @@ impl Frame {
         self.send(&buf).await
     }
 
-    async fn read(&mut self) -> Result<Vec<u8>> {
-        let len = self.stream.read_u32().await?;
-        let mut buf = vec![0; len.try_into()?];
-        self.stream.read_exact(&mut buf).await?;
-        Ok(buf)
+    pub async fn read(&mut self) -> Result<Vec<u8>> {
+        let len = self.len.next(&mut self.stream).await?;
+        let mut ret = BytesMut::with_capacity(len.try_into()?);
+        if self.stream.read_buf(&mut ret).await? == 0 {
+            self.len.reset();
+            return Err(io::Error::from(io::ErrorKind::UnexpectedEof).into());
+        }
+        self.len.reset();
+        Ok(ret.into())
     }
 
+    /// Read message from frame.
+    ///
+    /// # Cancel safety
+    /// This function is cancellation safe.
     async fn read_msg(&mut self) -> Result<Message> {
         let buf = self.read().await?;
         if let Some(cipher) = &self.cipher {

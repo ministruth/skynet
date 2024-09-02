@@ -26,7 +26,7 @@ impl System {
             Some(Self::Windows)
         } else if str.contains("linux") {
             Some(Self::Linux)
-        } else if str.contains("darwin") || str.contains("macos") {
+        } else if str.contains("macos") {
             Some(Self::OSX)
         } else {
             None
