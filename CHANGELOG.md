@@ -1,15 +1,22 @@
-# plugin-2024083102
+# plugin-v2024090101
+## Components
+- monitor: 0.2.3 => 0.2.4
+
+## Bug fix
+1. Fix passive agent connect bug.
+
+# plugin-v2024083102
 ## Components
 - monitor: 0.2.2 => 0.2.3
 
 ## Bug fix
 1. Fix postgres backend bug.
 
-# 0.2.2
+# v0.2.2
 ## Bug fix
 1. Fix postgres backend bug.
 
-# plugin-2024083101
+# plugin-v2024083101
 ## Components
 - agent: 0.2.1 => 0.3.0
 - skynet_api_agent: 0.2.1 => 0.3.0
@@ -19,15 +26,15 @@
 1. `agent`: Support `restart` option.
 2. `monitor`, `skynet_api_agent`: Version check will depend on `agent` version instead of `skynet_api_agent` version.
 
-# 0.2.1
+# v0.2.1
 ## Bug fix
 1. Fix `no process-level CryptoProvider` for rustls 0.23. 
 
-# plugin-0.2.1
+# plugin-v0.2.1
 ## Bug fix
 1. Fix `no process-level CryptoProvider` for rustls 0.23. 
 
-# 0.2.0
+# v0.2.0
 ## Breaking changes
 1. `skynet` crate is split to `skynet` and `skynet_api`, plugins now should depend on `skynet_api`.
 2. Based on new framework `actix-cloud`.
@@ -41,7 +48,7 @@
 ## Bug fix
 1. Fix a bug that prevent success logs written to the database.
 
-# plugin-0.2.0
+# plugin-v0.2.0
 ## Breaking changes
 1. Compatible to the new `skynet_api` design.
 2. Redesign C/S framework.
@@ -49,12 +56,12 @@
 ## New features
 1. Support passive agents.
 
-# plugin-0.1.1
+# plugin-v0.1.1
 ## Bug fix
 1. Fix segmentation fault when loading plugins.
 2. Fix monitor database foreign key error.
 
-# 0.1.1
+# v0.1.1
 ## Changes
 1. `listen.ssl` will only raise warning when `proxy.enable` is `false`.
 
@@ -66,5 +73,5 @@
 5. Fix plugin segmentation fault in some systems.
 6. Fix segmentation fault when shared API is enabled.
 
-# 0.1.0
+# v0.1.0
 First version of skynet!

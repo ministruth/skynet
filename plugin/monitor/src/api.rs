@@ -137,6 +137,7 @@ pub async fn add_passive_agents(param: Json<AddPassiveAgentsReq>) -> RspResult<i
         .create_passive(&tx, &param.name, &param.address, param.retry_time)
         .await?;
     tx.commit().await?;
+    srv.server.connect(&m.id);
 
     info!(
         success = true,

@@ -53,6 +53,9 @@ impl Service {
         Ok(())
     }
 
+    /// Create passive agents.
+    ///
+    /// This method will NOT add agent to server, please invoke `connect` AFTER commit `db`.
     pub async fn create_passive(
         &self,
         db: &DatabaseTransaction,
@@ -60,16 +63,15 @@ impl Service {
         address: &str,
         retry_time: i32,
     ) -> Result<passive_agents::Model> {
-        let ret = passive_agents::ActiveModel {
+        passive_agents::ActiveModel {
             name: Set(name.to_owned()),
             address: Set(address.to_owned()),
             retry_time: Set(retry_time),
             ..Default::default()
         }
         .insert(db)
-        .await?;
-        self.server.connect(&ret.id);
-        Ok(ret)
+        .await
+        .map_err(Into::into)
     }
 
     pub async fn delete_passive(&self, db: &DatabaseTransaction, paid: &[HyUuid]) -> Result<u64> {
