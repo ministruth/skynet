@@ -2,14 +2,15 @@ use std::{
     cmp::min,
     collections::{HashMap, HashSet},
     env::{self, consts},
-    fs,
-    net::{IpAddr, SocketAddr},
+    fs::{self, create_dir_all},
+    net::SocketAddr,
     process::Command,
     sync::atomic::{AtomicU32, Ordering},
     time::Duration,
 };
 
 use miniz_oxide::inflate::decompress_to_vec;
+use path_clean::clean;
 use skynet_api::{
     actix_cloud::{
         bail,
@@ -27,13 +28,15 @@ use skynet_api::{
     HyUuid, Result,
 };
 use skynet_api_monitor::{
-    ecies::PublicKey, message::Data, HandshakeStatus, InfoMessage, Message, ShellConnectMessage,
+    ecies::PublicKey, message::Data, CommandKillMessage, CommandReqMessage, FileReqMessage,
+    FileRspMessage, HandshakeStatus, InfoMessage, Message, ShellConnectMessage,
     ShellDisconnectMessage, ShellErrorMessage, ShellInputMessage, ShellResizeMessage,
     StatusReqMessage, StatusRspMessage, UpdateMessage,
 };
 use sysinfo::{CpuRefreshKind, Disks, MemoryRefreshKind, Networks, RefreshKind, System};
 
 use crate::{
+    command::CommandInstance,
     get_uid,
     shell::ShellInstance,
     socket::{Frame, SocketError},
@@ -51,45 +54,30 @@ struct ConnectionState {
     server_seq: u64,
     trace_id: HyUuid,
 
+    command: HashMap<HyUuid, CommandInstance>,
     shell: HashMap<HyUuid, ShellInstance>,
     stat_sys: System,
     stat_disk: Disks,
     stat_network: Networks,
     uid: String,
-    disk: Vec<String>,
-    interface: Vec<String>,
-    report_rate: u32,
-    disable_shell: bool,
-    ip: Option<IpAddr>,
     output: Option<UnboundedSender<Data>>,
-    restart: bool,
+    args: RunArgs,
 }
 
 impl ConnectionState {
-    fn new(
-        ip: Option<IpAddr>,
-        report_rate: u32,
-        disable_shell: bool,
-        disk: Vec<String>,
-        interface: Vec<String>,
-        restart: bool,
-    ) -> Self {
+    fn new(args: RunArgs) -> Self {
         Self {
             client_seq: 0,
             server_seq: 0,
             trace_id: HyUuid::nil(),
+            command: HashMap::new(),
             shell: HashMap::new(),
             stat_sys: System::new(),
             stat_disk: Disks::new_with_refreshed_list(),
             stat_network: Networks::new_with_refreshed_list(),
             uid: get_uid(),
             output: None,
-            disk,
-            interface,
-            report_rate,
-            disable_shell,
-            ip,
-            restart,
+            args,
         }
     }
 
@@ -108,6 +96,7 @@ async fn shell_handler(
     state: &mut ConnectionState,
     data: ShellConnectMessage,
 ) -> Result<Option<Result<()>>> {
+    let id = HyUuid::parse(&data.token)?;
     let inst = ShellInstance::new(
         &data.token,
         &data.cmd,
@@ -117,7 +106,7 @@ async fn shell_handler(
     );
     match inst {
         Ok(inst) => {
-            state.shell.insert(HyUuid::parse(&data.token)?, inst);
+            state.shell.insert(id, inst);
             info!(token = data.token, "New shell connected");
             Ok(None)
         }
@@ -178,7 +167,7 @@ async fn update_handler(
         fs::remove_file(new_path)?;
         let _ = frame.close().await;
         info!(crc32 = crc, "Trigger update");
-        if state.restart {
+        if state.args.restart {
             return Command::new(exe)
                 .args(env::args().skip(1))
                 .spawn()
@@ -208,7 +197,7 @@ async fn status_handler(
     let mut visited_disk = HashSet::new(); // disk name may be duplicated.
     for i in &state.stat_disk {
         let name = i.name().to_string_lossy().to_string();
-        if state.disk.contains(&name) && visited_disk.insert(name) {
+        if state.args.disk.contains(&name) && visited_disk.insert(name) {
             disk_byte += i.total_space() - i.available_space();
             total_disk_byte += i.total_space();
         }
@@ -216,7 +205,7 @@ async fn status_handler(
     let mut band_up = 0;
     let mut band_down = 0;
     for i in &state.stat_network {
-        if state.interface.contains(i.0) {
+        if state.args.interface.contains(i.0) {
             band_up += i.1.total_transmitted();
             band_down += i.1.total_received();
         }
@@ -249,6 +238,75 @@ fn disconnect_handler(
     Ok(None)
 }
 
+async fn file_handler(
+    frame: &mut Frame,
+    state: &mut ConnectionState,
+    data: FileReqMessage,
+) -> Result<Option<Result<()>>> {
+    let ret = (|| {
+        let path = clean(state.args.data.join(&data.path));
+        let save_folder = clean(&state.args.data);
+        let mut it = path.ancestors();
+        it.next();
+        let mut flag = false;
+        for i in it {
+            if i == save_folder {
+                flag = true;
+                break;
+            }
+        }
+        if !flag {
+            bail!("File path invalid");
+        }
+        create_dir_all(path.parent().unwrap())?;
+        let file = decompress_to_vec(&data.data).map_err(|e| anyhow!(e.to_string()))?;
+        fs::write(path, file)?;
+        Ok(None)
+    })();
+    if let Err(e) = &ret {
+        frame
+            .send_msg(&state.new_client_msg(Data::FileRsp(FileRspMessage {
+                id: data.id,
+                code: 1,
+                message: e.to_string(),
+            })))
+            .await?;
+    } else {
+        info!(id = data.id, path = data.path, "New file transferred");
+        frame
+            .send_msg(&state.new_client_msg(Data::FileRsp(FileRspMessage {
+                id: data.id,
+                code: 0,
+                message: String::from("Success"),
+            })))
+            .await?;
+    }
+    ret
+}
+
+fn command_handler(
+    _frame: &mut Frame,
+    state: &mut ConnectionState,
+    data: CommandReqMessage,
+) -> Result<Option<Result<()>>> {
+    let id = HyUuid::parse(&data.id)?;
+    let inst = CommandInstance::new(&data.id, &data.cmd, state.output.clone())?;
+    state.command.insert(id, inst);
+    info!(id = data.id, "New command executed");
+    Ok(None)
+}
+
+fn kill_handler(
+    _frame: &mut Frame,
+    state: &mut ConnectionState,
+    data: CommandKillMessage,
+) -> Result<Option<Result<()>>> {
+    match state.command.get(&HyUuid::parse(&data.id)?) {
+        Some(x) => x.kill(data.force).map(|_| None),
+        None => bail!("Command cid not found"),
+    }
+}
+
 async fn handle_msg(
     frame: &mut Frame,
     state: &mut ConnectionState,
@@ -273,33 +331,36 @@ async fn handle_msg(
                 Data::StatusReq(data) => status_handler(frame, state, data).await,
                 Data::Update(data) => update_handler(frame, state, data).await,
                 Data::ShellConnect(data) => {
-                    if state.disable_shell {
+                    if state.args.disable_shell {
                         bail!(SocketError::ShellDisabled)
                     } else {
                         shell_handler(frame, state, data).await
                     }
                 }
                 Data::ShellInput(data) => {
-                    if state.disable_shell {
+                    if state.args.disable_shell {
                         bail!(SocketError::ShellDisabled)
                     } else {
                         input_handler(frame, state, data)
                     }
                 }
                 Data::ShellResize(data) => {
-                    if state.disable_shell {
+                    if state.args.disable_shell {
                         bail!(SocketError::ShellDisabled)
                     } else {
                         resize_handler(frame, state, data)
                     }
                 }
                 Data::ShellDisconnect(data) => {
-                    if state.disable_shell {
+                    if state.args.disable_shell {
                         bail!(SocketError::ShellDisabled)
                     } else {
                         disconnect_handler(frame, state, data)
                     }
                 }
+                Data::FileReq(data) => file_handler(frame, state, data).await,
+                Data::CommandReq(data) => command_handler(frame, state, data),
+                Data::CommandKill(data) => kill_handler(frame, state, data),
                 _ => bail!(SocketError::InvalidMessage),
             }
         } else {
@@ -357,9 +418,9 @@ async fn connect(
                 system: System::long_os_version(),
                 arch: Some(consts::ARCH.to_owned()),
                 hostname: System::host_name(),
-                report_rate: state.report_rate,
-                disable_shell: state.disable_shell,
-                ip: state.ip.map(|x| x.to_string()),
+                report_rate: state.args.report_rate,
+                disable_shell: state.args.disable_shell,
+                ip: state.args.ip.map(|x| x.to_string()),
             })))
             .await
         {
@@ -405,18 +466,9 @@ pub async fn run(args: RunArgs, pubkey: PublicKey) {
                         Ok((stream, addr)) => {
                             if !connected {
                                 connected = true;
-                                let disk = args.disk.clone();
-                                let interface = args.interface.clone();
                                 let tx = tx.clone();
+                                let state = ConnectionState::new(args.clone());
                                 spawn(async move {
-                                     let state = ConnectionState::new(
-                                        args.ip,
-                                        args.report_rate,
-                                        args.disable_shell,
-                                        disk,
-                                        interface,
-                                        args.restart,
-                                    );
                                     info!("Connection received {addr}");
                                     if let Err(e) = connect(stream, addr, &pubkey, state).await {
                                         error!("{e}");
@@ -442,14 +494,7 @@ pub async fn run(args: RunArgs, pubkey: PublicKey) {
         }
     } else {
         loop {
-            let state = ConnectionState::new(
-                args.ip,
-                args.report_rate,
-                args.disable_shell,
-                args.disk.clone(),
-                args.interface.clone(),
-                args.restart,
-            );
+            let state = ConnectionState::new(args.clone());
             if let Err(e) = active(&args.addr, &pubkey, state).await {
                 if e.to_string() == SocketError::Reconnect.to_string() {
                     warn!("{e}");

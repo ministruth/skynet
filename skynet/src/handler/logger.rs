@@ -118,6 +118,8 @@ fn transformer(mut item: LogItem) -> LogItem {
     } else if item.target.starts_with("sea_orm::") || item.target.starts_with("sea_orm_migration::")
     {
         item.target = String::from("skynet-db");
+    } else if item.target.starts_with("skynet_api::") {
+        item.target = String::from("skynet");
     } else {
         item.target = item
             .target

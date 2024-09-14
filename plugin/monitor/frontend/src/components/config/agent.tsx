@@ -3,6 +3,7 @@ import Table from '@/common_components/layout/table';
 import {
   IDColumn,
   SearchColumn,
+  StatusColumn,
 } from '@/common_components/layout/table/column';
 import TableDelete from '@/common_components/layout/table/deleteBtn';
 import styles from '@/common_components/layout/table/style.less';
@@ -26,9 +27,8 @@ import {
 } from '@ant-design/pro-components';
 import { ProColumns } from '@ant-design/pro-table';
 import { FormattedMessage, useModel } from '@umijs/max';
-import { Button, Tag } from 'antd';
+import { Button } from 'antd';
 import { SortOrder } from 'antd/es/table/interface';
-import { CustomTagProps } from 'rc-select/es/BaseSelect';
 import { Key, useRef, useState } from 'react';
 import AgentUpdate from './agentUpdateBtn';
 import PassiveAgent from './passiveBtn';
@@ -102,17 +102,17 @@ const AgentCard = () => {
   const intl = getIntl();
   const ref = useRef<ActionType>();
   const { access } = useModel('@@qiankunStateFromMaster');
-  const statusEnum: { [Key: number]: { label: string; color?: string } } = {
+  const statusEnum: { [Key: number]: { label: string; color: string } } = {
     0: {
-      label: 'Offline',
+      label: intl.get('pages.agent.table.status.offline'),
       color: 'default',
     },
     1: {
-      label: 'Online',
+      label: intl.get('pages.agent.table.status.online'),
       color: 'success',
     },
     2: {
-      label: 'Updating',
+      label: intl.get('pages.agent.table.status.updating'),
       color: 'warning',
     },
   };
@@ -151,38 +151,7 @@ const AgentCard = () => {
       align: 'center',
       hideInSearch: true,
     },
-    {
-      title: intl.get('pages.agent.table.status'),
-      dataIndex: 'status',
-      align: 'center',
-      valueType: 'select',
-      fieldProps: {
-        mode: 'multiple',
-        tagRender: (props: CustomTagProps) => {
-          // BUG: rc-select undefined value
-          if (props.value)
-            return (
-              <Tag
-                color={statusEnum[props.value].color}
-                closable={props.closable}
-                onClose={props.onClose}
-                style={{ marginRight: 4 }}
-              >
-                {props.label}
-              </Tag>
-            );
-        },
-      },
-      valueEnum: Object.entries(statusEnum).reduce(
-        (p, c) => ({ ...p, [c[0]]: { text: c[1].label } }),
-        {},
-      ),
-      render: (_, row) => (
-        <Tag style={{ marginRight: 0 }} color={statusEnum[row.status].color}>
-          {statusEnum[row.status].label}
-        </Tag>
-      ),
-    },
+    StatusColumn(intl.get('pages.agent.table.status'), 'status', statusEnum),
     {
       title: intl.get('pages.agent.table.lastlogin'),
       dataIndex: 'last_login',

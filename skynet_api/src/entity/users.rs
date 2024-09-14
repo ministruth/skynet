@@ -14,7 +14,9 @@ pub struct Model {
     pub password: String,
     #[serde(serialize_with = "vec_string_option")]
     pub avatar: Option<Vec<u8>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub last_login: Option<i64>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub last_ip: Option<String>,
     pub created_at: i64,
     pub updated_at: i64,

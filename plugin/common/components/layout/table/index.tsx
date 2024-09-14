@@ -1,12 +1,12 @@
-import { getIntl } from '@/utils';
-import { LoadingOutlined, ReloadOutlined } from '@ant-design/icons';
-import { ParamsType } from '@ant-design/pro-provider';
-import ProTable, { ProTableProps } from '@ant-design/pro-table';
-import { Button } from 'antd';
-import moment from 'moment';
-import { useState } from 'react';
+import { getIntl } from "@/utils";
+import { LoadingOutlined, ReloadOutlined } from "@ant-design/icons";
+import { ParamsType } from "@ant-design/pro-provider";
+import ProTable, { ProTableProps } from "@ant-design/pro-table";
+import { Button } from "antd";
+import moment from "moment";
+import { useState } from "react";
 
-type TableProp<T, U extends ParamsType, ValueType = 'text'> = {
+type TableProp<T, U extends ParamsType, ValueType = "text"> = {
   poll?: boolean;
   action?: React.ReactNode[];
   postRequest?: (data: any[]) => any[];
@@ -15,7 +15,7 @@ type TableProp<T, U extends ParamsType, ValueType = 'text'> = {
 function Table<
   T extends Record<string, any>,
   U extends ParamsType = ParamsType,
-  ValueType = 'text',
+  ValueType = "text"
 >(props: TableProp<T, U, ValueType>) {
   const intl = getIntl();
   const [polling, setPolling] = useState(true);
@@ -24,10 +24,10 @@ function Table<
 
   return (
     <ProTable<T, U, ValueType>
-      scroll={{ x: 'max-content' }}
-      polling={props.poll ? (polling ? 1000 : undefined) : undefined}
-      headerTitle={intl.get('app.table.lastupdate', {
-        time: moment(time).format('HH:mm:ss'),
+      scroll={{ x: "auto" }}
+      polling={props.poll ? (polling ? 2000 : undefined) : undefined}
+      headerTitle={intl.get("app.table.lastupdate", {
+        time: moment(time).format("HH:mm:ss"),
       })}
       postData={(data: any[]) => {
         setTime(Date.now());
@@ -52,8 +52,8 @@ function Table<
                 >
                   {polling ? <LoadingOutlined /> : <ReloadOutlined />}
                   {polling
-                    ? intl.get('app.table.polling.stop')
-                    : intl.get('app.table.polling.start')}
+                    ? intl.get("app.table.polling.stop")
+                    : intl.get("app.table.polling.start")}
                 </Button>,
               ]
             : props.action,
@@ -67,7 +67,7 @@ function Table<
       }}
       pagination={{
         defaultPageSize: 10,
-        pageSizeOptions: ['5', '10', '20', '50'],
+        pageSizeOptions: ["5", "10", "20", "50"],
         showQuickJumper: true,
       }}
       options={{

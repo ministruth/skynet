@@ -1,12 +1,15 @@
 import confirm from '@/common_components/layout/modal';
 import Table from '@/common_components/layout/table';
 import {
+  Columns,
   CreatedAtColumn,
   IDColumn,
+  StatusColumn,
 } from '@/common_components/layout/table/column';
 import TableDelete from '@/common_components/layout/table/deleteBtn';
 import TableNew from '@/common_components/layout/table/newBtn';
 import styles from '@/common_components/layout/table/style.less';
+import TableBtn from '@/common_components/layout/table/tableBtn';
 import { API_PREFIX } from '@/config';
 import {
   checkAPI,
@@ -19,13 +22,14 @@ import {
   StringIntl,
   UserPerm,
 } from '@/utils';
+import { ThunderboltOutlined } from '@ant-design/icons';
 import { ParamsType } from '@ant-design/pro-components';
-import { ProFormColumnsType } from '@ant-design/pro-form';
 import { ActionType, ProColumns } from '@ant-design/pro-table';
 import { FormattedMessage, useModel } from '@umijs/max';
 import { Button, Modal } from 'antd';
 import { SortOrder } from 'antd/es/table/interface';
 import { Key, useRef, useState } from 'react';
+import PassiveUpdate from './passiveUpdateBtn';
 import styles_custom from './style.less';
 
 const handleDeleteSelected = async (
@@ -34,7 +38,7 @@ const handleDeleteSelected = async (
   keys: Key[],
 ) => {
   confirm({
-    title: intl.get('pages.agent.op.delete.passive.selected.title'),
+    title: intl.get('pages.config.agent.op.delete.passive.selected.title'),
     content: intl.get('app.confirm'),
     onOk() {
       return new Promise((resolve, reject) => {
@@ -69,47 +73,58 @@ const request = async (
   };
 };
 
+export const PassiveAgentColumns: Columns = (intl) => [
+  {
+    title: intl.get('pages.config.agent.op.passive.table.name'),
+    dataIndex: 'name',
+    fieldProps: {
+      maxLength: 32,
+    },
+    formItemProps: {
+      rules: [{ required: true }],
+    },
+  },
+  {
+    title: intl.get('pages.config.agent.op.passive.table.address'),
+    dataIndex: 'address',
+    fieldProps: {
+      maxLength: 64,
+    },
+    formItemProps: {
+      rules: [{ required: true }],
+    },
+  },
+  {
+    title: intl.get('pages.config.agent.op.passive.table.retrytime'),
+    dataIndex: 'retry_time',
+    valueType: 'digit',
+    tooltip: intl.get('pages.config.agent.op.passive.table.retrytime.tip'),
+    initialValue: 0,
+    formItemProps: {
+      rules: [{ required: true }],
+    },
+  },
+];
+
 const PassiveAgent = () => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const intl = getIntl();
   const { access } = useModel('@@qiankunStateFromMaster');
   const ref = useRef<ActionType>();
-  const addColumns: ProFormColumnsType[] = [
-    {
-      title: intl.get('pages.agent.op.passive.table.name'),
-      dataIndex: 'name',
-      fieldProps: {
-        maxLength: 32,
-      },
-      formItemProps: {
-        rules: [{ required: true }],
-      },
+  const statusEnum: { [Key: number]: { label: string; color: string } } = {
+    0: {
+      label: intl.get('pages.config.agent.op.passive.table.status.inactive'),
+      color: 'default',
     },
-    {
-      title: intl.get('pages.agent.op.passive.table.address'),
-      dataIndex: 'address',
-      fieldProps: {
-        maxLength: 64,
-      },
-      formItemProps: {
-        rules: [{ required: true }],
-      },
+    1: {
+      label: intl.get('pages.config.agent.op.passive.table.status.active'),
+      color: 'success',
     },
-    {
-      title: intl.get('pages.agent.op.passive.table.retrytime'),
-      dataIndex: 'retry_time',
-      valueType: 'digit',
-      tooltip: intl.get('pages.agent.op.passive.table.retrytime.tip'),
-      initialValue: 0,
-      formItemProps: {
-        rules: [{ required: true }],
-      },
-    },
-  ];
+  };
   const columns: ProColumns[] = [
     IDColumn(intl),
     {
-      title: intl.get('pages.agent.op.passive.table.name'),
+      title: intl.get('pages.config.agent.op.passive.table.name'),
       dataIndex: 'name',
       align: 'center',
       ellipsis: true,
@@ -122,16 +137,21 @@ const PassiveAgent = () => {
       },
     },
     {
-      title: intl.get('pages.agent.op.passive.table.address'),
+      title: intl.get('pages.config.agent.op.passive.table.address'),
       dataIndex: 'address',
       align: 'center',
     },
     {
-      title: intl.get('pages.agent.op.passive.table.retrytime'),
+      title: intl.get('pages.config.agent.op.passive.table.retrytime'),
       dataIndex: 'retry_time',
       align: 'center',
-      tooltip: intl.get('pages.agent.op.passive.table.retrytime.tip'),
+      tooltip: intl.get('pages.config.agent.op.passive.table.retrytime.tip'),
     },
+    StatusColumn(
+      intl.get('pages.config.agent.op.passive.table.status'),
+      'status',
+      statusEnum,
+    ),
     ...CreatedAtColumn(intl),
     {
       title: intl.get('app.op'),
@@ -141,15 +161,34 @@ const PassiveAgent = () => {
       className: styles.operation,
       render: (_, row) => {
         return [
+          <PassiveUpdate
+            key="update"
+            tableRef={ref}
+            initialValues={{
+              ...row,
+            }}
+          />,
+          <TableBtn
+            key="activate"
+            icon={ThunderboltOutlined}
+            tip={intl.get('pages.config.agent.op.activate.passive.tip')}
+            perm={UserPerm.PermWrite}
+            permName="manage.plugin"
+            onClick={() => handleActivate(row.id)}
+            disabled={row.status == 1}
+          />,
           <TableDelete
             key="delete"
             tableRef={ref}
             permName="manage.plugin"
             perm={UserPerm.PermWrite}
             url={`${API_PREFIX}/passive_agents/${row.id}`}
-            confirmTitle={intl.get('pages.agent.op.delete.passive.title', {
-              name: row.name,
-            })}
+            confirmTitle={intl.get(
+              'pages.config.agent.op.delete.passive.title',
+              {
+                name: row.name,
+              },
+            )}
           />,
         ];
       },
@@ -172,6 +211,17 @@ const PassiveAgent = () => {
     }
     return false;
   };
+  const handleActivate = async (paid: string) => {
+    if (
+      await checkAPI(
+        postAPI(`${API_PREFIX}/passive_agents/${paid}/activate`, {}),
+      )
+    ) {
+      ref.current?.reloadAndRest?.();
+      return true;
+    }
+    return false;
+  };
   return (
     <>
       <Button
@@ -180,10 +230,10 @@ const PassiveAgent = () => {
         disabled={!checkPerm(access, 'manage.plugin', UserPerm.PermRead)}
         onClick={() => setIsModalOpen(true)}
       >
-        <FormattedMessage id="pages.agent.op.passive" />
+        <FormattedMessage id="pages.config.agent.op.passive" />
       </Button>
       <Modal
-        title={intl.get('pages.agent.op.passive.title')}
+        title={intl.get('pages.config.agent.op.passive.title')}
         open={isModalOpen}
         footer={null}
         onCancel={() => {
@@ -219,10 +269,10 @@ const PassiveAgent = () => {
                 perm={UserPerm.PermWrite}
                 key="add"
                 width={500}
-                title={intl.get('pages.agent.op.add.passive.title')}
+                title={intl.get('pages.config.agent.op.add.passive.title')}
                 schemaProps={{
                   onFinish: handleAdd,
-                  columns: addColumns,
+                  columns: PassiveAgentColumns(intl),
                 }}
               />,
               <Button

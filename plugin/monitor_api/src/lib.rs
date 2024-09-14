@@ -66,6 +66,23 @@ pub trait Service: Send + Sync {
         skynet: &Skynet,
         shell_prog: &[String],
     ) -> Result<()>;
+
+    /// Run async command `cmd` in agent `id`. Return generated command id.
+    fn run_command(&self, id: &HyUuid, cmd: &str) -> Result<HyUuid>;
+
+    /// Get agent `id` command `cid` output.
+    fn get_command_output(&self, id: &HyUuid, cid: &HyUuid) -> Option<AgentCommand>;
+
+    /// Kill async command `cid` in agent `id`.
+    fn kill_command(&self, id: &HyUuid, cid: &HyUuid, force: bool) -> Result<()>;
+
+    /// Send file to agent `id`.
+    /// File contents will be compressed automatically.
+    ///
+    /// Return file id when success.
+    fn send_file(&self, id: &HyUuid, path: &str, data: &[u8]) -> Result<HyUuid>;
+
+    fn get_file_result(&self, id: &HyUuid, fid: &HyUuid) -> Option<AgentFile>;
 }
 
 #[async_trait]
@@ -74,6 +91,7 @@ pub trait Server: Send + Sync {
     fn is_running(&self) -> bool;
     fn stop(&self) -> bool;
     fn connect(&self, apid: &HyUuid) -> bool;
+    fn connecting(&self) -> Vec<HyUuid>;
 }
 
 #[derive(
@@ -85,6 +103,20 @@ pub enum AgentStatus {
     Offline = 0,
     Online,
     Updating,
+}
+
+#[derive(Clone, Debug, Derivative)]
+#[derivative(Default(new = "true"))]
+pub struct AgentCommand {
+    pub code: Option<i32>,
+    pub output: Vec<u8>,
+}
+
+#[derive(Clone, Debug, Derivative)]
+#[derivative(Default(new = "true"))]
+pub struct AgentFile {
+    pub code: u32,
+    pub message: String,
 }
 
 #[derive(Derivative, Serialize)]
@@ -107,6 +139,10 @@ pub struct Agent {
 
     #[serde(skip)]
     pub message: Option<UnboundedSender<Data>>,
+    #[serde(skip)]
+    pub command: HashMap<HyUuid, Option<AgentCommand>>,
+    #[serde(skip)]
+    pub file: HashMap<HyUuid, Option<AgentFile>>,
 
     #[serde(skip_serializing_if = "utils::is_default")]
     pub report_rate: u32,
@@ -153,6 +189,8 @@ impl From<agents::Model> for Agent {
             arch: v.arch,
             last_login: v.last_login,
             message: None,
+            command: HashMap::new(),
+            file: HashMap::new(),
             endpoint: String::new(),
             ..Default::default()
         }

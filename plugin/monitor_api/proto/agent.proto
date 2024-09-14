@@ -35,3 +35,15 @@ message ShellErrorMessage {
   optional string token = 1; // shell token
   string error = 2;          // error
 }
+
+message FileRspMessage {
+  string id = 1;      // message id
+  uint32 code = 2;    // return code
+  string message = 3; // return message
+}
+
+message CommandRspMessage {
+  string id = 1;           // cmd id
+  optional int32 code = 2; // return code
+  bytes output = 3;        // output
+}

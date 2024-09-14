@@ -9,6 +9,7 @@ members = [
     "plugin/monitor",
     "plugin/agent_api",
     "plugin/agent",
+    "plugin/task_api",
     "plugin/task",
 ]
 resolver = "2"

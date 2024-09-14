@@ -1,3 +1,32 @@
+# plugin-v2024091401
+## Components
+- monitor: 0.2.5 => 0.3.0
+- skynet_api_monitor: 0.2.1 => 0.3.0
+- agent: 0.3.1 => 0.4.0
+- task: 0.1.0
+
+## Changes
+1. `monitor-frontend`: Support i18n for status.
+2. `monitor-frontend`: zh-CN localization.
+3. `monitor-frontend`, `monitor-api`, `monitor`, `agent`: Dependency upgrade.
+
+## New features
+1. `monitor-api`: New api `connecting` for `Server`.
+2. `monitor`: Passive agent support update, status and manual activate.
+3. `agent`, `monitor`, `skynet_api_monitor`: Support file transfer and command.
+4. New plugin `task`.
+
+# skynet-v0.2.3
+## Changes
+1. `frontend`: Support i18n for status.
+2. `frontend`: Dependency upgrade.
+3. `skynet`: `skynet_api` logs are now renamed to `skynet`.
+4. `skynet`: Dependency upgrade.
+5. `skynet`: 403 body will be dropped.
+
+## Bug fix
+1. `skynet`: Fix returning null fields.
+
 # plugin-v2024090102
 ## Components
 - agent: 0.3.0 => 0.3.1

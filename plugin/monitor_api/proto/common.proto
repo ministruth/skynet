@@ -11,6 +11,8 @@ message Message {
     StatusRspMessage status_rsp = 12;
     ShellOutputMessage shell_output = 13;
     ShellErrorMessage shell_error = 14;
+    FileRspMessage file_rsp = 15;
+    CommandRspMessage command_rsp = 16;
 
     HandshakeRspMessage handshake_rsp = 50;
     ReconnectMessage reconnect = 51;
@@ -21,5 +23,8 @@ message Message {
     ShellInputMessage shell_input = 56;
     ShellResizeMessage shell_resize = 57;
     ShellDisconnectMessage shell_disconnect = 58;
+    FileReqMessage file_req = 59;
+    CommandReqMessage command_req = 60;
+    CommandKillMessage command_kill = 61;
   }
 }

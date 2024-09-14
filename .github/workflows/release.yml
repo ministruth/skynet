@@ -17,14 +17,14 @@ jobs:
           node-version: 20
           cache: "yarn"
           cache-dependency-path: skynet/frontend/yarn.lock
-      - run: yarn
-        working-directory: skynet/frontend
-      - run: yarn build
-        working-directory: skynet/frontend
+      - name: Build assets
+        shell: bash
+        run: |
+          make static
       - uses: actions/upload-artifact@v4
         with:
           name: frontend
-          path: skynet/frontend/dist
+          path: bin/assets
           retention-days: 1
 
   build_skynet:
@@ -37,32 +37,26 @@ jobs:
           - os_name: linux-x86_64
             os: ubuntu-20.04
             target: x86_64-unknown-linux-gnu
-            bin: skynet
             name: skynet-linux-x86_64.tar.gz
           - os_name: linux-i686
             os: ubuntu-20.04
             target: i686-unknown-linux-gnu
-            bin: skynet
             name: skynet-linux-i686.tar.gz
           - os_name: linux-aarch64
             os: ubuntu-20.04
             target: aarch64-unknown-linux-gnu
-            bin: skynet
             name: skynet-linux-aarch64.tar.gz
           - os_name: windows-x86_64
             os: windows-latest
             target: x86_64-pc-windows-msvc
-            bin: skynet.exe
             name: skynet-windows-x86_64.zip
           - os_name: macOS-x86_64
             os: macOS-latest
             target: x86_64-apple-darwin
-            bin: skynet
             name: skynet-darwin-x86_64.tar.gz
           - os_name: macOS-aarch64
             os: macOS-latest
             target: aarch64-apple-darwin
-            bin: skynet
             name: skynet-darwin-aarch64.tar.gz
     steps:
       - uses: actions/checkout@v4
@@ -96,17 +90,14 @@ jobs:
       - uses: actions/download-artifact@v4
         with:
           name: frontend
-          path: release/skynet/assets
+          path: bin/assets
       - name: Package as archive
         shell: bash
         run: |
+          make output BUILD_TYPE=release TARGET_DIR=$(pwd)/target/${{ matrix.platform.target }}/release
+          mkdir release
+          mv bin release/skynet
           cd release
-          mkdir skynet/plugin
-          mkdir skynet/assets/_plugin
-          cp ../target/${{ matrix.platform.target }}/release/${{ matrix.platform.bin }} skynet
-          cp ../conf.yml skynet
-          cp ../conf.schema.json skynet
-          cp ../default.webp skynet
           if [[ "${{ matrix.platform.os }}" == "windows-latest" ]]; then
             7z a ../${{ matrix.platform.name }} skynet
           else

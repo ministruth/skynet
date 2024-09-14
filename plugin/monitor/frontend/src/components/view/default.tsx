@@ -2,6 +2,7 @@ import Table from '@/common_components/layout/table';
 import {
   IDColumn,
   SearchColumn,
+  StatusColumn,
 } from '@/common_components/layout/table/column';
 import styles from '@/common_components/layout/table/style.less';
 import TableBtn from '@/common_components/layout/table/tableBtn';
@@ -10,10 +11,8 @@ import { UserPerm, getAPI, getIntl } from '@/utils';
 import { CheckOutlined, CloseOutlined, CodeOutlined } from '@ant-design/icons';
 import { ParamsType, ProDescriptions } from '@ant-design/pro-components';
 import { ProColumns } from '@ant-design/pro-table';
-import { Tag } from 'antd';
 import { SortOrder } from 'antd/es/table/interface';
 import bytes from 'bytes';
-import { CustomTagProps } from 'rc-select/es/BaseSelect';
 
 const request = async (params?: ParamsType, _?: Record<string, SortOrder>) => {
   const msg = await getAPI(`${API_PREFIX}/agents`, {
@@ -35,17 +34,17 @@ export interface TabItemProps {
 
 const DefaultTab: React.FC<TabItemProps> = (props) => {
   const intl = getIntl();
-  const statusEnum: { [Key: number]: { label: string; color?: string } } = {
+  const statusEnum: { [Key: number]: { label: string; color: string } } = {
     0: {
-      label: 'Offline',
+      label: intl.get('pages.agent.table.status.offline'),
       color: 'default',
     },
     1: {
-      label: 'Online',
+      label: intl.get('pages.agent.table.status.online'),
       color: 'success',
     },
     2: {
-      label: 'Updating',
+      label: intl.get('pages.agent.table.status.updating'),
       color: 'warning',
     },
   };
@@ -84,38 +83,7 @@ const DefaultTab: React.FC<TabItemProps> = (props) => {
       align: 'center',
       hideInSearch: true,
     },
-    {
-      title: intl.get('pages.agent.table.status'),
-      dataIndex: 'status',
-      align: 'center',
-      valueType: 'select',
-      fieldProps: {
-        mode: 'multiple',
-        tagRender: (props: CustomTagProps) => {
-          // BUG: rc-select undefined value
-          if (props.value)
-            return (
-              <Tag
-                color={statusEnum[props.value].color}
-                closable={props.closable}
-                onClose={props.onClose}
-                style={{ marginRight: 4 }}
-              >
-                {props.label}
-              </Tag>
-            );
-        },
-      },
-      valueEnum: Object.entries(statusEnum).reduce(
-        (p, c) => ({ ...p, [c[0]]: { text: c[1].label } }),
-        {},
-      ),
-      render: (_, row) => (
-        <Tag style={{ marginRight: 0 }} color={statusEnum[row.status].color}>
-          {statusEnum[row.status].label}
-        </Tag>
-      ),
-    },
+    StatusColumn(intl.get('pages.agent.table.status'), 'status', statusEnum),
     {
       title: intl.get('pages.agent.table.cpu'),
       dataIndex: 'cpu',
@@ -148,7 +116,7 @@ const DefaultTab: React.FC<TabItemProps> = (props) => {
           <TableBtn
             key="shell"
             icon={CodeOutlined}
-            tip={intl.get('pages.config.agent.op.shell.tip')}
+            tip={intl.get('pages.view.card.op.shell.tip')}
             onClick={(_) => props.addTabCallback?.(row)}
             permName={`view.plugin.${PLUGIN_ID}`}
             perm={UserPerm.PermAll}

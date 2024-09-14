@@ -24,6 +24,10 @@ export default {
 
   'pages.notification.content': '管理 Skynet 消息',
   'pages.notification.table.level': '级别',
+  'pages.notification.table.level.info': '信息',
+  'pages.notification.table.level.success': '成功',
+  'pages.notification.table.level.warning': '警告',
+  'pages.notification.table.level.error': '错误',
   'pages.notification.table.target': '目标',
   'pages.notification.table.message': '内容',
   'pages.notification.op.deleteall.title': '删除所有消息，确认？',

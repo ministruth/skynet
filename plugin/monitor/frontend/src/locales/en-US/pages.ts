@@ -20,7 +20,6 @@ export default {
     'All agents will be kicked and need the new public key to connect.',
 
   'pages.config.agent.title': 'Agent',
-  'pages.config.agent.op.shell.tip': 'Shell',
   'pages.config.agent.op.reconnect.tip': 'Reconnect',
   'pages.config.agent.op.reconnect.title': 'Reconnect agent {name}, confirm?',
   'pages.config.agent.op.update.title': 'Update Agent',
@@ -28,6 +27,22 @@ export default {
   'pages.config.agent.op.delete.title': 'Delete agent {name}, confirm?',
   'pages.config.agent.op.delete.selected.title':
     'Delete selected agents, confirm?',
+  'pages.config.agent.op.passive': 'Passive Agents',
+  'pages.config.agent.op.passive.title': 'Manage Passive Agents',
+  'pages.config.agent.op.passive.table.name': 'Name',
+  'pages.config.agent.op.passive.table.status': 'Status',
+  'pages.config.agent.op.passive.table.status.inactive': 'Inactive',
+  'pages.config.agent.op.passive.table.status.active': 'Active',
+  'pages.config.agent.op.passive.table.address': 'Address',
+  'pages.config.agent.op.passive.table.retrytime': 'Retry Time',
+  'pages.config.agent.op.passive.table.retrytime.tip': 'Disable when set to 0',
+  'pages.config.agent.op.activate.passive.tip': 'Activate',
+  'pages.config.agent.op.add.passive.title': 'Add Passive Agent',
+  'pages.config.agent.op.update.passive.title': 'Update Passive Agent',
+  'pages.config.agent.op.delete.passive.selected.title':
+    'Delete selected passive agents, confirm?',
+  'pages.config.agent.op.delete.passive.title':
+    'Delete passive agent {name}, confirm?',
 
   'pages.agent.table.name': 'Name',
   'pages.agent.table.ip': 'IP',
@@ -35,6 +50,9 @@ export default {
   'pages.agent.table.arch': 'Arch',
   'pages.agent.table.lastlogin': 'Last Login',
   'pages.agent.table.status': 'Status',
+  'pages.agent.table.status.offline': 'Offline',
+  'pages.agent.table.status.online': 'Online',
+  'pages.agent.table.status.updating': 'Updating',
   'pages.agent.table.address': 'Address',
   'pages.agent.table.endpoint': 'Endpoint',
   'pages.agent.table.report_rate': 'Report Rate',
@@ -49,17 +67,6 @@ export default {
   'pages.agent.table.network': 'Network',
   'pages.agent.table.bandwidth': 'Bandwidth',
   'pages.agent.table.latency': 'Latency',
-  'pages.agent.op.passive': 'Passive Agents',
-  'pages.agent.op.passive.title': 'Manage Passive Agents',
-  'pages.agent.op.passive.table.name': 'Name',
-  'pages.agent.op.passive.table.address': 'Address',
-  'pages.agent.op.passive.table.retrytime': 'Retry Time',
-  'pages.agent.op.passive.table.retrytime.tip': 'Disable when set to 0',
-  'pages.agent.op.add.passive.title': 'Add Passive Agent',
-  'pages.agent.op.delete.passive.selected.title':
-    'Delete selected passive agents, confirm?',
-  'pages.agent.op.delete.passive.title':
-    'Delete passive agent {name}, confirm?',
 
   'pages.view.content': 'Monitor agents',
   'pages.view.card.agent': 'Agent',
@@ -68,5 +75,6 @@ export default {
   'pages.view.card.connect.text': 'Connect',
   'pages.view.card.reconnect.text': 'Reconnect',
   'pages.view.card.reconnect.title': 'Retry connection, confirm?',
-  'pages.view.card.reconnect.content': 'You will lost your current connection!',
+  'pages.view.card.reconnect.content': 'Current connection will be lost!',
+  'pages.view.card.op.shell.tip': 'Shell',
 };

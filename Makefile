@@ -20,7 +20,7 @@ else
 endif
 
 .ONESHELL:
-.PHONY: check build build_release run dev static clean help
+.PHONY: check build build_release run dev static static_plugin clean help
 
 all: help
 
@@ -82,6 +82,11 @@ static:
 	@mkdir -p $(OUTPUT_DIR)
 	@rm -rf $(OUTPUT_DIR)/assets
 	@cp -r ./skynet/frontend/dist/. $(OUTPUT_DIR)/assets && mkdir $(OUTPUT_DIR)/assets/_plugin
+
+## static_plugin: Build static plugin files, delete assets/_plugin folder.
+static_plugin:
+	@echo OUTPUT_DIR=$(OUTPUT_DIR)
+	@rm -rf $(OUTPUT_DIR)/assets/_plugin && mkdir -p $(OUTPUT_DIR)/assets/_plugin
 	@for d in `ls $(PLUGIN_DIR)`;do					\
 		if [[ -f $(PLUGIN_DIR)/$$d/Makefile && -f $(PLUGIN_DIR)/$$d/config.yml ]];then	\
 			echo Building $$d...;					\

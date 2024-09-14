@@ -45,3 +45,19 @@ message ShellResizeMessage {
 message ShellDisconnectMessage {
   optional string token = 1; // shell token
 }
+
+message FileReqMessage {
+  string id = 1;   // file id
+  string path = 2; // save path
+  bytes data = 3;  // file data
+}
+
+message CommandReqMessage {
+  string id = 1;  // cmd id
+  string cmd = 2; // command
+}
+
+message CommandKillMessage {
+  string id = 1;  // cmd id
+  bool force = 2; // force kill
+}

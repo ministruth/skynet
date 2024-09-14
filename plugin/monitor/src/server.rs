@@ -1,5 +1,7 @@
+use std::collections::HashSet;
 use std::io;
 use std::net::SocketAddr;
+use std::sync::Arc;
 use std::time::Duration;
 
 use actix::clock::{interval, Instant, Interval};
@@ -33,6 +35,7 @@ use skynet_api_monitor::{
     AgentStatus, HandshakeReqMessage, HandshakeRspMessage, HandshakeStatus, InfoMessage, Message,
     StatusReqMessage, StatusRspMessage, UpdateMessage, ID,
 };
+use skynet_api_monitor::{CommandRspMessage, FileRspMessage};
 
 use crate::ws_handler::{ShellError, ShellOutput};
 use crate::{AGENT_API, DB, SERVICE, WEB_ADDRESS};
@@ -297,6 +300,26 @@ impl Handler {
         Ok(())
     }
 
+    fn handle_file(&mut self, _frame: &mut Frame, data: FileRspMessage) -> Result<()> {
+        SERVICE.get().unwrap().update_file_response(
+            &self.aid.unwrap(),
+            &HyUuid::parse(&data.id)?,
+            data.code,
+            &data.message,
+        );
+        Ok(())
+    }
+
+    fn handle_command(&mut self, _frame: &mut Frame, data: CommandRspMessage) -> Result<()> {
+        SERVICE.get().unwrap().update_command_output(
+            &self.aid.unwrap(),
+            &HyUuid::parse(&data.id)?,
+            data.code,
+            data.output,
+        );
+        Ok(())
+    }
+
     async fn handle_msg(&mut self, frame: &mut Frame, msg: Message) -> Result<()> {
         if msg.seq < self.client_seq {
             debug!(
@@ -327,6 +350,8 @@ impl Handler {
                         }
                         Ok(())
                     }
+                    Data::FileRsp(data) => self.handle_file(frame, data),
+                    Data::CommandRsp(data) => self.handle_command(frame, data),
                     _ => bail!("Invalid message type"),
                 }
             } else {
@@ -411,20 +436,23 @@ impl Handler {
 
 struct Listener {
     listener: TcpListener,
-    passive: UnboundedReceiver<HyUuid>,
+    passive_rx: UnboundedReceiver<HyUuid>,
+    passive_agent: Arc<RwLock<HashSet<HyUuid>>>,
     shutdown_rx: Receiver<()>,
 }
 
 impl Listener {
     async fn new(
         addr: &str,
-        passive: UnboundedReceiver<HyUuid>,
+        passive_rx: UnboundedReceiver<HyUuid>,
+        passive_agent: Arc<RwLock<HashSet<HyUuid>>>,
         shutdown_rx: Receiver<()>,
     ) -> Result<Self> {
         let listener = TcpListener::bind(&addr).await?;
         Ok(Self {
             listener,
-            passive,
+            passive_rx,
+            passive_agent,
             shutdown_rx,
         })
     }
@@ -452,7 +480,7 @@ impl Listener {
             tx.commit().await?;
             if let Some(m) = m {
                 if let Err(e) = Self::passive(&m.address, key, rx.resubscribe()).await {
-                    error!(plugin = %ID, error = %e, "Monitor connect error");
+                    error!(plugin = %ID, error = %e, apid = %apid, address = m.address, "Monitor connect error");
                 }
                 if m.retry_time != 0 {
                     sleep(Duration::from_secs(m.retry_time.try_into()?)).await;
@@ -483,12 +511,15 @@ impl Listener {
                         Err(e) => debug!("{e}"),
                     }
                 },
-                Some(apid) = self.passive.recv() => {
+                Some(apid) = self.passive_rx.recv() => {
                     let rx = self.shutdown_rx.resubscribe();
+                    let passive_agent = self.passive_agent.clone();
                     spawn(async move {
+                        passive_agent.write().insert(apid);
                         if let Err(e) =Self::passive_loop(key, rx, apid).await{
-                            error!(plugin = %ID, error = %e, "Monitor passive agent error");
+                            error!(plugin = %ID, error = %e, apid = %apid, "Monitor passive agent error");
                         }
+                        passive_agent.write().remove(&apid);
                     });
                 }
                 _ = self.shutdown_rx.recv() => {
@@ -503,7 +534,8 @@ impl Listener {
 #[derivative(Default(new = "true"))]
 pub struct Server {
     running: RwLock<bool>,
-    passive: RwLock<Option<UnboundedSender<HyUuid>>>,
+    passive_channel: RwLock<Option<UnboundedSender<HyUuid>>>,
+    passive_agent: Arc<RwLock<HashSet<HyUuid>>>,
     shutdown_tx: RwLock<Option<Sender<()>>>,
 }
 
@@ -512,8 +544,9 @@ impl skynet_api_monitor::Server for Server {
     async fn start(&self, addr: &str, key: SecretKey) -> Result<()> {
         let (tx, mut rx) = channel(1);
         let (passive_tx, passive_rx) = unbounded_channel();
-        let mut listener = Listener::new(addr, passive_rx, tx.subscribe()).await?;
-        *self.passive.write() = Some(passive_tx);
+        let mut listener =
+            Listener::new(addr, passive_rx, self.passive_agent.clone(), tx.subscribe()).await?;
+        *self.passive_channel.write() = Some(passive_tx);
         *self.shutdown_tx.write() = Some(tx);
         *self.running.write() = true;
 
@@ -536,7 +569,7 @@ impl skynet_api_monitor::Server for Server {
         }
         *self.running.write() = false;
         *self.shutdown_tx.write() = None;
-        *self.passive.write() = None;
+        *self.passive_channel.write() = None;
         info!(plugin = %ID, "Monitor server stopped");
         Ok(())
     }
@@ -553,9 +586,17 @@ impl skynet_api_monitor::Server for Server {
     }
 
     fn connect(&self, apid: &HyUuid) -> bool {
-        self.passive
+        self.passive_channel
             .read()
             .as_ref()
             .is_some_and(|x| x.send(*apid).is_ok())
+    }
+
+    fn connecting(&self) -> Vec<HyUuid> {
+        self.passive_agent
+            .read()
+            .iter()
+            .map(ToOwned::to_owned)
+            .collect()
     }
 }

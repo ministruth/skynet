@@ -1,11 +1,11 @@
 [package]
 name = "agent"
-version = "0.3.1"
+version = "0.4.0"
 edition = "2021"
 authors = ["MXWXZ <matrixwxz@gmail.com>"]
 
 [dependencies]
-clap = { version = "4.5.16", features = ["derive"] }
+clap = { version = "4.5.17", features = ["derive"] }
 derivative = "2.2.0"
 sysinfo = "0.31.4"
 byte-unit = "5.1.4"
@@ -14,14 +14,16 @@ sha3 = "0.10.8"
 hex = "0.4.3"
 base64 = "0.22.1"
 crc32fast = "1.4.2"
-self-replace = "1.4.0"
+self-replace = "1.5.0"
 miniz_oxide = "0.8.0"
 portable-pty = "0.8.1"
 thiserror = "1.0.63"
 aes-gcm = "0.10.3"
 bytes = "1.7.1"
+subprocess = "0.2.9"
+path-clean = "1.0.1"
 
-skynet_api_monitor = { version = "0.2.0", path = "../monitor_api" }
+skynet_api_monitor = { version = "0.3.0", path = "../monitor_api" }
 skynet_api_agent = { version = "0.3.1", path = "../agent_api" }
 skynet_api = { path = "../../skynet_api" }
 

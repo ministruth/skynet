@@ -16,15 +16,15 @@ jobs:
         with:
           node-version: 20
           cache: "yarn"
-          cache-dependency-path: plugin/monitor/frontend/yarn.lock
-      - run: yarn
-        working-directory: plugin/monitor/frontend
-      - run: yarn build
-        working-directory: plugin/monitor/frontend
+          cache-dependency-path: plugin/**/yarn.lock
+      - name: Build assets
+        shell: bash
+        run: |
+          make static_plugin
       - uses: actions/upload-artifact@v4
         with:
-          name: monitor-frontend
-          path: plugin/monitor/frontend/dist
+          name: plugin-frontend
+          path: bin/assets/_plugin
           retention-days: 1
 
   build_plugin:
@@ -37,27 +37,21 @@ jobs:
           - os_name: linux-x86_64
             os: ubuntu-20.04
             target: x86_64-unknown-linux-gnu
-            lib: lib$d.so
           - os_name: linux-i686
             os: ubuntu-20.04
             target: i686-unknown-linux-gnu
-            lib: lib$d.so
           - os_name: linux-aarch64
             os: ubuntu-20.04
             target: aarch64-unknown-linux-gnu
-            lib: lib$d.so
           - os_name: windows-x86_64
             os: windows-latest
             target: x86_64-pc-windows-msvc
-            lib: $d.dll
           - os_name: macOS-x86_64
             os: macOS-latest
             target: x86_64-apple-darwin
-            lib: lib$d.dylib
           - os_name: macOS-aarch64
             os: macOS-latest
             target: aarch64-apple-darwin
-            lib: lib$d.dylib
     steps:
       - uses: actions/checkout@v4
       - name: Cache cargo & target directories
@@ -89,27 +83,18 @@ jobs:
           strip: false
       - uses: actions/download-artifact@v4
         with:
-          name: monitor-frontend
-          path: release/plugin/assets/_plugin/2eb2e1a5-66b4-45f9-ad24-3c4f05c858aa
+          name: plugin-frontend
+          path: bin/assets/_plugin
       - name: Package as archive
         shell: bash
         run: |
-          cd release
-          mkdir plugin/plugin
-          for d in `ls ../plugin`;do
-            if [ -f ../plugin/$d/config.yml ];then
-              mkdir plugin/plugin/$d;
-              cp ../target/${{ matrix.platform.target }}/release/${{ matrix.platform.lib }} plugin/plugin/$d;
-              cp ../plugin/$d/config.yml plugin/plugin/$d;
-            fi
-          done;
-          mkdir plugin/plugin/agent/bin
-          if [[ "${{ matrix.platform.os }}" == "windows-latest" ]]; then
-            cp ../target/${{ matrix.platform.target }}/release/agent.exe plugin/plugin/agent/bin;
-          else
-            cp ../target/${{ matrix.platform.target }}/release/agent plugin/plugin/agent/bin;
-          fi
-          mv plugin plugin-${{ matrix.platform.os_name }}
+          make output BUILD_TYPE=release TARGET_DIR=$(pwd)/target/${{ matrix.platform.target }}/release
+          mkdir bin-plugin
+          mv bin/plugin bin-plugin
+          mkdir bin-plugin/assets/
+          mv bin/assets/_plugin bin-plugin/assets/
+          mkdir release
+          mv bin-plugin release/plugin-${{ matrix.platform.os_name }}
           cd -
       - uses: actions/upload-artifact@v4
         with:
@@ -130,6 +115,9 @@ jobs:
           cargo publish --no-verify || true
           cd -
           cd plugin/agent_api
+          cargo publish --no-verify || true
+          cd -
+          cd plugin/task_api
           cargo publish --no-verify || true
           cd -
   package_plugin:

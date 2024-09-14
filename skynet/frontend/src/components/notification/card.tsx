@@ -12,10 +12,9 @@ import ProCard from '@ant-design/pro-card';
 import { ParamsType } from '@ant-design/pro-provider';
 import { ActionType, ProColumns } from '@ant-design/pro-table';
 import { useAccess } from '@umijs/max';
-import { Button, Tag } from 'antd';
+import { Button } from 'antd';
 import type { SortOrder } from 'antd/es/table/interface';
 import Paragraph from 'antd/es/typography/Paragraph';
-import { CustomTagProps } from 'rc-select/es/BaseSelect';
 import { useRef } from 'react';
 import { FormattedMessage } from 'react-intl';
 import confirm from '../layout/modal';
@@ -24,6 +23,7 @@ import {
   CreatedAtColumn,
   IDColumn,
   SearchColumn,
+  StatusColumn,
 } from '../layout/table/column';
 import styles from './style.less';
 
@@ -76,19 +76,19 @@ const NotificationCard = () => {
   const access = useAccess();
   const levelEnum: { [Key: number]: { label: string; color: string } } = {
     0: {
-      label: 'Info',
+      label: intl.get('pages.notification.table.level.info'),
       color: 'processing',
     },
     1: {
-      label: 'Success',
+      label: intl.get('pages.notification.table.level.success'),
       color: 'success',
     },
     2: {
-      label: 'Warning',
+      label: intl.get('pages.notification.table.level.warning'),
       color: 'warning',
     },
     3: {
-      label: 'Error',
+      label: intl.get('pages.notification.table.level.error'),
       color: 'error',
     },
   };
@@ -109,38 +109,11 @@ const NotificationCard = () => {
         };
       },
     },
-    {
-      title: intl.get('pages.notification.table.level'),
-      dataIndex: 'level',
-      align: 'center',
-      valueType: 'select',
-      fieldProps: {
-        mode: 'multiple',
-        tagRender: (props: CustomTagProps) => {
-          // BUG: rc-select undefined value
-          if (props.value)
-            return (
-              <Tag
-                color={levelEnum[props.value].color}
-                closable={props.closable}
-                onClose={props.onClose}
-                style={{ marginRight: 4 }}
-              >
-                {props.label}
-              </Tag>
-            );
-        },
-      },
-      valueEnum: Object.entries(levelEnum).reduce(
-        (p, c) => ({ ...p, [c[0]]: { text: c[1].label } }),
-        {},
-      ),
-      render: (_, row) => (
-        <Tag style={{ marginRight: 0 }} color={levelEnum[row.level].color}>
-          {levelEnum[row.level].label}
-        </Tag>
-      ),
-    },
+    StatusColumn(
+      intl.get('pages.notification.table.level'),
+      'level',
+      levelEnum,
+    ),
     {
       title: intl.get('pages.notification.table.message'),
       dataIndex: 'message',

@@ -3,13 +3,15 @@ use std::sync::Arc;
 use std::{cmp::max, collections::HashMap};
 
 use itertools::Itertools;
+use miniz_oxide::deflate::compress_to_vec;
 use once_cell::sync::Lazy;
 use serde_json::Value;
-use skynet_api::actix_cloud::anyhow;
 use skynet_api::actix_cloud::chrono::Utc;
 use skynet_api::actix_cloud::tokio::sync::mpsc::{unbounded_channel, UnboundedReceiver};
+use skynet_api::actix_cloud::{anyhow, bail};
 use skynet_api::hyuuid::uuids2strings;
 use skynet_api::request::Condition;
+use skynet_api::sea_orm::ActiveValue::NotSet;
 use skynet_api::sea_orm::Unchanged;
 use skynet_api::{
     async_trait,
@@ -20,7 +22,10 @@ use skynet_api::{
 use skynet_api_monitor::entity::passive_agents;
 use skynet_api_monitor::message::Data;
 use skynet_api_monitor::{ecies::SecretKey, entity::agents, Agent, AgentStatus, ID};
-use skynet_api_monitor::{InfoMessage, StatusRspMessage};
+use skynet_api_monitor::{
+    AgentCommand, AgentFile, CommandKillMessage, CommandReqMessage, FileReqMessage, InfoMessage,
+    StatusRspMessage,
+};
 
 static SETTING_ADDRESS: Lazy<String> = Lazy::new(|| format!("plugin_{ID}_address"));
 static SETTING_CERTIFICATE: Lazy<String> = Lazy::new(|| format!("plugin_{ID}_certificate"));
@@ -101,6 +106,26 @@ impl Service {
             .one(db)
             .await
             .map_err(anyhow::Error::from)
+    }
+
+    pub async fn update_passive(
+        &self,
+        db: &DatabaseTransaction,
+        id: &HyUuid,
+        name: Option<&str>,
+        address: Option<&str>,
+        retry_time: Option<i32>,
+    ) -> Result<passive_agents::Model> {
+        passive_agents::ActiveModel {
+            id: Unchanged(id.to_owned()),
+            name: name.map_or(NotSet, |x| Set(x.to_owned())),
+            address: address.map_or(NotSet, |x| Set(x.to_owned())),
+            retry_time: retry_time.map_or(NotSet, |x| Set(x.to_owned())),
+            ..Default::default()
+        }
+        .update(db)
+        .await
+        .map_err(Into::into)
     }
 
     pub async fn find_passive_by_name(
@@ -350,6 +375,52 @@ impl Service {
         }
         rx
     }
+
+    /// Update agent `id` command `cid` code and output.
+    ///
+    /// Return true when `id` and `cid` is valid.
+    pub fn update_command_output(
+        &self,
+        id: &HyUuid,
+        cid: &HyUuid,
+        code: Option<i32>,
+        mut output: Vec<u8>,
+    ) -> bool {
+        if let Some(agent) = self.agent.write().get_mut(id) {
+            if let Some(command) = agent.command.get_mut(cid) {
+                if command.is_none() {
+                    *command = Some(AgentCommand::new());
+                }
+                command.as_mut().unwrap().code = code;
+                command.as_mut().unwrap().output.append(&mut output);
+                return true;
+            }
+        }
+        false
+    }
+
+    /// Update agent `id` file `mid` code and message.
+    ///
+    /// Return true when `id` and `mid` is valid.
+    pub fn update_file_response(
+        &self,
+        id: &HyUuid,
+        fid: &HyUuid,
+        code: u32,
+        message: &str,
+    ) -> bool {
+        if let Some(agent) = self.agent.write().get_mut(id) {
+            if let Some(file) = agent.file.get_mut(fid) {
+                if file.is_none() {
+                    *file = Some(AgentFile::new());
+                }
+                file.as_mut().unwrap().code = code;
+                file.as_mut().unwrap().message = message.to_owned();
+                return true;
+            }
+        }
+        false
+    }
 }
 
 #[async_trait]
@@ -427,5 +498,59 @@ impl skynet_api_monitor::Service for Service {
             .setting
             .set(db, &SETTING_SHELL, &serde_json::to_string(&shell_prog)?)
             .await
+    }
+
+    fn run_command(&self, id: &HyUuid, cmd: &str) -> Result<HyUuid> {
+        if let Some(x) = self.agent.write().get_mut(id) {
+            if let Some(msg) = &x.message {
+                let id = HyUuid::new();
+                msg.send(Data::CommandReq(CommandReqMessage {
+                    id: id.to_string(),
+                    cmd: cmd.to_owned(),
+                }))?;
+                x.command.insert(id, None);
+                return Ok(id);
+            }
+        }
+        bail!("Agent not exist or offline")
+    }
+
+    fn get_command_output(&self, id: &HyUuid, cid: &HyUuid) -> Option<AgentCommand> {
+        self.agent.read().get(id)?.command.get(cid)?.to_owned()
+    }
+
+    fn kill_command(&self, id: &HyUuid, cid: &HyUuid, force: bool) -> Result<()> {
+        if let Some(x) = self.agent.read().get(id) {
+            if let Some(x) = &x.message {
+                return x
+                    .send(Data::CommandKill(CommandKillMessage {
+                        id: cid.to_string(),
+                        force,
+                    }))
+                    .map_err(Into::into);
+            }
+        }
+        bail!("Agent not exist or offline")
+    }
+
+    fn send_file(&self, id: &HyUuid, path: &str, data: &[u8]) -> Result<HyUuid> {
+        if let Some(x) = self.agent.write().get_mut(id) {
+            if let Some(msg) = &x.message {
+                let id = HyUuid::new();
+                let data = compress_to_vec(data, 6);
+                msg.send(Data::FileReq(FileReqMessage {
+                    id: id.to_string(),
+                    path: path.to_owned(),
+                    data,
+                }))?;
+                x.file.insert(id, None);
+                return Ok(id);
+            }
+        }
+        bail!("Agent not exist or offline")
+    }
+
+    fn get_file_result(&self, id: &HyUuid, fid: &HyUuid) -> Option<AgentFile> {
+        self.agent.read().get(id)?.file.get(fid)?.to_owned()
     }
 }

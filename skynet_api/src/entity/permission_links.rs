@@ -9,7 +9,9 @@ use crate::HyUuid;
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
     pub id: HyUuid,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub uid: Option<HyUuid>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub gid: Option<HyUuid>,
     pub pid: HyUuid,
     pub perm: i32,

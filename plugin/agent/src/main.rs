@@ -6,12 +6,18 @@ use logger::start_logger;
 use sha3::{digest::ExtendableOutput, Shake256};
 use skynet_api::actix_cloud::tokio;
 use skynet_api_monitor::ecies::PublicKey;
-use std::{env::consts, fs, net::IpAddr, path::PathBuf};
+use std::{
+    env::consts,
+    fs::{self, create_dir_all},
+    net::IpAddr,
+    path::PathBuf,
+};
 use sysinfo::{
     CpuRefreshKind, Disks, MemoryRefreshKind, NetworkData, Networks, RefreshKind, System,
 };
 
 mod client;
+mod command;
 mod logger;
 mod shell;
 mod socket;
@@ -74,6 +80,10 @@ pub struct RunArgs {
     /// Whether to restart on update.
     #[arg(long, default_value = "false")]
     restart: bool,
+
+    /// Data folder path.
+    #[arg(long, value_name = "PATH", default_value = "data")]
+    data: PathBuf,
 }
 
 #[derive(Subcommand, Clone)]
@@ -159,6 +169,9 @@ async fn main() {
     let (_, _guard) = start_logger(!cli.quiet, cli.log_json, cli.verbose);
     match cli.command {
         Commands::Run(args) => {
+            if !args.data.exists() {
+                create_dir_all(&args.data).unwrap();
+            }
             let cert = STANDARD
                 .decode(fs::read_to_string(&args.cert).unwrap())
                 .unwrap();

@@ -16,10 +16,14 @@ pub struct Model {
     pub id: HyUuid,
     pub uid: String,
     pub name: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub os: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub hostname: Option<String>,
     pub ip: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub system: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub arch: Option<String>,
     pub last_login: i64,
     pub created_at: i64,

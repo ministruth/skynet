@@ -1,9 +1,11 @@
+use core::str;
 use std::{sync::Arc, time::Duration};
 
 use actix_web_validator::{Json, QsQuery};
 use base64::{engine::general_purpose::STANDARD, Engine};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use serde_repr::Serialize_repr;
 use skynet_api::{
     actix_cloud::{
         actix_web::{
@@ -87,6 +89,22 @@ pub struct GetPassiveAgentsReq {
 
 #[plugin_api(RUNTIME)]
 pub async fn get_passive_agents(param: QsQuery<GetPassiveAgentsReq>) -> RspResult<impl Responder> {
+    #[derive(Serialize_repr)]
+    #[repr(u8)]
+    enum Status {
+        Inactive = 0,
+        Active,
+    }
+    #[derive(Serialize)]
+    struct Rsp {
+        id: HyUuid,
+        name: String,
+        status: Status,
+        address: String,
+        retry_time: i32,
+        created_at: i64,
+        updated_at: i64,
+    }
     let mut cond = param.common_cond();
     if let Some(text) = &param.text {
         cond = cond.add(
@@ -96,9 +114,30 @@ pub async fn get_passive_agents(param: QsQuery<GetPassiveAgentsReq>) -> RspResul
                 .add(text.like_expr(passive_agents::Column::Address)),
         );
     }
+    let srv = SERVICE.get().unwrap();
     let tx = DB.get().unwrap().begin().await?;
-    let data = SERVICE.get().unwrap().find_passive(&tx, cond).await?;
+    let data = srv.find_passive(&tx, cond).await?;
     tx.commit().await?;
+    let agent = srv.get_server().connecting();
+    let data = (
+        data.0
+            .into_iter()
+            .map(|x| Rsp {
+                id: x.id,
+                name: x.name,
+                status: if agent.contains(&x.id) {
+                    Status::Active
+                } else {
+                    Status::Inactive
+                },
+                address: x.address,
+                retry_time: x.retry_time,
+                created_at: x.created_at,
+                updated_at: x.updated_at,
+            })
+            .collect(),
+        data.1,
+    );
 
     finish!(JsonResponse::new(MonitorResponse::Success).json(PageData::new(data)));
 }
@@ -148,6 +187,69 @@ pub async fn add_passive_agents(param: Json<AddPassiveAgentsReq>) -> RspResult<i
         "Add passive agent",
     );
     finish!(JsonResponse::new(MonitorResponse::Success).json(m.id));
+}
+
+#[derive(Debug, Validate, Deserialize)]
+pub struct PutPassiveAgentsReq {
+    #[validate(length(min = 1, max = 32))]
+    pub name: Option<String>,
+    #[validate(length(min = 1, max = 64))]
+    pub address: Option<String>,
+    #[validate(range(min = 0))]
+    pub retry_time: Option<i32>,
+}
+
+#[plugin_api(RUNTIME)]
+pub async fn put_passive_agents(
+    param: Json<PutPassiveAgentsReq>,
+    paid: Path<HyUuid>,
+) -> RspResult<impl Responder> {
+    let tx = DB.get().unwrap().begin().await?;
+    let srv = SERVICE.get().unwrap();
+    if srv.find_passive_by_id(&tx, &paid).await?.is_none() {
+        finish!(JsonResponse::not_found());
+    }
+    srv.update_passive(
+        &tx,
+        &paid,
+        param.name.as_deref(),
+        param.address.as_deref(),
+        param.retry_time,
+    )
+    .await?;
+    tx.commit().await?;
+
+    info!(
+        success = true,
+        plugin = %ID,
+        paid = %paid,
+        name = ?param.name,
+        address = ?param.address,
+        retry_time = ?param.retry_time,
+        "Put passive agent",
+    );
+    finish!(JsonResponse::new(MonitorResponse::Success))
+}
+
+#[plugin_api(RUNTIME)]
+pub async fn activate_passive_agents(paid: Path<HyUuid>) -> RspResult<impl Responder> {
+    let tx = DB.get().unwrap().begin().await?;
+    let srv = SERVICE.get().unwrap();
+    if srv.find_passive_by_id(&tx, &paid).await?.is_none() {
+        finish!(JsonResponse::not_found());
+    }
+    tx.commit().await?;
+    if !srv.get_server().connecting().contains(&paid) {
+        srv.server.connect(&paid);
+    }
+
+    info!(
+        success = true,
+        plugin = %ID,
+        paid = %paid,
+        "Activate passive agent",
+    );
+    finish!(JsonResponse::new(MonitorResponse::Success))
 }
 
 #[plugin_api(RUNTIME)]

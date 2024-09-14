@@ -1,6 +1,8 @@
 import { StringIntl } from '@/utils';
 import { ProFormColumnsType } from '@ant-design/pro-form';
 import { ProColumns } from '@ant-design/pro-table';
+import { Tag } from 'antd';
+import { CustomTagProps } from 'rc-select/es/BaseSelect';
 
 export type Columns = (intl: StringIntl) => ProFormColumnsType[];
 export type Column = (intl: StringIntl) => ProFormColumnsType;
@@ -81,3 +83,42 @@ export const UpdatedAtColumn: (intl: StringIntl) => ProColumns[] = (intl) => [
     },
   },
 ];
+
+export const StatusColumn: (
+  title: string,
+  index: string,
+  status: { [Key: number]: { label: string; color: string } },
+) => ProColumns = (title, index, status) => {
+  return {
+    title: title,
+    dataIndex: index,
+    align: 'center',
+    valueType: 'select',
+    fieldProps: {
+      mode: 'multiple',
+      tagRender: (props: CustomTagProps) => {
+        // BUG: rc-select undefined value
+        if (props.value)
+          return (
+            <Tag
+              color={status[props.value].color}
+              closable={props.closable}
+              onClose={props.onClose}
+              style={{ marginRight: 4 }}
+            >
+              {props.label}
+            </Tag>
+          );
+      },
+    },
+    valueEnum: Object.entries(status).reduce(
+      (p, c) => ({ ...p, [c[0]]: { text: c[1].label } }),
+      {},
+    ),
+    render: (_, row) => (
+      <Tag style={{ marginRight: 0 }} color={status[row[index]].color}>
+        {status[row[index]].label}
+      </Tag>
+    ),
+  };
+};

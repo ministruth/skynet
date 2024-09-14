@@ -245,7 +245,7 @@ const Permission: React.FC<PermProps> = (props) => {
               return data;
             }}
             className={styles.scrolltable}
-            scroll={{ x: 'max-content', y: 400 }}
+            scroll={{ x: 'auto', y: 400 }}
             search={false}
             headerTitle={undefined}
             actionRef={ref}

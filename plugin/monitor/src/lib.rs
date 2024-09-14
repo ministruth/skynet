@@ -201,7 +201,27 @@ impl Plugin for Monitor {
             },
             Router {
                 path: format!("/plugins/{ID}/passive_agents/{{paid}}"),
+                route: put().to(api::put_passive_agents),
+                checker: PermType::Entry(PermEntry {
+                    pid: skynet.default_id[PermManagePluginID],
+                    perm: PERM_WRITE,
+                })
+                .into(),
+                csrf,
+            },
+            Router {
+                path: format!("/plugins/{ID}/passive_agents/{{paid}}"),
                 route: delete().to(api::delete_passive_agents),
+                checker: PermType::Entry(PermEntry {
+                    pid: skynet.default_id[PermManagePluginID],
+                    perm: PERM_WRITE,
+                })
+                .into(),
+                csrf,
+            },
+            Router {
+                path: format!("/plugins/{ID}/passive_agents/{{paid}}/activate"),
+                route: post().to(api::activate_passive_agents),
                 checker: PermType::Entry(PermEntry {
                     pid: skynet.default_id[PermManagePluginID],
                     perm: PERM_WRITE,

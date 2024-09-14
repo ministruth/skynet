@@ -38,14 +38,14 @@ struct OriginRsp {
 #[derive(Serialize)]
 struct GetRsp {
     #[serde(rename = "id")]
-    pub pid: HyUuid,
-    pub name: String,
-    pub note: String,
-    pub perm: UserPerm,
+    pid: HyUuid,
+    name: String,
+    note: String,
+    perm: UserPerm,
     #[serde(skip_serializing_if = "Vec::is_empty")]
-    pub origin: Vec<OriginRsp>,
-    pub created_at: i64,
-    pub updated_at: i64,
+    origin: Vec<OriginRsp>,
+    created_at: i64,
+    updated_at: i64,
 }
 
 pub async fn get_group(

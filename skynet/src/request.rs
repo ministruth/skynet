@@ -117,6 +117,9 @@ pub async fn error_middleware(
                 StatusCode::BAD_REQUEST => {
                     rsp.into_response(HttpResponse::BadRequest().finish().map_into_right_body())
                 }
+                StatusCode::FORBIDDEN => {
+                    rsp.into_response(HttpResponse::Forbidden().finish().map_into_right_body())
+                }
                 StatusCode::NOT_FOUND => {
                     rsp.into_response(HttpResponse::NotFound().finish().map_into_right_body())
                 }
@@ -139,6 +142,7 @@ pub async fn error_middleware(
             );
             Err(match rsp.status() {
                 StatusCode::BAD_REQUEST => actix_web::error::ErrorBadRequest(""),
+                StatusCode::FORBIDDEN => actix_web::error::ErrorForbidden(""),
                 StatusCode::NOT_FOUND => actix_web::error::ErrorNotFound(""),
                 StatusCode::INTERNAL_SERVER_ERROR => actix_web::error::ErrorInternalServerError(""),
                 _ => e,

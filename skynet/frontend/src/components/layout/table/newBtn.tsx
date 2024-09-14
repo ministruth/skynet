@@ -9,13 +9,13 @@ const TableNew: React.FC<TableOpProps & ModalSchemaProps> = (props) => {
     <TableOp
       trigger={
         <Button key="add" type="primary">
-          <PlusOutlined style={{ marginRight: '8px' }} />
+          <PlusOutlined />
           <FormattedMessage id="app.op.add" />
         </Button>
       }
       rollback={
         <Button key="add" type="primary" disabled>
-          <PlusOutlined style={{ marginRight: '8px' }} />
+          <PlusOutlined />
           <FormattedMessage id="app.op.add" />
         </Button>
       }

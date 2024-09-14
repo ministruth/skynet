@@ -60,6 +60,8 @@ You can find plugins in our [official support plugin](https://github.com/MXWXZ/s
 
 **!!Please note that all plugins have the same privilege as skynet, use trusted plugins ONLY!!**
 
+**In other words, run untrusted plugin = RCE**
+
 ## Develop
 
 See [develop note](develop.md).

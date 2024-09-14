@@ -2,12 +2,10 @@ import { UserPerm, getAPI, getIntl, paramSort } from '@/utils';
 import ProCard from '@ant-design/pro-card';
 import { ParamsType } from '@ant-design/pro-provider';
 import { ActionType, ProColumns } from '@ant-design/pro-table';
-import { Tag } from 'antd';
 import { SortOrder } from 'antd/es/table/interface';
-import { CustomTagProps } from 'rc-select/es/BaseSelect';
 import { useRef } from 'react';
 import Table from '../layout/table';
-import { IDColumn, SearchColumn } from '../layout/table/column';
+import { IDColumn, SearchColumn, StatusColumn } from '../layout/table/column';
 import TableDelete from '../layout/table/deleteBtn';
 import styles from '../layout/table/style.less';
 import PluginAble from './ableBtn';
@@ -35,19 +33,19 @@ const PluginCard = () => {
   const ref = useRef<ActionType>();
   const statusEnum: { [Key: number]: { label: string; color: string } } = {
     0: {
-      label: 'Unload',
+      label: intl.get('pages.plugin.table.status.unload'),
       color: 'default',
     },
     1: {
-      label: 'Pending Disable',
+      label: intl.get('pages.plugin.table.status.pending.disable'),
       color: 'warning',
     },
     2: {
-      label: 'Pending Enable',
+      label: intl.get('pages.plugin.table.status.pending.enable'),
       color: 'orange',
     },
     3: {
-      label: 'Enable',
+      label: intl.get('pages.plugin.table.status.enable'),
       color: 'success',
     },
   };
@@ -66,38 +64,7 @@ const PluginCard = () => {
       align: 'center',
       hideInSearch: true,
     },
-    {
-      title: intl.get('pages.plugin.table.status'),
-      dataIndex: 'status',
-      align: 'center',
-      valueType: 'select',
-      fieldProps: {
-        mode: 'multiple',
-        tagRender: (props: CustomTagProps) => {
-          // BUG: rc-select undefined value
-          if (props.value)
-            return (
-              <Tag
-                color={statusEnum[props.value].color}
-                closable={props.closable}
-                onClose={props.onClose}
-                style={{ marginRight: 4 }}
-              >
-                {props.label}
-              </Tag>
-            );
-        },
-      },
-      valueEnum: Object.entries(statusEnum).reduce(
-        (p, c) => ({ ...p, [c[0]]: { text: c[1].label } }),
-        {},
-      ),
-      render: (_, row) => (
-        <Tag style={{ marginRight: 0 }} color={statusEnum[row.status].color}>
-          {statusEnum[row.status].label}
-        </Tag>
-      ),
-    },
+    StatusColumn(intl.get('pages.plugin.table.status'), 'status', statusEnum),
     {
       title: intl.get('pages.plugin.table.version'),
       dataIndex: 'version',
