@@ -19,7 +19,6 @@ else
     endif
 endif
 
-.ONESHELL:
 .PHONY: check build build_release run dev static static_plugin clean help
 
 all: help
