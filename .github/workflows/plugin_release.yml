@@ -134,6 +134,7 @@ jobs:
         run: |
           mkdir bin
           mv */plugin/agent/bin/* bin
+          rm -f */plugin/agent/bin/*
           cp bin/* plugin-linux-x86_64/plugin/agent/bin/
           cp bin/* plugin-linux-i686/plugin/agent/bin/
           cp bin/* plugin-linux-aarch64/plugin/agent/bin/
