@@ -95,6 +95,8 @@ jobs:
         shell: bash
         run: |
           make output BUILD_TYPE=release TARGET_DIR=$(pwd)/target/${{ matrix.platform.target }}/release
+          rm -rf bin/plugin/*
+          mkdir bin/assets/_plugin
           mkdir release
           mv bin release/skynet
           cd release
