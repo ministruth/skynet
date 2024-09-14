@@ -22,11 +22,12 @@ jobs:
         with:
           node-version: 20
           cache: "yarn"
-          cache-dependency-path: skynet/frontend/yarn.lock
-      - run: yarn
-        working-directory: skynet/frontend
-      - run: yarn build
-        working-directory: skynet/frontend
+          cache-dependency-path: "**/yarn.lock"
+      - name: Build assets
+        shell: bash
+        run: |
+          make static
+          make static_plugin
 
   build_skynet:
     needs: build_frontend

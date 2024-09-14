@@ -16,7 +16,7 @@ jobs:
         with:
           node-version: 20
           cache: "yarn"
-          cache-dependency-path: plugin/**/yarn.lock
+          cache-dependency-path: "**/yarn.lock"
       - name: Build assets
         shell: bash
         run: |
