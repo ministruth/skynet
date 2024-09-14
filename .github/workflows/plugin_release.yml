@@ -95,7 +95,6 @@ jobs:
           mv bin/assets/_plugin bin-plugin/assets/
           mkdir release
           mv bin-plugin release/plugin-${{ matrix.platform.os_name }}
-          cd -
       - uses: actions/upload-artifact@v4
         with:
           name: plugin-${{ matrix.platform.os_name }}
