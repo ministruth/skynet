@@ -17,3 +17,5 @@ jobs:
 
   build_skynet:
     uses: ministruth/.github/.github/workflows/build.yml@main
+    with:
+      args: -p skynet
