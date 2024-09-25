@@ -1,0 +1,21 @@
+[submodule "plugin/monitor"]
+	path = plugin/monitor
+	url = git@github.com:ministruth/monitor.git
+[submodule "plugin/common"]
+	path = plugin/common
+	url = git@github.com:ministruth/plugin_common.git
+[submodule "plugin/monitor_api"]
+	path = plugin/monitor_api
+	url = git@github.com:ministruth/monitor_api.git
+[submodule "plugin/agent_api"]
+	path = plugin/agent_api
+	url = git@github.com:ministruth/agent_api.git
+[submodule "plugin/agent"]
+	path = plugin/agent
+	url = git@github.com:ministruth/agent.git
+[submodule "plugin/task_api"]
+	path = plugin/task_api
+	url = git@github.com:ministruth/task_api
+[submodule "plugin/task"]
+	path = plugin/task
+	url = git@github.com:ministruth/task

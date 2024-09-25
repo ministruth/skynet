@@ -350,9 +350,9 @@ dependencies = [
 
 [[package]]
 name = "actix_derive"
-version = "0.6.1"
+version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7c7db3d5a9718568e4cf4a537cfd7070e6e6ff7481510d0237fb529ac850f6d3"
+checksum = "b6ac1e58cded18cb28ddc17143c4dea5345b3ad575e14f32f66e4054a56eb271"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -433,9 +433,9 @@ dependencies = [
  "portable-pty",
  "self-replace",
  "sha3",
- "skynet_api",
- "skynet_api_agent",
- "skynet_api_monitor",
+ "skynet_api 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "skynet_api_agent 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "skynet_api_monitor 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "subprocess",
  "sysinfo",
  "thiserror",
@@ -2538,10 +2538,10 @@ dependencies = [
  "serde",
  "serde_json",
  "serde_repr",
- "skynet_api",
- "skynet_api_agent",
- "skynet_api_monitor",
- "skynet_macro 0.1.0",
+ "skynet_api 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "skynet_api_agent 0.3.1 (registry+https://github.com/rust-lang/crates.io-index)",
+ "skynet_api_monitor 0.3.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "skynet_macro 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "validator",
 ]
 
@@ -4111,7 +4111,7 @@ dependencies = [
  "rand",
  "serde",
  "serde_json",
- "skynet_api",
+ "skynet_api 0.1.2",
  "skynet_macro 0.1.0",
  "thiserror",
  "validator",
@@ -4147,11 +4147,53 @@ dependencies = [
 ]
 
 [[package]]
+name = "skynet_api"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "2b13a80f54225d1df2ebd2ea03ce4cfd0010fa33e4503683fbe0f2200a457637"
+dependencies = [
+ "actix-cloud",
+ "base64 0.22.1",
+ "derivative",
+ "enum-as-inner",
+ "enum-map",
+ "infer",
+ "libloading",
+ "parking_lot",
+ "paste",
+ "rustls 0.23.12",
+ "sea-orm",
+ "sea-orm-migration",
+ "semver",
+ "serde",
+ "serde-inline-default",
+ "serde_repr",
+ "serde_with",
+ "skynet_macro 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "thiserror",
+ "uuid",
+ "validator",
+ "walkdir",
+ "zip",
+]
+
+[[package]]
 name = "skynet_api_agent"
 version = "0.3.1"
 dependencies = [
  "enum-as-inner",
- "skynet_api",
+ "skynet_api 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "version-compare",
+]
+
+[[package]]
+name = "skynet_api_agent"
+version = "0.3.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5eb565270864de86e85c08108c2198001f26f7d89cd8be7daab84e5b4d453570"
+dependencies = [
+ "enum-as-inner",
+ "skynet_api 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
  "version-compare",
 ]
 
@@ -4166,18 +4208,47 @@ dependencies = [
  "prost-build",
  "serde",
  "serde_repr",
- "skynet_api",
- "skynet_macro 0.1.0",
+ "skynet_api 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "skynet_macro 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "tokio",
+ "walkdir",
+]
+
+[[package]]
+name = "skynet_api_monitor"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "97aa7dfd288b395fc69e5100f769f5f6f960ba19a090d219d687cc2514048baa"
+dependencies = [
+ "derivative",
+ "ecies",
+ "enum-as-inner",
+ "prost",
+ "prost-build",
+ "serde",
+ "serde_repr",
+ "skynet_api 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "skynet_macro 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "tokio",
  "walkdir",
 ]
 
 [[package]]
 name = "skynet_api_task"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "serde",
- "skynet_api",
+ "skynet_api 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+]
+
+[[package]]
+name = "skynet_api_task"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a73b3aa0e6f6b8083ff9fb4152439d1cb588f70d5edb8de0a38be7a24f139382"
+dependencies = [
+ "serde",
+ "skynet_api 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
 ]
 
 [[package]]
@@ -4575,16 +4646,16 @@ checksum = "55937e1799185b12863d447f42597ed69d9928686b8d88a1df17376a097d8369"
 
 [[package]]
 name = "task"
-version = "0.1.0"
+version = "0.2.0"
 dependencies = [
  "actix-cloud",
  "actix-web-validator",
  "sea-orm-migration",
  "serde",
  "serde-inline-default",
- "skynet_api",
- "skynet_api_task",
- "skynet_macro 0.1.0",
+ "skynet_api 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "skynet_api_task 0.2.0 (registry+https://github.com/rust-lang/crates.io-index)",
+ "skynet_macro 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "validator",
 ]
 

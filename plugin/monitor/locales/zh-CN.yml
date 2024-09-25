@@ -1,9 +1,0 @@
-2eb2e1a5-66b4-45f9-ad24-3c4f05c858aa:
-  menu:
-    monitor: "Monitor"
-  response:
-    agent:
-      exist: "客户端名已存在"
-    passive_agent:
-      name_exist: "被动客户端名已存在"
-      address_exist: "被动客户端地址已存在"

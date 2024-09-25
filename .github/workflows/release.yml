@@ -7,117 +7,33 @@ on:
       - "v*"
 
 jobs:
-  build_frontend:
-    name: Build frontend
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with:
-          node-version: 20
-          cache: "yarn"
-          cache-dependency-path: "**/yarn.lock"
-      - name: Build assets
-        shell: bash
-        run: |
-          make static
-      - uses: actions/upload-artifact@v4
-        with:
-          name: frontend
-          path: bin/assets
-          retention-days: 1
+  build_static:
+    uses: ministruth/.github/.github/workflows/build_static.yml@main
+    with:
+      upload: true
 
   build_skynet:
-    needs: build_frontend
-    name: Build skynet ${{ matrix.platform.os_name }}
-    runs-on: ${{ matrix.platform.os }}
-    strategy:
-      matrix:
-        platform:
-          - os_name: linux-x86_64
-            os: ubuntu-20.04
-            target: x86_64-unknown-linux-gnu
-            name: skynet-linux-x86_64.tar.gz
-          - os_name: linux-i686
-            os: ubuntu-20.04
-            target: i686-unknown-linux-gnu
-            name: skynet-linux-i686.tar.gz
-          - os_name: linux-aarch64
-            os: ubuntu-20.04
-            target: aarch64-unknown-linux-gnu
-            name: skynet-linux-aarch64.tar.gz
-          - os_name: windows-x86_64
-            os: windows-latest
-            target: x86_64-pc-windows-msvc
-            name: skynet-windows-x86_64.zip
-          - os_name: macOS-x86_64
-            os: macOS-latest
-            target: x86_64-apple-darwin
-            name: skynet-darwin-x86_64.tar.gz
-          - os_name: macOS-aarch64
-            os: macOS-latest
-            target: aarch64-apple-darwin
-            name: skynet-darwin-aarch64.tar.gz
-    steps:
-      - uses: actions/checkout@v4
-      - name: Cache cargo & target directories
-        uses: Swatinem/rust-cache@v2
-      - uses: ilammy/setup-nasm@v1
-        if: ${{ matrix.platform.os == 'windows-latest'}}
-      - name: Install Protoc
-        id: protoc-install
-        uses: arduino/setup-protoc@v3
-        with:
-          version: "27.3"
-          repo-token: ${{ secrets.GITHUB_TOKEN }}
-      - name: Set protoc path
-        shell: bash
-        run: |
-          echo "${{ steps.protoc-install.outputs.path }}" >> $GITHUB_PATH
-      - name: Update gcc
-        if: ${{ matrix.platform.os == 'ubuntu-20.04'}}
-        shell: bash
-        run: |
-          echo "CC=gcc-10" >> $GITHUB_ENV
-          echo "CXX=g++-10" >> $GITHUB_ENV
-      - name: Build binary
-        uses: houseabsolute/actions-rust-cross@v0
-        with:
-          command: "both"
-          target: ${{ matrix.platform.target }}
-          args: "--locked --release"
-          strip: false
-      - uses: actions/download-artifact@v4
-        with:
-          name: frontend
-          path: bin/assets
-      - name: Package as archive
-        shell: bash
-        run: |
-          make output BUILD_TYPE=release TARGET_DIR=$(pwd)/target/${{ matrix.platform.target }}/release
-          rm -rf bin/plugin/*
-          mkdir bin/assets/_plugin
-          mkdir release
-          mv bin release/skynet
-          cd release
-          if [[ "${{ matrix.platform.os }}" == "windows-latest" ]]; then
-            7z a ../${{ matrix.platform.name }} skynet
-          else
-            tar czvf ../${{ matrix.platform.name }} skynet
-          fi
-          cd -
-      - uses: actions/upload-artifact@v4
-        with:
-          name: skynet-${{ matrix.platform.os_name }}
-          path: ${{ matrix.platform.name }}
-          retention-days: 1
-      - name: Generate SHA-256
-        run: shasum -a 256 ${{ matrix.platform.name }} > ${{ matrix.platform.name }}.sha256
-      - name: Publish GitHub release
-        uses: softprops/action-gh-release@v2
-        with:
-          draft: true
-          files: ${{ matrix.platform.name }}*
+    uses: ministruth/.github/.github/workflows/build.yml@main
+    with:
+      prefix: skynet
+      upload: true
+      args: -p skynet
+
+  release:
+    needs: [build_static, build_skynet]
+    uses: ministruth/.github/.github/workflows/release.yml@main
+    with:
+      prefix: skynet
+      static: true
+      cmd: |
+        rm -rf */plugin/*
+        mkdir -p skynet-linux-x86_64/assets/_plugin
+        mkdir -p skynet-linux-i686/assets/_plugin
+        mkdir -p skynet-linux-aarch64/assets/_plugin
+        mkdir -p skynet-windows-x86_64/assets/_plugin
+        mkdir -p skynet-macOS-x86_64/assets/_plugin
+        mkdir -p skynet-macOS-aarch64/assets/_plugin
+
   publish_crate:
     needs: build_skynet
     name: Publish crate
@@ -134,6 +50,7 @@ jobs:
           cd skynet_api
           cargo publish --no-verify || true
           cd -
+
   push_dockerhub:
     needs: build_skynet
     name: Push to dockerhub
@@ -160,9 +77,13 @@ jobs:
       - run: |
           cd release
           tar xzvf skynet-linux-x86_64.tar.gz
-          mv skynet amd64
+          mv skynet-linux-x86_64 amd64
+          rm -rf amd64/plugin/*
+          mkdir -p amd64/assets/_plugin
           tar xzvf skynet-linux-aarch64.tar.gz
-          mv skynet arm64
+          mv skynet-linux-aarch64 arm64
+          rm -rf amd64/plugin/*
+          mkdir -p amd64/assets/_plugin
           cd -
       - name: Build and push aarch64
         uses: docker/build-push-action@v5

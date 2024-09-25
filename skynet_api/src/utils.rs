@@ -75,8 +75,7 @@ pub fn unzip(data: &[u8], path: &PathBuf) -> Result<()> {
         }
         Ok(())
     };
-    func().map_err(|e| {
+    func().inspect_err(|_| {
         let _ = fs::remove_dir_all(path);
-        e
     })
 }

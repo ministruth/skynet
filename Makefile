@@ -58,7 +58,7 @@ output:
 				pushd . > /dev/null;					\
 				t=$(TARGET_DIR);						\
 				cd $(PLUGIN_DIR)/$$d;					\
-				make --no-print-directory output TARGET_DIR=$$t OUTPUT_DIR=$$o; 	\
+				make --no-print-directory output TARGET_DIR=$$t OUTPUT_DIR=$$o/../; 	\
 				popd > /dev/null;						\
 			fi											\
 		fi												\
@@ -90,13 +90,14 @@ static_plugin:
 		if [[ -f $(PLUGIN_DIR)/$$d/Makefile && -f $(PLUGIN_DIR)/$$d/config.yml ]];then	\
 			echo Building $$d...;					\
 		    id=`cat $(PLUGIN_DIR)/$$d/config.yml | head -n 1 | cut -d \" -f 2`;	\
-			o=$(OUTPUT_DIR)/assets/_plugin/$$id;	\
+			o=$(OUTPUT_DIR)/assets/_plugin;	\
 			pushd . > /dev/null;					\
 			cd $(PLUGIN_DIR)/$$d;					\
 			make --no-print-directory static OUTPUT_DIR=$$o; 	\
 			popd > /dev/null;						\
 		fi											\
 	done
+	@mv $(OUTPUT_DIR)/assets/_plugin/assets/* $(OUTPUT_DIR)/assets/_plugin && rm -rf $(OUTPUT_DIR)/assets/_plugin/assets
 
 ## clean: Clean all build files.
 clean:
