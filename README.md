@@ -1,6 +1,6 @@
 # skynet
 
-![status](https://img.shields.io/badge/status-dev-lightgrey?style=flat-square) ![rustc](https://img.shields.io/badge/rustc-1.56+-red?style=flat-square)
+![version](https://img.shields.io/badge/version-0.2.3-blue?style=flat-square) ![api](https://img.shields.io/badge/api-0.1.2-light_green?style=flat-square) ![rustc](https://img.shields.io/badge/rustc-1.56+-red?style=flat-square) ![license](https://img.shields.io/github/license/ministruth/skynet?style=flat-square)
 
 Skynet is a service integration and management system, specially optimized for personal and home-lab use. With plugin support, you can easily embed whatever software you want to satisfy your need.
 
@@ -56,7 +56,13 @@ Note that no permission is allowed for these users.
 
 ## Plugins
 
-You can find plugins in our [official support plugin](https://github.com/MXWXZ/skynet/plugin) or other user shares.
+You can find plugins in our [organization repositories](https://github.com/ministruth) or other user shares.
+
+Use our script to download all official plugins:
+
+```
+./get_offical_plugins.sh
+```
 
 **!!Please note that all plugins have the same privilege as skynet, use trusted plugins ONLY!!**
 
