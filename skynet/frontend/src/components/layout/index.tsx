@@ -128,7 +128,8 @@ const MainLayout: React.FC<PropsWithChildren<MainLayoutProps>> = (props) => {
       contentStyle={{ padding: 0 }}
       // make copyright at the bottom
       style={{
-        height: '100vh',
+        minHeight: '100vh',
+        height: 'max-content',
       }}
     >
       {/* fix bug when switch from microapp, title will disappear */}

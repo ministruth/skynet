@@ -1,5 +1,6 @@
 import { getIntl } from '@/utils';
 import { DefaultFooter } from '@ant-design/pro-layout';
+import styles from './style.less';
 
 export default () => {
   const intl = getIntl();
@@ -9,6 +10,7 @@ export default () => {
     <DefaultFooter
       copyright={`${currentYear} ${intl.get('app.copyright.author')}`}
       links={[]}
+      className={styles['footer']}
     />
   );
 };

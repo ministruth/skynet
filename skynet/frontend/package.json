@@ -1,6 +1,6 @@
 {
   "name": "skynet",
-  "version": "1.0.0",
+  "version": "0.1.1",
   "private": true,
   "description": "Service integration and management system, optimized for home-lab use",
   "author": "MXWXZ <me@imwxz.com>",

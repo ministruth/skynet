@@ -1,22 +1,8 @@
-# plugin-v2024091401
-## Components
-- monitor: 0.2.5 => 0.3.0
-- skynet_api_monitor: 0.2.1 => 0.3.0
-- agent: 0.3.1 => 0.4.0
-- task: 0.1.0
+# frontend-dev
+## Bug fix
+1. Fixed a bug where the copyright could be hidden when the content height exceeded the page limit.
 
-## Changes
-1. `monitor-frontend`: Support i18n for status.
-2. `monitor-frontend`: zh-CN localization.
-3. `monitor-frontend`, `monitor-api`, `monitor`, `agent`: Dependency upgrade.
-
-## New features
-1. `monitor-api`: New api `connecting` for `Server`.
-2. `monitor`: Passive agent support update, status and manual activate.
-3. `agent`, `monitor`, `skynet_api_monitor`: Support file transfer and command.
-4. New plugin `task`.
-
-# skynet-v0.2.3
+# v0.2.3
 ## Changes
 1. `frontend`: Support i18n for status.
 2. `frontend`: Dependency upgrade.
@@ -27,52 +13,11 @@
 ## Bug fix
 1. `skynet`: Fix returning null fields.
 
-# plugin-v2024090102
-## Components
-- agent: 0.3.0 => 0.3.1
-- skynet_api_agent: 0.3.0 => 0.3.1
-- monitor: 0.2.4 => 0.2.5
-
-## Changes
-1. agent now use rust env to determine OS type.
-
-## Bug fix
-1. `agent`, `monitor`: Fix potential data corrupt.
-2. `agent`: Fix potential dead lock.
-
-# plugin-v2024090101
-## Components
-- monitor: 0.2.3 => 0.2.4
-
-## Bug fix
-1. Fix passive agent connect bug.
-
-# plugin-v2024083102
-## Components
-- monitor: 0.2.2 => 0.2.3
-
-## Bug fix
-1. Fix postgres backend bug.
-
 # v0.2.2
 ## Bug fix
 1. Fix postgres backend bug.
 
-# plugin-v2024083101
-## Components
-- agent: 0.2.1 => 0.3.0
-- skynet_api_agent: 0.2.1 => 0.3.0
-- monitor: 0.2.1 => 0.2.2
-
-## New features
-1. `agent`: Support `restart` option.
-2. `monitor`, `skynet_api_agent`: Version check will depend on `agent` version instead of `skynet_api_agent` version.
-
 # v0.2.1
-## Bug fix
-1. Fix `no process-level CryptoProvider` for rustls 0.23. 
-
-# plugin-v0.2.1
 ## Bug fix
 1. Fix `no process-level CryptoProvider` for rustls 0.23. 
 
@@ -89,19 +34,6 @@
 
 ## Bug fix
 1. Fix a bug that prevent success logs written to the database.
-
-# plugin-v0.2.0
-## Breaking changes
-1. Compatible to the new `skynet_api` design.
-2. Redesign C/S framework.
-
-## New features
-1. Support passive agents.
-
-# plugin-v0.1.1
-## Bug fix
-1. Fix segmentation fault when loading plugins.
-2. Fix monitor database foreign key error.
 
 # v0.1.1
 ## Changes
