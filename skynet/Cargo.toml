@@ -28,8 +28,8 @@ awc = { version = "3.5.1", default-features = false, features = [
     "rustls-0_23-webpki-roots",
 ] }
 
-skynet_api = { version = "0.1.2", path = "../skynet_api" }
-skynet_macro = { path = "../skynet_macro" }
+skynet_api = "0.1.2"
+skynet_macro = "0.1.0"
 migration = { path = "../migration" }
 
 [build-dependencies]

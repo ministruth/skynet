@@ -2,6 +2,11 @@
 ## Bug fix
 1. Fixed a bug where the copyright could be hidden when the content height exceeded the page limit.
 
+# dev
+## Bug fix
+1. Fixed a bug where the plugin entries could be duplicated in a certain scenario.
+2. Fixed a bug that caused 500 when using plugin extractors.
+
 # v0.2.3
 ## Changes
 1. `frontend`: Support i18n for status.

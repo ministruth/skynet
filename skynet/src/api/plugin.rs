@@ -17,32 +17,40 @@ use skynet_api::{
     tracing::info,
     HyUuid, Skynet,
 };
-use std::{collections::HashMap, fs::remove_dir_all, path};
+use std::{
+    collections::{HashMap, HashSet},
+    fs::remove_dir_all,
+    path,
+};
 use validator::Validate;
 
 use crate::{finish_data, finish_err, finish_ok, Cli, SkynetResponse};
 
-fn get_authorized_plugins(skynet: &Skynet, perm: &HashMap<HyUuid, PermissionItem>) -> Vec<HyUuid> {
-    fn dfs(base: &[MenuItem], perm: &HashMap<HyUuid, PermissionItem>) -> Vec<HyUuid> {
-        let mut ret = Vec::new();
+fn get_authorized_plugins(
+    skynet: &Skynet,
+    perm: &HashMap<HyUuid, PermissionItem>,
+) -> HashSet<HyUuid> {
+    fn dfs(base: &[MenuItem], perm: &HashMap<HyUuid, PermissionItem>) -> HashSet<HyUuid> {
+        let mut ret = HashSet::new();
         for i in base {
             if i.check(perm) {
                 if i.path.starts_with("/plugin/") {
                     let ids: Vec<&str> = i.path.split('/').collect();
                     if ids.len() >= 3 {
                         if let Ok(x) = HyUuid::parse(ids[2]) {
-                            ret.push(x);
+                            ret.insert(x);
                         }
                     }
                 }
-                ret.append(&mut dfs(&i.children, perm));
+                ret = ret
+                    .union(&mut dfs(&i.children, perm))
+                    .map(ToOwned::to_owned)
+                    .collect();
             }
         }
         ret
     }
-    let mut ret = dfs(&skynet.menu, perm);
-    ret.dedup();
-    ret
+    dfs(&skynet.menu, perm)
 }
 
 pub async fn get_entries(req: Request, skynet: Data<Skynet>) -> RspResult<impl Responder> {

@@ -4111,8 +4111,8 @@ dependencies = [
  "rand",
  "serde",
  "serde_json",
- "skynet_api 0.1.2",
- "skynet_macro 0.1.0",
+ "skynet_api 0.1.2 (registry+https://github.com/rust-lang/crates.io-index)",
+ "skynet_macro 0.1.0 (registry+https://github.com/rust-lang/crates.io-index)",
  "thiserror",
  "validator",
 ]
