@@ -47,7 +47,7 @@ esac
 ARCH=$(uname -m)
 case $ARCH in
 'x86_64')
-    ARCH='x86_x64'
+    ARCH='x86_64'
     ;;
 'i386')
     ARCH='i686'
@@ -78,7 +78,7 @@ fi
 default=1
 
 if [ $OS == 'linux' ]; then
-    if [ $ARCH == 'x86_x64' ]; then
+    if [ $ARCH == 'x86_64' ]; then
         default=1
     elif [ $ARCH == 'i686' ]; then
         default=2
@@ -86,11 +86,11 @@ if [ $OS == 'linux' ]; then
         default=3
     fi
 elif [ $OS == 'windows' ]; then
-    if [ $ARCH == 'x86_x64' ]; then
+    if [ $ARCH == 'x86_64' ]; then
         default=4
     fi
 elif [ $OS == 'darwin' ]; then
-    if [ $ARCH == 'x86_x64' ]; then
+    if [ $ARCH == 'x86_64' ]; then
         default=5
     elif [ $ARCH == 'aarch64' ]; then
         default=6
@@ -100,11 +100,11 @@ fi
 extension=.tar.gz
 echo
 echo "Choose version:"
-echo "1) linux-x86_x64"
+echo "1) linux-x86_64"
 echo "2) linux-i686"
 echo "3) linux-aarch64"
-echo "4) windows-x86_x64"
-echo "5) darwin-x86_x64"
+echo "4) windows-x86_64"
+echo "5) darwin-x86_64"
 echo "6) darwin-aarch64"
 read -p "Your choice (default: $default): " choice
 if [ -z "$choice" ]; then
