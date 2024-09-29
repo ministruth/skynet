@@ -1,11 +1,11 @@
-# frontend-dev
-## Bug fix
-1. Fixed a bug where the copyright could be hidden when the content height exceeded the page limit.
-
-# dev
+# v0.2.4
 ## Bug fix
 1. Fixed a bug where the plugin entries could be duplicated in a certain scenario.
 2. Fixed a bug that caused 500 when using plugin extractors.
+
+# frontend-v0.1.1
+## Bug fix
+1. Fixed a bug where the copyright could be hidden when the content height exceeded the page limit.
 
 # v0.2.3
 ## Changes
