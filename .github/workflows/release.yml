@@ -74,7 +74,6 @@ jobs:
           pattern: skynet-linux-*
           merge-multiple: true
       - uses: actions/download-artifact@v4
-        if: ${{ inputs.static }}
         with:
           name: static
           path: release/skynet-linux-x86_64/assets
