@@ -73,10 +73,16 @@ jobs:
           path: release
           pattern: skynet-linux-*
           merge-multiple: true
+      - uses: actions/download-artifact@v4
+        if: ${{ inputs.static }}
+        with:
+          name: static
+          path: skynet-linux-x86_64/assets
       - uses: docker/setup-qemu-action@v3
       - uses: docker/setup-buildx-action@v3
       - run: |
           cd release
+          cp -r skynet-linux-x86_64/assets skynet-linux-aarch64
           mv skynet-linux-x86_64 amd64
           rm -rf amd64/plugin/*
           mkdir -p amd64/assets/_plugin
