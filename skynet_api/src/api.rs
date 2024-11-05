@@ -26,11 +26,15 @@ impl APIManager {
     /// # Panics
     ///
     /// Panics if `ver` is invalid.
-    pub fn get<T: Any>(&self, id: &HyUuid, ver: &str) -> Option<Arc<T>> {
+    pub fn get<T: Any>(&self, id: &HyUuid, ver: &str) -> Option<Arc<Box<T>>> {
         let ver = VersionReq::parse(ver).unwrap();
         self.api.get(id).and_then(|x| {
             if ver.matches(&x.version) {
-                x.item.downcast_ref::<Arc<T>>().cloned()
+                let item = unsafe {
+                    let raw = Arc::into_raw(x.item.clone()) as *const Box<T>;
+                    Arc::from_raw(raw)
+                };
+                Some(item)
             } else {
                 None
             }
@@ -52,7 +56,7 @@ impl APIManager {
             *id,
             APIItem {
                 version: Version::parse(ver).unwrap(),
-                item: item.into(),
+                item: Arc::new(item),
             },
         );
     }
