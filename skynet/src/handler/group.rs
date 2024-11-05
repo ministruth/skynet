@@ -1,6 +1,6 @@
+use actix_cloud::{async_trait, Result};
 use derivative::Derivative;
 use skynet_api::{
-    async_trait,
     entity::{groups, user_group_links, users},
     handler::GroupHandler,
     hyuuid::uuids2strings,
@@ -10,7 +10,7 @@ use skynet_api::{
         DatabaseTransaction, EntityTrait, JoinType::InnerJoin, ModelTrait, PaginatorTrait,
         QueryFilter, QuerySelect, RelationTrait, Set, Unchanged,
     },
-    HyUuid, Result,
+    HyUuid,
 };
 use skynet_macro::default_handler_impl;
 

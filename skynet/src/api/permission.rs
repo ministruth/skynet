@@ -1,29 +1,26 @@
 use std::hash::{Hash, Hasher};
 
+use actix_cloud::{
+    actix_web::web::{Data, Path},
+    response::{JsonResponse, RspResult},
+    tracing::info,
+};
 use actix_web_validator::Json;
 use serde::{Deserialize, Serialize};
 use skynet_api::{
-    actix_cloud::{
-        actix_web::{
-            web::{Data, Path},
-            Responder,
-        },
-        response::{JsonResponse, RspResult},
-    },
     finish,
     permission::UserPerm,
-    request::{unique_validator, Condition},
+    request::{unique_validator, Condition, Request},
     sea_orm::{DatabaseConnection, TransactionTrait},
-    tracing::info,
-    HyUuid, Skynet,
+    HyUuid,
 };
 use validator::Validate;
 
 use crate::{finish_data, finish_err, finish_ok, SkynetResponse};
 
-pub async fn get(db: Data<DatabaseConnection>, skynet: Data<Skynet>) -> RspResult<impl Responder> {
+pub async fn get(req: Request, db: Data<DatabaseConnection>) -> RspResult<JsonResponse> {
     let tx = db.begin().await?;
-    let data = skynet.perm.find(&tx, Condition::default()).await?.0;
+    let data = req.skynet.perm.find(&tx, Condition::default()).await?.0;
     tx.commit().await?;
     finish_data!(data);
 }
@@ -49,15 +46,16 @@ struct GetRsp {
 }
 
 pub async fn get_group(
+    req: Request,
     gid: Path<HyUuid>,
     db: Data<DatabaseConnection>,
-    skynet: Data<Skynet>,
-) -> RspResult<impl Responder> {
+) -> RspResult<JsonResponse> {
     let tx = db.begin().await?;
-    if skynet.group.find_by_id(&tx, &gid).await?.is_none() {
+    if req.skynet.group.find_by_id(&tx, &gid).await?.is_none() {
         finish!(JsonResponse::not_found());
     }
-    let data: Vec<GetRsp> = skynet
+    let data: Vec<GetRsp> = req
+        .skynet
         .perm
         .find_group(&tx, &gid)
         .await?
@@ -77,15 +75,16 @@ pub async fn get_group(
 }
 
 pub async fn get_user(
+    req: Request,
     uid: Path<HyUuid>,
     db: Data<DatabaseConnection>,
-    skynet: Data<Skynet>,
-) -> RspResult<impl Responder> {
+) -> RspResult<JsonResponse> {
     let tx = db.begin().await?;
-    if skynet.user.find_by_id(&tx, &uid).await?.is_none() {
+    if req.skynet.user.find_by_id(&tx, &uid).await?.is_none() {
         finish!(JsonResponse::not_found());
     }
-    let data: Vec<GetRsp> = skynet
+    let data: Vec<GetRsp> = req
+        .skynet
         .get_user_perm(&tx, &uid)
         .await?
         .into_iter()
@@ -139,16 +138,17 @@ pub struct VecPutReq {
 }
 
 pub async fn put_group(
+    req: Request,
+    gid: Path<HyUuid>,
     param: Json<VecPutReq>,
     db: Data<DatabaseConnection>,
-    gid: Path<HyUuid>,
-    skynet: Data<Skynet>,
-) -> RspResult<impl Responder> {
+) -> RspResult<JsonResponse> {
     let tx = db.begin().await?;
-    if skynet.group.find_by_id(&tx, &gid).await?.is_none() {
+    if req.skynet.group.find_by_id(&tx, &gid).await?.is_none() {
         finish!(JsonResponse::not_found());
     }
-    let perm: Vec<HyUuid> = skynet
+    let perm: Vec<HyUuid> = req
+        .skynet
         .perm
         .find(&tx, Condition::default())
         .await?
@@ -162,7 +162,7 @@ pub async fn put_group(
         }
     }
     for i in &param.inner {
-        skynet
+        req.skynet
             .perm
             .grant(&tx, None, Some(&gid), &i.id, i.perm)
             .await?;
@@ -178,19 +178,20 @@ pub async fn put_group(
 }
 
 pub async fn put_user(
+    req: Request,
+    uid: Path<HyUuid>,
     param: Json<VecPutReq>,
     db: Data<DatabaseConnection>,
-    uid: Path<HyUuid>,
-    skynet: Data<Skynet>,
-) -> RspResult<impl Responder> {
+) -> RspResult<JsonResponse> {
     if uid.is_nil() {
         finish_err!(SkynetResponse::UserRoot);
     }
     let tx = db.begin().await?;
-    if skynet.user.find_by_id(&tx, &uid).await?.is_none() {
+    if req.skynet.user.find_by_id(&tx, &uid).await?.is_none() {
         finish!(JsonResponse::not_found());
     }
-    let perm: Vec<HyUuid> = skynet
+    let perm: Vec<HyUuid> = req
+        .skynet
         .perm
         .find(&tx, Condition::default())
         .await?
@@ -204,7 +205,7 @@ pub async fn put_user(
         }
     }
     for i in &param.inner {
-        skynet
+        req.skynet
             .perm
             .grant(&tx, Some(&uid), None, &i.id, i.perm)
             .await?;

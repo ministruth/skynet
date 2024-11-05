@@ -1,29 +1,31 @@
 use std::sync::Arc;
 
+use actix_cloud::{
+    self,
+    i18n::{i18n, Locale},
+    memorydb::{default::DefaultBackend, redis::RedisBackend, MemoryDB},
+    state::{GlobalState, ServerHandle},
+    tracing::debug,
+};
 use enum_map::EnumMap;
 use skynet_api::{
-    actix_cloud::{
-        self,
-        i18n::{i18n, Locale},
-        memorydb::{default::DefaultBackend, redis::RedisBackend, MemoryDB},
-        state::{GlobalState, ServerHandle},
-    },
     api::APIManager,
     config,
     logger::Logger,
-    plugin::PluginManager,
     sea_orm::{DatabaseConnection, TransactionTrait},
-    tracing::debug,
     Skynet,
 };
 
-use crate::{api, db, handler::*, Cli};
+use crate::{api, db, handler::*, logger, plugin::PluginManager, Cli};
 
 pub mod check;
 pub mod run;
 pub mod user;
 
-async fn init(cli: &Cli, logger: Logger) -> (Skynet, GlobalState, DatabaseConnection) {
+async fn init(
+    cli: &Cli,
+    logger: Logger,
+) -> (Skynet, GlobalState, DatabaseConnection, PluginManager) {
     // load config
     let (state_config, config) = config::load_file(cli.config.to_str().unwrap());
     debug!("Config file {:?} loaded", cli.config);
@@ -54,7 +56,6 @@ async fn init(cli: &Cli, logger: Logger) -> (Skynet, GlobalState, DatabaseConnec
         default_id: EnumMap::default(),
         config,
         menu: Vec::new(),
-        plugin: PluginManager::new(),
         shared_api: APIManager::new(),
     };
     let state = GlobalState {
@@ -83,8 +84,7 @@ async fn init(cli: &Cli, logger: Logger) -> (Skynet, GlobalState, DatabaseConnec
 
     // init plugin
     let mut plugin = PluginManager::new();
-    let (mut skynet, state) = plugin.load_all(skynet, state, &cli.plugin);
-    skynet.plugin = plugin;
+    let (skynet, state) = plugin.load_all(skynet, state, &cli.plugin);
 
-    (skynet, state, db)
+    (skynet, state, db, plugin)
 }

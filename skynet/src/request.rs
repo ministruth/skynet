@@ -1,25 +1,42 @@
-use std::{future::Future, net::SocketAddr, pin::Pin, rc::Rc, time::Duration};
+use std::{
+    collections::HashMap, future::Future, net::SocketAddr, pin::Pin, rc::Rc, sync::Arc,
+    time::Duration,
+};
 
+use actix_cloud::{
+    actix_web::{
+        self,
+        body::MessageBody,
+        dev::{ServiceRequest, ServiceResponse},
+        http::{Method, StatusCode},
+        middleware::Next,
+        web::{delete, get, head, patch, post, put, trace, Data, Payload},
+        HttpMessage, HttpRequest,
+    },
+    async_trait,
+    chrono::Utc,
+    request::Extension,
+    response::RspResult,
+    router::Checker,
+    session::{Session, SessionExt},
+    state::GlobalState,
+    tracing::{error, info, info_span, Span},
+    tracing_actix_web::{DefaultRootSpanBuilder, RequestId, RootSpanBuilder},
+    utils,
+};
 use derivative::Derivative;
 use skynet_api::{
-    actix_cloud::{
-        actix_web::{
-            self,
-            body::MessageBody,
-            dev::{ServiceRequest, ServiceResponse},
-            http::StatusCode,
-            middleware::Next,
-            web::Data,
-            HttpMessage, HttpRequest, HttpResponse,
-        },
-        chrono::Utc,
-        state::GlobalState,
-        tracing_actix_web::{DefaultRootSpanBuilder, RequestId, RootSpanBuilder},
-        utils,
+    anyhow,
+    permission::{
+        PermType, PermissionItem, GUEST_ID, GUEST_NAME, PERM_ALL, ROOT_ID, ROOT_NAME, USER_ID,
+        USER_NAME,
     },
-    tracing::{error, info, info_span, Span},
-    Result, Skynet,
+    request::{Request, Router, RouterType},
+    sea_orm::{DatabaseConnection, TransactionTrait},
+    HyUuid, Result, Skynet,
 };
+
+use crate::Cli;
 
 pub const CSRF_COOKIE: &str = "CSRF_TOKEN";
 pub const CSRF_HEADER: &str = "X-CSRF-Token";
@@ -28,7 +45,7 @@ pub const TRACE_HEADER: &str = "x-trace-id"; // This should be lowercase.
 #[macro_export]
 macro_rules! finish_ok {
     () => {
-        skynet_api::finish!(skynet_api::actix_cloud::response::JsonResponse::new(
+        skynet_api::finish!(actix_cloud::response::JsonResponse::new(
             $crate::SkynetResponse::Success
         ))
     };
@@ -37,14 +54,14 @@ macro_rules! finish_ok {
 #[macro_export]
 macro_rules! finish_err {
     ($rsp:path) => {
-        skynet_api::finish!(skynet_api::actix_cloud::response::JsonResponse::new($rsp))
+        skynet_api::finish!(actix_cloud::response::JsonResponse::new($rsp))
     };
 }
 
 #[macro_export]
 macro_rules! finish_data {
     ($rsp:expr) => {
-        skynet_api::finish!(skynet_api::actix_cloud::response::JsonResponse::new(
+        skynet_api::finish!(actix_cloud::response::JsonResponse::new(
             $crate::SkynetResponse::Success
         )
         .json($rsp))
@@ -96,6 +113,7 @@ pub enum APIError {
 
 /// Eat additional logs to user.
 pub async fn error_middleware(
+    cli: Data<Cli>,
     req: ServiceRequest,
     next: Next<impl MessageBody + 'static>,
 ) -> Result<ServiceResponse<impl MessageBody>, actix_web::Error> {
@@ -113,23 +131,13 @@ pub async fn error_middleware(
             } else {
                 info!(code = rsp.status().as_u16(), process_time, "HTTP Request");
             }
-            Ok(match rsp.status() {
-                StatusCode::BAD_REQUEST => {
-                    rsp.into_response(HttpResponse::BadRequest().finish().map_into_right_body())
-                }
-                StatusCode::FORBIDDEN => {
-                    rsp.into_response(HttpResponse::Forbidden().finish().map_into_right_body())
-                }
-                StatusCode::NOT_FOUND => {
-                    rsp.into_response(HttpResponse::NotFound().finish().map_into_right_body())
-                }
-                StatusCode::INTERNAL_SERVER_ERROR => rsp.into_response(
-                    HttpResponse::InternalServerError()
-                        .finish()
-                        .map_into_right_body(),
-                ),
-                _ => rsp.map_into_left_body(),
-            })
+
+            let (req, rsp) = rsp.into_parts();
+            if !cli.verbose && !rsp.status().is_success() {
+                Ok(ServiceResponse::new(req, rsp.drop_body()).map_into_left_body())
+            } else {
+                Ok(ServiceResponse::new(req, rsp).map_into_right_body())
+            }
         }
         Err(e) => {
             let rsp = e.error_response();
@@ -140,11 +148,19 @@ pub async fn error_middleware(
                 error = %e,
                 "HTTP Request"
             );
+
+            let body = if !cli.verbose {
+                String::new()
+            } else {
+                e.to_string()
+            };
             Err(match rsp.status() {
-                StatusCode::BAD_REQUEST => actix_web::error::ErrorBadRequest(""),
-                StatusCode::FORBIDDEN => actix_web::error::ErrorForbidden(""),
-                StatusCode::NOT_FOUND => actix_web::error::ErrorNotFound(""),
-                StatusCode::INTERNAL_SERVER_ERROR => actix_web::error::ErrorInternalServerError(""),
+                StatusCode::BAD_REQUEST => actix_web::error::ErrorBadRequest(body),
+                StatusCode::FORBIDDEN => actix_web::error::ErrorForbidden(body),
+                StatusCode::NOT_FOUND => actix_web::error::ErrorNotFound(body),
+                StatusCode::INTERNAL_SERVER_ERROR => {
+                    actix_web::error::ErrorInternalServerError(body)
+                }
                 _ => e,
             })
         }
@@ -200,5 +216,143 @@ impl RootSpanBuilder for TracingMiddleware {
         outcome: &Result<ServiceResponse<B>, actix_web::Error>,
     ) {
         DefaultRootSpanBuilder::on_request_end(span, outcome);
+    }
+}
+
+fn route_handler<F, T>(
+    func: Rc<F>,
+) -> impl Fn(HttpRequest, Payload) -> Pin<Box<dyn Future<Output = RspResult<T>>>> + Clone + 'static
+where
+    F: Fn(Request, Payload) -> Pin<Box<dyn Future<Output = RspResult<T>>>> + ?Sized + 'static,
+{
+    move |req, payload| {
+        let func = func.clone();
+        let r = req
+            .extensions_mut()
+            .remove::<Request>()
+            .ok_or(anyhow!("Request is not parsed"))
+            .unwrap();
+        Box::pin(async move { func(r, payload).await })
+    }
+}
+
+pub fn wrap_router(r: Vec<Router>) -> Vec<actix_cloud::router::Router> {
+    r.into_iter()
+        .map(|r| {
+            let method = match r.method {
+                Method::DELETE => delete(),
+                Method::GET => get(),
+                Method::HEAD => head(),
+                Method::PATCH => patch(),
+                Method::POST => post(),
+                Method::PUT => put(),
+                Method::TRACE => trace(),
+                _ => unimplemented!(),
+            };
+            let route = match r.route {
+                RouterType::Json(rt) => method.to(route_handler(rt)),
+                RouterType::Http(rt) => method.to(route_handler(rt)),
+                RouterType::Raw(rt) => rt,
+            };
+            actix_cloud::router::Router {
+                path: r.path.clone(),
+                route,
+                checker: Some(Rc::new(AuthChecker::new(r.checker))),
+                csrf: r.csrf,
+            }
+        })
+        .collect()
+}
+
+pub struct AuthChecker {
+    perm: PermType,
+}
+
+impl AuthChecker {
+    pub fn new(perm: PermType) -> Self {
+        Self { perm }
+    }
+
+    async fn get_request(req: &mut ServiceRequest) -> Result<Request> {
+        let s = req.get_session();
+        let id = s.get::<HyUuid>("_id")?;
+        let mut perm = match &id {
+            Some(x) => {
+                let mut perm = if x.is_nil() {
+                    // root
+                    HashMap::from([(
+                        ROOT_ID,
+                        PermissionItem {
+                            name: ROOT_NAME.to_owned(),
+                            pid: ROOT_ID,
+                            perm: PERM_ALL,
+                            ..Default::default()
+                        },
+                    )])
+                } else {
+                    // user
+                    let skynet = req.app_data::<Data<Skynet>>().unwrap();
+                    let db = req.app_data::<Data<DatabaseConnection>>().unwrap();
+                    let tx = db.begin().await.unwrap();
+                    let perm = skynet
+                        .get_user_perm(&tx, x)
+                        .await
+                        .unwrap()
+                        .into_iter()
+                        .map(|x| (x.pid, x))
+                        .collect();
+                    tx.commit().await.unwrap();
+                    perm
+                };
+                perm.insert(
+                    USER_ID,
+                    PermissionItem {
+                        name: USER_NAME.to_owned(),
+                        pid: USER_ID,
+                        perm: PERM_ALL,
+                        ..Default::default()
+                    },
+                );
+                perm
+            }
+            None => HashMap::new(),
+        };
+        perm.insert(
+            GUEST_ID,
+            PermissionItem {
+                name: GUEST_NAME.to_owned(),
+                pid: GUEST_ID,
+                perm: PERM_ALL,
+                ..Default::default()
+            },
+        );
+        let session = req.extract::<Session>().await.unwrap();
+        Ok(Request {
+            uid: id,
+            username: s.get::<String>("name")?,
+            perm,
+            extension: req.extensions().get::<Arc<Extension>>().unwrap().to_owned(),
+            skynet: req.app_data::<Data<Skynet>>().unwrap().to_owned(),
+            state: req.app_data::<Data<GlobalState>>().unwrap().to_owned(),
+            session,
+            http_request: req.request().clone(),
+        })
+    }
+}
+
+#[async_trait(?Send)]
+impl Checker for AuthChecker {
+    async fn check(&self, req: &mut ServiceRequest) -> Result<bool> {
+        let r = Self::get_request(req).await?;
+        let result = match &self.perm {
+            PermType::Entry(x) => x.check(&r.perm),
+            PermType::Custom(x) => x(&r.perm),
+        };
+        if result {
+            req.extensions_mut().insert(r);
+            Ok(true)
+        } else {
+            Ok(false)
+        }
     }
 }

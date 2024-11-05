@@ -94,9 +94,6 @@ export default {
   'pages.plugin.table.delete.title': '删除插件 {name}，确认？',
   'pages.plugin.table.disabletip': '禁用',
   'pages.plugin.table.enabletip': '启用',
-  'pages.plugin.table.enable.title': '启用插件 {name}，确认？',
-  'pages.plugin.table.enable.content':
-    '在重新启动 Skynet 之前你将无法卸载插件。',
   'pages.plugin.table.disable.title': '禁用插件 {name}，确认？',
   'pages.plugin.table.disable.content': '重新启动 Skynet 生效。',
 };

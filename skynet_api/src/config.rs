@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use actix_cloud::{config, tracing::warn};
+use actix_cloud::config;
 use serde::Deserialize;
 use serde_inline_default::serde_inline_default;
 use validator::{Validate, ValidationError};
@@ -164,9 +164,6 @@ pub fn load_file<S: AsRef<str>>(path: S) -> (config::Config, Config) {
     }
     if ret.redis.enable {
         assert!(ret.redis.dsn.is_some(), "`redis.dsn` is not provided");
-    }
-    if !ret.recaptcha.enable {
-        warn!("Recaptcha is disabled, for debugging purpose only")
     }
     (cfg, ret)
 }

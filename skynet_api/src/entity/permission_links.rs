@@ -1,4 +1,4 @@
-use actix_cloud::macros::{entity_id, entity_timestamp};
+use actix_cloud_codegen::{entity_id, entity_timestamp};
 use sea_orm::entity::prelude::*;
 use serde::Serialize;
 

@@ -2,35 +2,33 @@ use std::{cmp, collections::HashMap, future::Future, hash::Hash, pin::Pin, rc::R
 
 use actix_cloud::{
     actix_web::{
-        self,
-        dev::{Payload, ServiceRequest},
-        web::Data,
-        FromRequest, HttpMessage, HttpRequest,
+        http::Method,
+        web::{Data, Payload},
+        FromRequest, HttpRequest, HttpResponse, Route,
     },
     async_trait,
     request::Extension,
-    router::Checker,
-    session::SessionExt,
-    utils, Result,
+    response::{JsonResponse, RspResult},
+    router::CSRFType,
+    session::Session,
+    state::GlobalState,
+    utils,
 };
+use anyhow::Result;
 use derivative::Derivative;
 use enum_as_inner::EnumAsInner;
 use sea_orm::{
     sea_query::{self, ConditionExpression, SimpleExpr},
-    ColumnTrait, DatabaseConnection, DatabaseTransaction, EntityTrait, FromQueryResult, Order,
-    PaginatorTrait, QueryFilter, QueryOrder, Select, TransactionTrait,
+    ColumnTrait, DatabaseTransaction, EntityTrait, FromQueryResult, Order, PaginatorTrait,
+    QueryFilter, QueryOrder, Select,
 };
 use serde::{Deserialize, Serialize};
 use serde_inline_default::serde_inline_default;
-use serde_repr::{Deserialize_repr, Serialize_repr};
 use serde_with::{serde_as, DisplayFromStr};
 use validator::{Validate, ValidationError};
 
 use crate::{
-    permission::{
-        PermEntry, PermissionItem, GUEST_ID, GUEST_NAME, PERM_ALL, ROOT_ID, ROOT_NAME, USER_ID,
-        USER_NAME,
-    },
+    permission::{PermType, PermissionItem},
     HyUuid, Skynet,
 };
 
@@ -41,6 +39,156 @@ macro_rules! finish {
     };
 }
 
+macro_rules! impl_router_wrapper {
+    ($($x:ident),+) => {
+        impl_router_wrapper_json!($($x),+);
+        impl_router_wrapper_http!($($x),+);
+    };
+}
+
+macro_rules! impl_router_wrapper_json {
+    ($($x:ident),+) => {
+        impl<F, Fut, $($x),+> RouterWrapper<((),$($x,)+), JsonResponse> for F
+        where
+            F: Fn(Request, $($x),+) -> Fut + 'static,
+            Fut: Future<Output = RspResult<JsonResponse>> + 'static,
+            $($x: FromRequest,)+
+        {
+            #[allow(non_snake_case)]
+            fn call(self, req: Request, payload: Payload) -> Pin<Box<dyn Future<Output = RspResult<JsonResponse>>>> {
+                Box::pin(async move {
+                    let mut payload = payload.into_inner();
+                    $(
+                        let $x = match $x::from_request(&req.http_request, &mut payload).await {
+                            Ok(x) => x,
+                            Err(e) => return Ok(JsonResponse::bad_request(format!("{}", e.into()))),
+                        };
+                    )+
+                    (self)(req, $($x),+).await
+                })
+            }
+        }
+    };
+}
+
+macro_rules! impl_router_wrapper_http {
+    ($($x:ident),+) => {
+        impl<F, Fut, $($x),+> RouterWrapper<((),$($x,)+), HttpResponse> for F
+        where
+            F: Fn(Request, $($x),+) -> Fut + 'static,
+            Fut: Future<Output = RspResult<HttpResponse>> + 'static,
+            $($x: FromRequest,)+
+        {
+            #[allow(non_snake_case)]
+            fn call(self, req: Request, payload: Payload) -> Pin<Box<dyn Future<Output = RspResult<HttpResponse>>>> {
+                Box::pin(async move {
+                    let mut payload = payload.into_inner();
+                    $(
+                        let $x = match $x::from_request(&req.http_request, &mut payload).await {
+                            Ok(x) => x,
+                            Err(e) => return Ok(HttpResponse::BadRequest().body(format!("{}", e.into()))),
+                        };
+                    )+
+                    (self)(req, $($x),+).await
+                })
+            }
+        }
+    };
+}
+
+pub fn box_json_router<T, F>(f: F) -> RouterType
+where
+    F: RouterWrapper<T, JsonResponse> + Clone + 'static,
+{
+    RouterType::Json(Rc::new(move |r, p| f.clone().call(r, p)))
+}
+
+pub fn box_http_router<T, F>(f: F) -> RouterType
+where
+    F: RouterWrapper<T, HttpResponse> + Clone + 'static,
+{
+    RouterType::Http(Rc::new(move |r, p| f.clone().call(r, p)))
+}
+
+pub trait RouterWrapper<T, R> {
+    fn call(self, req: Request, payload: Payload) -> Pin<Box<dyn Future<Output = RspResult<R>>>>;
+}
+
+impl<F, Fut, R> RouterWrapper<(), R> for F
+where
+    F: Fn() -> Fut + 'static,
+    Fut: Future<Output = RspResult<R>> + 'static,
+{
+    fn call(self, _: Request, _: Payload) -> Pin<Box<dyn Future<Output = RspResult<R>>>> {
+        Box::pin((self)())
+    }
+}
+
+impl<F, Fut, R> RouterWrapper<((),), R> for F
+where
+    F: Fn(Request) -> Fut + 'static,
+    Fut: Future<Output = RspResult<R>> + 'static,
+{
+    fn call(self, req: Request, _: Payload) -> Pin<Box<dyn Future<Output = RspResult<R>>>> {
+        Box::pin((self)(req))
+    }
+}
+
+impl_router_wrapper!(A1);
+impl_router_wrapper!(A1, A2);
+impl_router_wrapper!(A1, A2, A3);
+impl_router_wrapper!(A1, A2, A3, A4);
+impl_router_wrapper!(A1, A2, A3, A4, A5);
+impl_router_wrapper!(A1, A2, A3, A4, A5, A6);
+impl_router_wrapper!(A1, A2, A3, A4, A5, A6, A7);
+impl_router_wrapper!(A1, A2, A3, A4, A5, A6, A7, A8);
+impl_router_wrapper!(A1, A2, A3, A4, A5, A6, A7, A8, A9);
+
+pub enum RouterType {
+    Json(RouterJsonFunc),
+    Http(RouterHttpFunc),
+    Raw(Route),
+}
+
+pub type RouterJsonFunc =
+    Rc<dyn Fn(Request, Payload) -> Pin<Box<dyn Future<Output = RspResult<JsonResponse>>>>>;
+pub type RouterHttpFunc =
+    Rc<dyn Fn(Request, Payload) -> Pin<Box<dyn Future<Output = RspResult<HttpResponse>>>>>;
+
+pub struct Router {
+    pub path: String,
+    pub method: Method,
+    pub route: RouterType,
+    pub checker: PermType,
+    pub csrf: CSRFType,
+}
+
+pub struct Request {
+    /// user id
+    pub uid: Option<HyUuid>,
+
+    /// user name
+    pub username: Option<String>,
+
+    /// User permission.
+    pub perm: HashMap<HyUuid, PermissionItem>,
+
+    /// actix cloud extension.
+    pub extension: Arc<Extension>,
+
+    /// Global skynet.
+    pub skynet: Data<Skynet>,
+
+    /// actix cloud state.
+    pub state: Data<GlobalState>,
+
+    /// session.
+    pub session: Session,
+
+    /// original http request.
+    pub http_request: HttpRequest,
+}
+
 /// # Errors
 /// Will return `Err` when `x` has duplicate items.
 pub fn unique_validator<T: Eq + Hash>(x: &Vec<T>) -> Result<(), ValidationError> {
@@ -48,31 +196,6 @@ pub fn unique_validator<T: Eq + Hash>(x: &Vec<T>) -> Result<(), ValidationError>
         Ok(())
     } else {
         Err(ValidationError::new("not unique"))
-    }
-}
-
-#[derive(Serialize_repr, Deserialize_repr, Debug, PartialEq, Eq, Hash, Clone, Copy)]
-#[repr(i32)]
-pub enum NotifyLevel {
-    Info = 0,
-    Success,
-    Warning,
-    Error,
-}
-
-#[derive(Serialize, Derivative)]
-#[derivative(Debug)]
-pub struct PageData<T> {
-    total: u64,
-    data: Vec<T>,
-}
-
-impl<T> PageData<T> {
-    pub fn new(data: (Vec<T>, u64)) -> Self {
-        Self {
-            total: data.1,
-            data: data.0,
-        }
     }
 }
 
@@ -93,24 +216,20 @@ impl IntoExpr for &String {
     }
 }
 
-#[serde_as]
-#[derive(Debug, Deserialize, Validate)]
-pub struct TimeParam {
-    pub created_sort: Option<SortType>,
-    #[validate(range(min = 0))]
-    #[serde_as(as = "Option<DisplayFromStr>")]
-    pub created_start: Option<i64>,
-    #[validate(range(min = 0))]
-    #[serde_as(as = "Option<DisplayFromStr>")]
-    pub created_end: Option<i64>,
+#[derive(Serialize, Derivative)]
+#[derivative(Debug)]
+pub struct PageData<T> {
+    total: u64,
+    data: Vec<T>,
+}
 
-    pub updated_sort: Option<SortType>,
-    #[validate(range(min = 0))]
-    #[serde_as(as = "Option<DisplayFromStr>")]
-    pub updated_start: Option<i64>,
-    #[validate(range(min = 0))]
-    #[serde_as(as = "Option<DisplayFromStr>")]
-    pub updated_end: Option<i64>,
+impl<T> PageData<T> {
+    pub fn new(data: (Vec<T>, u64)) -> Self {
+        Self {
+            total: data.1,
+            data: data.0,
+        }
+    }
 }
 
 #[serde_as]
@@ -280,6 +399,49 @@ impl Condition {
     }
 }
 
+#[derive(Debug, Validate, Deserialize)]
+pub struct IDsReq {
+    #[validate(length(min = 1, max = 32), custom(function = "unique_validator"))]
+    pub id: Vec<HyUuid>,
+}
+
+#[derive(Debug, Serialize, Deserialize, Clone, Copy, EnumAsInner)]
+pub enum SortType {
+    #[serde(rename = "asc")]
+    ASC,
+    #[serde(rename = "desc")]
+    DESC,
+}
+
+impl From<SortType> for Order {
+    fn from(val: SortType) -> Self {
+        match val {
+            SortType::ASC => Self::Asc,
+            SortType::DESC => Self::Desc,
+        }
+    }
+}
+
+#[serde_as]
+#[derive(Debug, Deserialize, Validate)]
+pub struct TimeParam {
+    pub created_sort: Option<SortType>,
+    #[validate(range(min = 0))]
+    #[serde_as(as = "Option<DisplayFromStr>")]
+    pub created_start: Option<i64>,
+    #[validate(range(min = 0))]
+    #[serde_as(as = "Option<DisplayFromStr>")]
+    pub created_end: Option<i64>,
+
+    pub updated_sort: Option<SortType>,
+    #[validate(range(min = 0))]
+    #[serde_as(as = "Option<DisplayFromStr>")]
+    pub updated_start: Option<i64>,
+    #[validate(range(min = 0))]
+    #[serde_as(as = "Option<DisplayFromStr>")]
+    pub updated_end: Option<i64>,
+}
+
 #[macro_export]
 macro_rules! build_time_cond {
     ($cond:ident, $time:expr, $col:expr) => {{
@@ -317,183 +479,4 @@ macro_rules! build_time_cond {
         };
         $cond
     }};
-}
-
-#[derive(Debug, Validate, Deserialize)]
-pub struct IDsReq {
-    #[validate(length(min = 1, max = 32), custom(function = "unique_validator"))]
-    pub id: Vec<HyUuid>,
-}
-
-#[derive(Debug, Serialize, Deserialize, Clone, Copy, EnumAsInner)]
-pub enum SortType {
-    #[serde(rename = "asc")]
-    ASC,
-    #[serde(rename = "desc")]
-    DESC,
-}
-
-impl From<SortType> for Order {
-    fn from(val: SortType) -> Self {
-        match val {
-            SortType::ASC => Self::Asc,
-            SortType::DESC => Self::Desc,
-        }
-    }
-}
-
-type MenuBadgeFunc = Box<dyn Fn(&Skynet) -> i64 + Send + Sync>;
-
-#[derive(Derivative)]
-#[derivative(Default(new = "true"), Debug)]
-pub struct MenuItem {
-    pub id: HyUuid,
-    pub name: String,
-    pub path: String,
-    pub icon: String,
-    pub children: Vec<MenuItem>,
-    #[derivative(Debug = "ignore")]
-    pub badge_func: Option<MenuBadgeFunc>,
-    pub omit_empty: bool,
-    pub perm: Option<PermEntry>,
-}
-
-impl MenuItem {
-    pub fn check(&self, p: &HashMap<HyUuid, PermissionItem>) -> bool {
-        self.perm.as_ref().map_or(true, |x| x.check(p))
-    }
-}
-
-#[derive(Derivative)]
-#[derivative(Debug)]
-pub struct Request {
-    /// user id
-    pub uid: Option<HyUuid>,
-
-    /// user name
-    pub username: Option<String>,
-
-    /// User permission.
-    pub perm: HashMap<HyUuid, PermissionItem>,
-
-    /// actix cloud extension.
-    pub extension: Arc<Extension>,
-}
-
-impl FromRequest for Request {
-    type Error = actix_web::Error;
-    type Future = Pin<Box<dyn Future<Output = Result<Self, Self::Error>>>>;
-
-    #[inline]
-    fn from_request(req: &HttpRequest, _: &mut Payload) -> Self::Future {
-        let req = req.clone();
-        Box::pin(async move {
-            req.extensions_mut()
-                .remove::<Self>()
-                .ok_or(actix_web::error::ErrorInternalServerError(
-                    "Request is not parsed",
-                ))
-        })
-    }
-}
-
-pub type PermChecker = dyn Fn(&HashMap<HyUuid, PermissionItem>) -> bool;
-
-pub enum PermType {
-    Entry(PermEntry),
-    Custom(Box<PermChecker>),
-}
-
-impl From<PermType> for Option<Rc<dyn Checker>> {
-    fn from(value: PermType) -> Self {
-        Some(Rc::new(AuthChecker::new(value)))
-    }
-}
-
-pub struct AuthChecker {
-    perm: PermType,
-}
-
-impl AuthChecker {
-    pub fn new(perm: PermType) -> Self {
-        Self { perm }
-    }
-
-    async fn get_request(req: &mut ServiceRequest) -> Result<Request> {
-        let s = req.get_session();
-        let id = s.get::<HyUuid>("_id")?;
-        let mut perm = match &id {
-            Some(x) => {
-                let mut perm = if x.is_nil() {
-                    // root
-                    HashMap::from([(
-                        ROOT_ID,
-                        PermissionItem {
-                            name: ROOT_NAME.to_owned(),
-                            pid: ROOT_ID,
-                            perm: PERM_ALL,
-                            ..Default::default()
-                        },
-                    )])
-                } else {
-                    // user
-                    let skynet = req.app_data::<Data<Skynet>>().unwrap();
-                    let db = req.app_data::<Data<DatabaseConnection>>().unwrap();
-                    let tx = db.begin().await.unwrap();
-                    let perm = skynet
-                        .get_user_perm(&tx, x)
-                        .await
-                        .unwrap()
-                        .into_iter()
-                        .map(|x| (x.pid, x))
-                        .collect();
-                    tx.commit().await.unwrap();
-                    perm
-                };
-                perm.insert(
-                    USER_ID,
-                    PermissionItem {
-                        name: USER_NAME.to_owned(),
-                        pid: USER_ID,
-                        perm: PERM_ALL,
-                        ..Default::default()
-                    },
-                );
-                perm
-            }
-            None => HashMap::new(),
-        };
-        perm.insert(
-            GUEST_ID,
-            PermissionItem {
-                name: GUEST_NAME.to_owned(),
-                pid: GUEST_ID,
-                perm: PERM_ALL,
-                ..Default::default()
-            },
-        );
-        Ok(Request {
-            uid: id,
-            username: s.get::<String>("name")?,
-            perm,
-            extension: req.extensions().get::<Arc<Extension>>().unwrap().to_owned(),
-        })
-    }
-}
-
-#[async_trait(?Send)]
-impl Checker for AuthChecker {
-    async fn check(&self, req: &mut ServiceRequest) -> Result<bool> {
-        let r = Self::get_request(req).await?;
-        let result = match &self.perm {
-            PermType::Entry(x) => x.check(&r.perm),
-            PermType::Custom(x) => x(&r.perm),
-        };
-        if result {
-            req.extensions_mut().insert(r);
-            Ok(true)
-        } else {
-            Ok(false)
-        }
-    }
 }

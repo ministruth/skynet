@@ -1,10 +1,11 @@
+use actix_cloud::Result;
 use enum_map::EnumMap;
 use migration::Migrator;
 use skynet_api::{
     permission::IDTypes::{self, *},
     plugin::init_db,
     sea_orm::{DatabaseConnection, TransactionTrait},
-    HyUuid, Result, Skynet,
+    HyUuid, Skynet,
 };
 
 fn default_perm() -> Vec<(IDTypes, String)> {

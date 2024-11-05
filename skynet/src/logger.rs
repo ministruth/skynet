@@ -7,18 +7,17 @@ use std::{
     thread,
 };
 
+use actix_cloud::{
+    logger::{LogItem, LoggerBuilder, LoggerGuard},
+    tokio::runtime,
+    tracing::Level,
+};
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use skynet_api::{
-    actix_cloud::{
-        logger::{LogItem, LoggerBuilder, LoggerGuard},
-        tokio::runtime,
-        tracing::Level,
-    },
     entity::notifications,
-    logger::Logger,
-    request::NotifyLevel,
+    logger::{Logger, NotifyLevel},
     sea_orm::{ActiveModelTrait, DatabaseConnection, Set},
 };
 

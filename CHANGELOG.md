@@ -1,3 +1,7 @@
+# v0.2.5
+## Bug fix
+1. Fix several bugs about plugins.
+
 # v0.2.4
 ## Bug fix
 1. Fixed a bug where the plugin entries could be duplicated in a certain scenario.

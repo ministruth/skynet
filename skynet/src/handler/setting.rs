@@ -1,15 +1,14 @@
+use actix_cloud::{async_trait, Result};
 use base64::{engine::general_purpose::STANDARD, Engine};
 use derivative::Derivative;
 use parking_lot::RwLock;
 use skynet_api::{
-    async_trait,
     entity::settings,
     handler::SettingHandler,
     sea_orm::{
         sea_query::Expr, ActiveModelTrait, ColumnTrait, DatabaseTransaction, EntityTrait,
         QueryFilter, Set, Value,
     },
-    Result,
 };
 use std::collections::HashMap;
 

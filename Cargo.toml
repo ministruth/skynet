@@ -1,15 +1,4 @@
 [workspace]
 
-members = [
-    "skynet_macro",
-    "migration",
-    "skynet_api",
-    "skynet",
-    "plugin/monitor_api",
-    "plugin/monitor",
-    "plugin/agent_api",
-    "plugin/agent",
-    "plugin/task_api",
-    "plugin/task",
-]
+members = ["skynet_macro", "migration", "skynet_api", "skynet"]
 resolver = "2"

@@ -4,6 +4,16 @@ use std::sync::{
 };
 
 use actix_cloud::{logger, tracing::Level};
+use serde_repr::{Deserialize_repr, Serialize_repr};
+
+#[derive(Serialize_repr, Deserialize_repr, Debug, PartialEq, Eq, Hash, Clone, Copy)]
+#[repr(i32)]
+pub enum NotifyLevel {
+    Info = 0,
+    Success,
+    Warning,
+    Error,
+}
 
 pub struct Logger {
     pub verbose: bool,

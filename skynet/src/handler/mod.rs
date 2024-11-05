@@ -1,5 +1,4 @@
 mod group;
-pub mod logger;
 mod notifications;
 mod permission;
 mod setting;

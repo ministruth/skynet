@@ -1,22 +1,15 @@
 use serde::Serialize;
-use skynet_api::{
-    actix_cloud::{
-        actix_web::{web::Data, Responder},
-        response::RspResult,
-        state::GlobalState,
-        t,
-    },
-    request::{MenuItem, Request},
-    Skynet,
+
+use actix_cloud::{
+    response::{JsonResponse, RspResult},
+    state::GlobalState,
+    t,
 };
+use skynet_api::{request::Request, MenuItem, Skynet};
 
 use crate::{finish_data, finish_err, finish_ok, SkynetResponse};
 
-pub async fn get_menus(
-    skynet: Data<Skynet>,
-    state: Data<GlobalState>,
-    req: Request,
-) -> RspResult<impl Responder> {
+pub async fn get_menus(req: Request) -> RspResult<JsonResponse> {
     #[derive(Serialize)]
     struct Rsp {
         name: String,
@@ -50,16 +43,16 @@ pub async fn get_menus(
         rsp
     }
 
-    finish_data!(dfs(&skynet, &state, &req, &skynet.menu));
+    finish_data!(dfs(&req.skynet, &req.state, &req, &req.skynet.menu));
 }
 
-pub async fn shutdown(state: Data<GlobalState>) -> RspResult<impl Responder> {
-    state.server.stop(true);
+pub async fn shutdown(req: Request) -> RspResult<JsonResponse> {
+    req.state.server.stop(true);
     finish_ok!();
 }
 
-pub async fn health(state: Data<GlobalState>) -> RspResult<impl Responder> {
-    if *state.server.running.read() {
+pub async fn health(req: Request) -> RspResult<JsonResponse> {
+    if *req.state.server.running.read() {
         finish_ok!();
     }
     finish_err!(SkynetResponse::NotReady);

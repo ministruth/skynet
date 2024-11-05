@@ -1,6 +1,6 @@
+use actix_cloud::async_trait;
 use derivative::Derivative;
 use skynet_api::{
-    async_trait,
     entity::notifications,
     handler::NotificationHandler,
     sea_orm::{ColumnTrait, EntityTrait, PaginatorTrait, QueryFilter},

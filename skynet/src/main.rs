@@ -1,12 +1,9 @@
 use std::{io, path::PathBuf};
 
+use actix_cloud::{self, tracing::error, utils};
 use clap::{Args, Parser, Subcommand};
 use cmd::{check, run, user};
-use handler::logger::start_logger;
-use skynet_api::{
-    actix_cloud::{self, utils},
-    tracing::error,
-};
+use logger::start_logger;
 
 include!(concat!(env!("OUT_DIR"), "/response.rs"));
 
@@ -14,6 +11,8 @@ mod api;
 mod cmd;
 mod db;
 mod handler;
+mod logger;
+mod plugin;
 mod request;
 
 #[derive(Parser, Clone)]

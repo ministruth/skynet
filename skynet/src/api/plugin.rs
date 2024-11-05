@@ -1,21 +1,18 @@
+use actix_cloud::{
+    actix_web::web::{Data, Path},
+    response::{JsonResponse, RspResult},
+    tracing::info,
+};
 use actix_web_validator::{Json, QsQuery};
 use serde::Deserialize;
 use serde_json::json;
 use skynet_api::{
-    actix_cloud::{
-        actix_web::{
-            web::{Data, Path},
-            Responder,
-        },
-        response::{JsonResponse, RspResult},
-    },
     finish,
     permission::PermissionItem,
     plugin::PluginStatus,
-    request::{unique_validator, MenuItem, PaginationParam, Request, SortType},
+    request::{unique_validator, PaginationParam, Request, SortType},
     sea_orm::{DatabaseConnection, TransactionTrait},
-    tracing::info,
-    HyUuid, Skynet,
+    HyUuid, MenuItem, Skynet,
 };
 use std::{
     collections::{HashMap, HashSet},
@@ -24,7 +21,7 @@ use std::{
 };
 use validator::Validate;
 
-use crate::{finish_data, finish_err, finish_ok, Cli, SkynetResponse};
+use crate::{finish_data, finish_err, finish_ok, plugin::PluginManager, Cli, SkynetResponse};
 
 fn get_authorized_plugins(
     skynet: &Skynet,
@@ -53,8 +50,8 @@ fn get_authorized_plugins(
     dfs(&skynet.menu, perm)
 }
 
-pub async fn get_entries(req: Request, skynet: Data<Skynet>) -> RspResult<impl Responder> {
-    finish_data!(get_authorized_plugins(&skynet, &req.perm));
+pub async fn get_entries(req: Request) -> RspResult<JsonResponse> {
+    finish_data!(get_authorized_plugins(&req.skynet, &req.perm));
 }
 
 #[derive(Debug, Validate, Deserialize)]
@@ -69,9 +66,12 @@ pub struct GetReq {
     pub page: PaginationParam,
 }
 
-pub async fn get(param: QsQuery<GetReq>, skynet: Data<Skynet>) -> RspResult<impl Responder> {
-    let mut data: Vec<serde_json::Value> = skynet
-        .plugin
+pub async fn get(
+    _: Request,
+    param: QsQuery<GetReq>,
+    plugin: Data<PluginManager>,
+) -> RspResult<JsonResponse> {
+    let mut data: Vec<serde_json::Value> = plugin
         .get_all()
         .read()
         .iter()
@@ -102,13 +102,14 @@ pub struct PutReq {
 }
 
 pub async fn put(
+    req: Request,
     id: Path<HyUuid>,
-    db: Data<DatabaseConnection>,
     param: Json<PutReq>,
-    skynet: Data<Skynet>,
-) -> RspResult<impl Responder> {
+    db: Data<DatabaseConnection>,
+    plugin: Data<PluginManager>,
+) -> RspResult<JsonResponse> {
     let tx = db.begin().await?;
-    if !skynet.plugin.set(&tx, &skynet, &id, param.enable).await? {
+    if !plugin.set(&tx, &req.skynet, &id, param.enable).await? {
         finish!(JsonResponse::not_found());
     }
     tx.commit().await?;
@@ -117,17 +118,18 @@ pub async fn put(
 }
 
 pub async fn delete(
+    req: Request,
     id: Path<HyUuid>,
     db: Data<DatabaseConnection>,
     cli: Data<Cli>,
-    skynet: Data<Skynet>,
-) -> RspResult<impl Responder> {
-    if let Some(x) = skynet.plugin.get(&id) {
+    plugin: Data<PluginManager>,
+) -> RspResult<JsonResponse> {
+    if let Some(x) = plugin.get(&id) {
         if x.status != PluginStatus::Unload {
             finish_err!(SkynetResponse::PluginLoaded);
         }
         let tx = db.begin().await?;
-        skynet.plugin.set(&tx, &skynet, &id, false).await?;
+        plugin.set(&tx, &req.skynet, &id, false).await?;
         tx.commit().await?;
         // Ignore error from this point.
         let _ = remove_dir_all(path::Path::new(&cli.plugin).join(&x.path));
@@ -136,7 +138,7 @@ pub async fn delete(
                 .join("_plugin")
                 .join(x.id.to_string()),
         );
-        skynet.plugin.get_all().write().retain(|v| v.id != x.id);
+        plugin.get_all().write().retain(|v| v.id != x.id);
     } else {
         finish!(JsonResponse::not_found());
     }

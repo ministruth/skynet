@@ -100,9 +100,6 @@ export default {
   'pages.plugin.table.delete.title': 'Delete plugin {name}, confirm?',
   'pages.plugin.table.disabletip': 'Disable',
   'pages.plugin.table.enabletip': 'Enable',
-  'pages.plugin.table.enable.title': 'Enable plugin {name}, confirm?',
-  'pages.plugin.table.enable.content':
-    'You cannot unload the plugin unless restart the Skynet.',
   'pages.plugin.table.disable.title': 'Disable plugin {name}, confirm?',
   'pages.plugin.table.disable.content': 'Restart Skynet to take effect.',
 };

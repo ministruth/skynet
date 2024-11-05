@@ -19,18 +19,9 @@ const handleAble = (
   enable: boolean,
 ) => {
   if (enable) {
-    confirm({
-      title: intl.get('pages.plugin.table.enable.title', {
-        name: name,
-      }),
-      content: intl.get('pages.plugin.table.enable.content'),
-      onOk() {
-        return checkAPI(putAPI(`/plugins/${id}`, { enable: enable })).then(
-          () => ref.current?.reloadAndRest?.(),
-        );
-      },
-      intl: intl,
-    });
+    return checkAPI(putAPI(`/plugins/${id}`, { enable: enable })).then(() =>
+      ref.current?.reloadAndRest?.(),
+    );
   } else {
     confirm({
       title: intl.get('pages.plugin.table.disable.title', {
@@ -38,8 +29,8 @@ const handleAble = (
       }),
       content: intl.get('pages.plugin.table.disable.content'),
       onOk() {
-        return checkAPI(putAPI(`/plugins/${id}`, { enable: enable })).then(
-          () => ref.current?.reloadAndRest?.(),
+        return checkAPI(putAPI(`/plugins/${id}`, { enable: enable })).then(() =>
+          ref.current?.reloadAndRest?.(),
         );
       },
       intl: intl,

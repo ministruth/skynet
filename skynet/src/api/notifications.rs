@@ -1,17 +1,17 @@
+use actix_cloud::{
+    actix_web::web::Data,
+    response::{JsonResponse, RspResult},
+    tracing::info,
+};
 use actix_web_validator::QsQuery;
 use serde::Deserialize;
 use skynet_api::{
-    actix_cloud::{
-        actix_web::{web::Data, Responder},
-        response::RspResult,
-    },
     entity::notifications::Column,
+    logger::NotifyLevel,
     request::{
-        unique_validator, Condition, IntoExpr, NotifyLevel, PageData, PaginationParam, TimeParam,
+        unique_validator, Condition, IntoExpr, PageData, PaginationParam, Request, TimeParam,
     },
     sea_orm::{ColumnTrait, DatabaseConnection, IntoSimpleExpr, TransactionTrait},
-    tracing::info,
-    Skynet,
 };
 use skynet_macro::common_req;
 use validator::Validate;
@@ -34,10 +34,10 @@ pub struct GetReq {
 }
 
 pub async fn get_all(
+    req: Request,
     param: QsQuery<GetReq>,
     db: Data<DatabaseConnection>,
-    skynet: Data<Skynet>,
-) -> RspResult<impl Responder> {
+) -> RspResult<JsonResponse> {
     let mut cond = param.common_cond();
     if let Some(level) = &param.level {
         cond = cond.add(Column::Level.is_in(level.iter().map(|x| *x as i32)));
@@ -52,23 +52,20 @@ pub async fn get_all(
         );
     }
     let tx = db.begin().await?;
-    let data = skynet.notification.find(&tx, cond).await?;
+    let data = req.skynet.notification.find(&tx, cond).await?;
     tx.commit().await?;
-    skynet.logger.set_unread(0);
+    req.skynet.logger.set_unread(0);
     finish_data!(PageData::new(data));
 }
 
-pub async fn delete_all(
-    db: Data<DatabaseConnection>,
-    skynet: Data<Skynet>,
-) -> RspResult<impl Responder> {
+pub async fn delete_all(req: Request, db: Data<DatabaseConnection>) -> RspResult<JsonResponse> {
     let tx = db.begin().await?;
-    let cnt = skynet.notification.delete_all(&tx).await?;
+    let cnt = req.skynet.notification.delete_all(&tx).await?;
     tx.commit().await?;
     info!(success = true, "Delete all notification");
     finish_data!(cnt);
 }
 
-pub async fn get_unread(skynet: Data<Skynet>) -> RspResult<impl Responder> {
-    finish_data!(skynet.logger.get_unread());
+pub async fn get_unread(req: Request) -> RspResult<JsonResponse> {
+    finish_data!(req.skynet.logger.get_unread());
 }

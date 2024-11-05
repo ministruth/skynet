@@ -1,17 +1,14 @@
 use std::fs;
 
+use actix_cloud::{
+    actix_web::web::{Data, Path},
+    macros::partial_entity,
+    response::{JsonResponse, RspResult},
+    tracing::info,
+};
 use actix_web_validator::{Json, QsQuery};
 use serde::{Deserialize, Serialize};
 use skynet_api::{
-    actix_cloud::{
-        actix_web::{
-            web::{Data, Path},
-            Responder,
-        },
-        macros::partial_entity,
-        response::{JsonResponse, RspResult},
-        state::GlobalState,
-    },
     entity::{groups, users::Column},
     finish,
     permission::{PermEntry, ROOT_ID},
@@ -20,9 +17,8 @@ use skynet_api::{
         SortType, TimeParam,
     },
     sea_orm::{ColumnTrait, DatabaseConnection, IntoSimpleExpr, TransactionTrait},
-    tracing::info,
     utils::{get_dataurl, parse_dataurl},
-    HyUuid, Skynet,
+    HyUuid,
 };
 use skynet_macro::common_req;
 use validator::Validate;
@@ -49,10 +45,10 @@ pub struct GetReq {
 }
 
 pub async fn get_all(
+    req: Request,
     param: QsQuery<GetReq>,
     db: Data<DatabaseConnection>,
-    skynet: Data<Skynet>,
-) -> RspResult<impl Responder> {
+) -> RspResult<JsonResponse> {
     let mut cond = param.common_cond();
     if let Some(text) = &param.text {
         cond = cond.add(
@@ -68,12 +64,12 @@ pub async fn get_all(
         cond = cond.add_sort(Column::LastLogin.into_simple_expr(), x.into());
     };
 
-    let (avatar, mime) = get_dataurl(&fs::read(&skynet.config.avatar)?);
+    let (avatar, mime) = get_dataurl(&fs::read(&req.skynet.config.avatar)?);
     if mime.is_none() {
         finish_err!(SkynetResponse::UserInvalidAvatar);
     }
     let tx = db.begin().await?;
-    let data = skynet.user.find(&tx, cond).await?;
+    let data = req.skynet.user.find(&tx, cond).await?;
     let data = (
         data.0
             .into_iter()
@@ -92,18 +88,18 @@ pub async fn get_all(
 }
 
 pub async fn get(
+    req: Request,
     uid: Path<HyUuid>,
     db: Data<DatabaseConnection>,
-    skynet: Data<Skynet>,
-) -> RspResult<impl Responder> {
+) -> RspResult<JsonResponse> {
     let tx = db.begin().await?;
-    let data = skynet.user.find_by_id(&tx, &uid).await?;
+    let data = req.skynet.user.find_by_id(&tx, &uid).await?;
     if data.is_none() {
         finish!(JsonResponse::not_found());
     }
     let mut data = data.unwrap();
     if data.avatar.is_none() {
-        let (avatar, mime) = get_dataurl(&fs::read(&skynet.config.avatar)?);
+        let (avatar, mime) = get_dataurl(&fs::read(&req.skynet.config.avatar)?);
         if mime.is_none() {
             finish_err!(SkynetResponse::UserInvalidAvatar);
         }
@@ -126,10 +122,10 @@ pub struct AddReq {
 }
 
 pub async fn add(
+    req: Request,
     param: Json<AddReq>,
     db: Data<DatabaseConnection>,
-    skynet: Data<Skynet>,
-) -> RspResult<impl Responder> {
+) -> RspResult<JsonResponse> {
     if param.clone_group.is_some() && param.base.is_none() {
         finish!(JsonResponse::bad_request(
             "Base should not be None when clone group"
@@ -154,7 +150,8 @@ pub async fn add(
         None
     };
     let tx = db.begin().await?;
-    if skynet
+    if req
+        .skynet
         .user
         .find_by_name(&tx, &param.username)
         .await?
@@ -164,35 +161,38 @@ pub async fn add(
     }
     if let Some(group) = &param.group {
         for i in group {
-            if skynet.group.find_by_id(&tx, i).await?.is_none() {
+            if req.skynet.group.find_by_id(&tx, i).await?.is_none() {
                 finish_err!(SkynetResponse::GroupNotExist);
             }
         }
     }
     if let Some(x) = param.base {
-        if skynet.user.find_by_id(&tx, &x).await?.is_none() {
+        if req.skynet.user.find_by_id(&tx, &x).await?.is_none() {
             finish_err!(SkynetResponse::UserNotExist);
         }
     }
 
-    let user = skynet
+    let user = req
+        .skynet
         .user
         .create(&tx, &param.username, Some(&param.password), avatar, false)
         .await?;
     if let Some(base) = &param.base {
-        let perm: Vec<PermEntry> = skynet
+        let perm: Vec<PermEntry> = req
+            .skynet
             .perm
             .find_user(&tx, base)
             .await?
             .into_iter()
             .map(Into::into)
             .collect();
-        skynet.perm.create_user(&tx, &user.id, &perm).await?;
+        req.skynet.perm.create_user(&tx, &user.id, &perm).await?;
     }
     let mut group: Vec<HyUuid> = param.group.as_ref().map_or(Vec::new(), ToOwned::to_owned);
     if param.clone_group.is_some_and(|x| x) {
         group.append(
-            &mut skynet
+            &mut req
+                .skynet
                 .group
                 .find_user_group(&tx, &param.base.unwrap(), false)
                 .await?
@@ -203,7 +203,7 @@ pub async fn add(
     }
     if !group.is_empty() {
         group.dedup();
-        skynet.group.link(&tx, &[user.id], &group).await?;
+        req.skynet.group.link(&tx, &[user.id], &group).await?;
     }
     tx.commit().await?;
     info!(
@@ -229,13 +229,11 @@ pub struct PutReq {
 }
 
 pub async fn put(
+    req: Request,
     uid: Path<HyUuid>,
     param: Json<PutReq>,
     db: Data<DatabaseConnection>,
-    state: Data<GlobalState>,
-    req: Request,
-    skynet: Data<Skynet>,
-) -> RspResult<impl Responder> {
+) -> RspResult<JsonResponse> {
     if uid.is_nil()
         && (!req.uid.is_some_and(|x| x.is_nil())
             || param.group.as_ref().is_some_and(|x| !x.is_empty()))
@@ -244,9 +242,9 @@ pub async fn put(
     }
 
     let tx = db.begin().await?;
-    if let Some(user) = skynet.user.find_by_id(&tx, &uid).await? {
+    if let Some(user) = req.skynet.user.find_by_id(&tx, &uid).await? {
         if let Some(name) = &param.username {
-            if let Some(x) = skynet.user.find_by_name(&tx, name).await? {
+            if let Some(x) = req.skynet.user.find_by_name(&tx, name).await? {
                 if x.id != user.id {
                     finish_err!(SkynetResponse::UserExist);
                 }
@@ -254,7 +252,7 @@ pub async fn put(
         }
         if let Some(group) = &param.group {
             for i in group {
-                if skynet.group.find_by_id(&tx, i).await?.is_none() {
+                if req.skynet.group.find_by_id(&tx, i).await?.is_none() {
                     finish_err!(SkynetResponse::GroupNotExist);
                 }
             }
@@ -280,12 +278,12 @@ pub async fn put(
             None
         };
 
-        skynet
+        req.skynet
             .user
             .update(
                 &tx,
-                state.memorydb.clone(),
-                &skynet,
+                req.state.memorydb.clone(),
+                &req.skynet,
                 &user.id,
                 param.username.as_deref(),
                 param.password.as_deref(),
@@ -294,8 +292,8 @@ pub async fn put(
             .await?;
 
         if let Some(gid) = &param.group {
-            skynet.group.unlink(&tx, &[*uid], &[]).await?;
-            skynet.group.link(&tx, &[*uid], gid).await?;
+            req.skynet.group.unlink(&tx, &[*uid], &[]).await?;
+            req.skynet.group.link(&tx, &[*uid], gid).await?;
         }
     } else {
         finish!(JsonResponse::not_found());
@@ -312,19 +310,18 @@ pub async fn put(
 }
 
 pub async fn delete_batch(
+    req: Request,
     param: Json<IDsReq>,
     db: Data<DatabaseConnection>,
-    state: Data<GlobalState>,
-    req: Request,
-    skynet: Data<Skynet>,
-) -> RspResult<impl Responder> {
+) -> RspResult<JsonResponse> {
     if param.id.contains(&ROOT_ID) && !req.uid.is_some_and(|x| x.is_nil()) {
         finish_err!(SkynetResponse::UserRoot)
     }
     let tx = db.begin().await?;
-    let rows = skynet
+    let rows = req
+        .skynet
         .user
-        .delete(&tx, state.memorydb.clone(), &skynet, &param.id)
+        .delete(&tx, req.state.memorydb.clone(), &req.skynet, &param.id)
         .await?;
     tx.commit().await?;
     if rows != 0 {
@@ -334,22 +331,21 @@ pub async fn delete_batch(
 }
 
 pub async fn delete(
+    req: Request,
     uid: Path<HyUuid>,
     db: Data<DatabaseConnection>,
-    state: Data<GlobalState>,
-    req: Request,
-    skynet: Data<Skynet>,
-) -> RspResult<impl Responder> {
+) -> RspResult<JsonResponse> {
     if uid.is_nil() && !req.uid.is_some_and(|x| x.is_nil()) {
         finish_err!(SkynetResponse::UserRoot);
     }
     let tx = db.begin().await?;
-    if skynet.user.find_by_id(&tx, &uid).await?.is_none() {
+    if req.skynet.user.find_by_id(&tx, &uid).await?.is_none() {
         finish!(JsonResponse::not_found());
     }
-    let rows = skynet
+    let rows = req
+        .skynet
         .user
-        .delete(&tx, state.memorydb.clone(), &skynet, &[*uid])
+        .delete(&tx, req.state.memorydb.clone(), &req.skynet, &[*uid])
         .await?;
     tx.commit().await?;
     info!(success = true, uid = %uid, "Delete user");
@@ -357,32 +353,30 @@ pub async fn delete(
 }
 
 pub async fn kick(
+    req: Request,
     uid: Path<HyUuid>,
     db: Data<DatabaseConnection>,
-    state: Data<GlobalState>,
-    req: Request,
-    skynet: Data<Skynet>,
-) -> RspResult<impl Responder> {
+) -> RspResult<JsonResponse> {
     if uid.is_nil() && !req.uid.is_some_and(|x| x.is_nil()) {
         finish_err!(SkynetResponse::UserRoot);
     }
     let tx = db.begin().await?;
-    if skynet.user.find_by_id(&tx, &uid).await?.is_none() {
+    if req.skynet.user.find_by_id(&tx, &uid).await?.is_none() {
         finish!(JsonResponse::not_found());
     }
-    skynet
+    req.skynet
         .user
-        .kick(state.memorydb.clone(), &skynet, &uid)
+        .kick(req.state.memorydb.clone(), &req.skynet, &uid)
         .await?;
     tx.commit().await?;
     finish_ok!();
 }
 
 pub async fn get_group(
+    req: Request,
     uid: Path<HyUuid>,
     db: Data<DatabaseConnection>,
-    skynet: Data<Skynet>,
-) -> RspResult<impl Responder> {
+) -> RspResult<JsonResponse> {
     #[partial_entity(groups::Model)]
     #[derive(Serialize)]
     struct Rsp {
@@ -393,10 +387,11 @@ pub async fn get_group(
     }
 
     let tx = db.begin().await?;
-    if skynet.user.find_by_id(&tx, &uid).await?.is_none() {
+    if req.skynet.user.find_by_id(&tx, &uid).await?.is_none() {
         finish!(JsonResponse::not_found());
     }
-    let data: Vec<Rsp> = skynet
+    let data: Vec<Rsp> = req
+        .skynet
         .group
         .find_user_group(&tx, &uid, true)
         .await

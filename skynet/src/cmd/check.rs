@@ -1,4 +1,5 @@
-use skynet_api::{config, tracing::info};
+use actix_cloud::tracing::info;
+use skynet_api::config;
 
 use crate::Cli;
 

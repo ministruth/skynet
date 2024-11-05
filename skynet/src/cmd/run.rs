@@ -1,36 +1,32 @@
+use actix_cloud::{
+    actix_web::{
+        cookie::{time::Duration, Key, SameSite},
+        dev::{fn_service, ServiceRequest, ServiceResponse},
+        middleware::{self, from_fn},
+        web::{scope, Data},
+        App, HttpMessage, HttpServer,
+    },
+    build_router, csrf, request,
+    security::SecurityHeader,
+    session::{
+        config::{PersistentSession, TtlExtensionPolicy},
+        SessionMiddleware,
+    },
+    state::GlobalState,
+    tracing::{info, warn},
+    tracing_actix_web::TracingLogger,
+    utils,
+};
 use actix_files::NamedFile;
 use qstring::QString;
-use skynet_api::{
-    actix_cloud::{
-        actix_web::{
-            cookie::{time::Duration, Key, SameSite},
-            dev::{fn_service, ServiceRequest, ServiceResponse},
-            middleware::{self, from_fn},
-            web::{scope, Data},
-            App, HttpMessage, HttpServer,
-        },
-        build_router, csrf, request,
-        security::SecurityHeader,
-        session::{
-            config::{PersistentSession, TtlExtensionPolicy},
-            SessionMiddleware,
-        },
-        state::GlobalState,
-        tracing_actix_web::TracingLogger,
-        utils,
-    },
-    logger::Logger,
-    plugin::init_rustls,
-    tracing::{info, warn},
-    Skynet,
-};
+use skynet_api::{logger::Logger, plugin::init_rustls, Skynet};
 
 use super::init;
 use crate::{
     api,
     request::{
-        check_csrf_token, error_middleware, RealIP, TracingMiddleware, CSRF_COOKIE, CSRF_HEADER,
-        TRACE_HEADER,
+        check_csrf_token, error_middleware, wrap_router, RealIP, TracingMiddleware, CSRF_COOKIE,
+        CSRF_HEADER, TRACE_HEADER,
     },
     Cli,
 };
@@ -68,10 +64,13 @@ pub async fn command(cli: &Cli, logger: Logger, skip_cover: bool, disable_csrf: 
         print_cover();
     }
 
-    let (skynet, state, db) = init(cli, logger).await;
+    let (skynet, state, db, plugin_manager) = init(cli, logger).await;
 
     if disable_csrf {
         warn!("CSRF protection is disabled, for debugging purpose only");
+    }
+    if !skynet.config.recaptcha.enable {
+        warn!("Recaptcha is disabled, for debugging purpose only")
     }
     if !skynet.config.listen.ssl && !skynet.config.proxy.enable {
         warn!("SSL is not enabled, your traffic is at risk")
@@ -96,18 +95,19 @@ pub async fn command(cli: &Cli, logger: Logger, skip_cover: bool, disable_csrf: 
     let skynet = Data::new(skynet);
     let cli_data = Data::new(cli.clone());
     let db = Data::new(db);
+    let plugin_manager = Data::new(plugin_manager);
     let server = HttpServer::new({
         let state = state.clone();
         let skynet = skynet.clone();
         move || {
             let mut route = api::new_api(&skynet.default_id, disable_csrf);
-            route = skynet.plugin.parse_route(&skynet, route);
+            route = plugin_manager.parse_route(&skynet, route);
 
             App::new()
                 .service(
                     scope("/api")
                         .configure(build_router(
-                            route,
+                            wrap_router(route),
                             csrf::Middleware::new(
                                 CSRF_COOKIE.into(),
                                 CSRF_HEADER.into(),
@@ -145,6 +145,7 @@ pub async fn command(cli: &Cli, logger: Logger, skip_cover: bool, disable_csrf: 
                 .app_data(skynet.clone())
                 .app_data(cli_data.clone())
                 .app_data(db.clone())
+                .app_data(plugin_manager.clone())
         }
     })
     .workers(worker);

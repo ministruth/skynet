@@ -1,15 +1,12 @@
+use actix_cloud::{actix_web::http::Method, router::CSRFType};
 use enum_map::EnumMap;
 use skynet_api::{
-    actix_cloud::{
-        actix_web::web::{delete, get, post, put},
-        router::{CSRFType, Router},
-    },
     permission::{
         IDTypes::{self, *},
-        PermEntry, PERM_READ, PERM_WRITE,
+        PermEntry, PermType, PERM_READ, PERM_WRITE,
     },
-    request::{MenuItem, PermType},
-    uuid, HyUuid, Skynet,
+    request::{box_json_router, Router},
+    uuid, HyUuid, MenuItem, Skynet,
 };
 
 mod auth;
@@ -119,350 +116,365 @@ pub fn new_api(id: &EnumMap<IDTypes, HyUuid>, disable_csrf: bool) -> Vec<Router>
     vec![
         Router {
             path: String::from("/settings/public"),
-            route: get().to(setting::get_public),
-            checker: PermType::Entry(PermEntry::new_guest()).into(),
+            method: Method::GET,
+            route: box_json_router(setting::get_public),
+            checker: PermType::Entry(PermEntry::new_guest()),
             csrf,
         },
         Router {
             path: String::from("/signin"),
-            route: post().to(auth::signin),
-            checker: PermType::Entry(PermEntry::new_guest()).into(),
+            method: Method::POST,
+            route: box_json_router(auth::signin),
+            checker: PermType::Entry(PermEntry::new_guest()),
             csrf,
         },
         Router {
             path: String::from("/signout"),
-            route: post().to(auth::signout),
-            checker: PermType::Entry(PermEntry::new_user()).into(),
+            method: Method::POST,
+            route: box_json_router(auth::signout),
+            checker: PermType::Entry(PermEntry::new_user()),
             csrf,
         },
         Router {
             path: String::from("/health"),
-            route: get().to(misc::health),
-            checker: PermType::Entry(PermEntry::new_guest()).into(),
+            method: Method::GET,
+            route: box_json_router(misc::health),
+            checker: PermType::Entry(PermEntry::new_guest()),
             csrf,
         },
         Router {
             path: String::from("/access"),
-            route: get().to(auth::get_access),
-            checker: PermType::Entry(PermEntry::new_guest()).into(),
+            method: Method::GET,
+            route: box_json_router(auth::get_access),
+            checker: PermType::Entry(PermEntry::new_guest()),
             csrf,
         },
         Router {
             path: String::from("/token"),
-            route: get().to(auth::get_token),
-            checker: PermType::Entry(PermEntry::new_guest()).into(),
+            method: Method::GET,
+            route: box_json_router(auth::get_token),
+            checker: PermType::Entry(PermEntry::new_guest()),
             csrf,
         },
         Router {
             path: String::from("/shutdown"),
-            route: post().to(misc::shutdown),
+            method: Method::POST,
+            route: box_json_router(misc::shutdown),
             checker: PermType::Entry(PermEntry {
                 pid: id[PermManageSystemID],
                 perm: PERM_WRITE,
-            })
-            .into(),
+            }),
             csrf,
         },
         Router {
             path: String::from("/menus"),
-            route: get().to(misc::get_menus),
-            checker: PermType::Entry(PermEntry::new_user()).into(),
+            method: Method::GET,
+            route: box_json_router(misc::get_menus),
+            checker: PermType::Entry(PermEntry::new_user()),
+            csrf,
+        },
+        Router {
+            path: String::from("/dashboard"),
+            method: Method::GET,
+            route: box_json_router(misc::get_menus),
+            checker: PermType::Entry(PermEntry::new_user()),
             csrf,
         },
         Router {
             path: String::from("/users"),
-            route: get().to(user::get_all),
+            method: Method::GET,
+            route: box_json_router(user::get_all),
             checker: PermType::Entry(PermEntry {
                 pid: id[PermManageUserID],
                 perm: PERM_READ,
-            })
-            .into(),
+            }),
             csrf,
         },
         Router {
             path: String::from("/users"),
-            route: post().to(user::add),
+            method: Method::POST,
+            route: box_json_router(user::add),
             checker: PermType::Entry(PermEntry {
                 pid: id[PermManageUserID],
                 perm: PERM_WRITE,
-            })
-            .into(),
+            }),
             csrf,
         },
         Router {
             path: String::from("/users"),
-            route: delete().to(user::delete_batch),
+            method: Method::DELETE,
+            route: box_json_router(user::delete_batch),
             checker: PermType::Entry(PermEntry {
                 pid: id[PermManageUserID],
                 perm: PERM_WRITE,
-            })
-            .into(),
+            }),
             csrf,
         },
         Router {
             path: String::from("/users/{uid}"),
-            route: get().to(user::get),
+            method: Method::GET,
+            route: box_json_router(user::get),
             checker: PermType::Entry(PermEntry {
                 pid: id[PermManageUserID],
                 perm: PERM_READ,
-            })
-            .into(),
+            }),
             csrf,
         },
         Router {
             path: String::from("/users/{uid}"),
-            route: put().to(user::put),
+            method: Method::PUT,
+            route: box_json_router(user::put),
             checker: PermType::Entry(PermEntry {
                 pid: id[PermManageUserID],
                 perm: PERM_WRITE,
-            })
-            .into(),
+            }),
             csrf,
         },
         Router {
             path: String::from("/users/{uid}"),
-            route: delete().to(user::delete),
+            method: Method::DELETE,
+            route: box_json_router(user::delete),
             checker: PermType::Entry(PermEntry {
                 pid: id[PermManageUserID],
                 perm: PERM_WRITE,
-            })
-            .into(),
+            }),
             csrf,
         },
         Router {
             path: String::from("/users/{uid}/kick"),
-            route: post().to(user::kick),
+            method: Method::POST,
+            route: box_json_router(user::kick),
             checker: PermType::Entry(PermEntry {
                 pid: id[PermManageUserID],
                 perm: PERM_WRITE,
-            })
-            .into(),
+            }),
             csrf,
         },
         Router {
             path: String::from("/users/{uid}/groups"),
-            route: get().to(user::get_group),
+            method: Method::GET,
+            route: box_json_router(user::get_group),
             checker: PermType::Entry(PermEntry {
                 pid: id[PermManageUserID],
                 perm: PERM_READ,
-            })
-            .into(),
+            }),
             csrf,
         },
         Router {
             path: String::from("/users/{uid}/permissions"),
-            route: get().to(permission::get_user),
+            method: Method::GET,
+            route: box_json_router(permission::get_user),
             checker: PermType::Entry(PermEntry {
                 pid: id[PermManageUserID],
                 perm: PERM_READ,
-            })
-            .into(),
+            }),
             csrf,
         },
         Router {
             path: String::from("/users/{uid}/permissions"),
-            route: put().to(permission::put_user),
+            method: Method::PUT,
+            route: box_json_router(permission::put_user),
             checker: PermType::Entry(PermEntry {
                 pid: id[PermManageUserID],
                 perm: PERM_WRITE,
-            })
-            .into(),
+            }),
             csrf,
         },
         Router {
             path: String::from("/groups"),
-            route: get().to(group::get_all),
+            method: Method::GET,
+            route: box_json_router(group::get_all),
             checker: PermType::Entry(PermEntry {
                 pid: id[PermManageUserID],
                 perm: PERM_READ,
-            })
-            .into(),
+            }),
             csrf,
         },
         Router {
             path: String::from("/groups"),
-            route: post().to(group::add),
+            method: Method::POST,
+            route: box_json_router(group::add),
             checker: PermType::Entry(PermEntry {
                 pid: id[PermManageUserID],
                 perm: PERM_WRITE,
-            })
-            .into(),
+            }),
             csrf,
         },
         Router {
             path: String::from("/groups"),
-            route: delete().to(group::delete_batch),
+            method: Method::DELETE,
+            route: box_json_router(group::delete_batch),
             checker: PermType::Entry(PermEntry {
                 pid: id[PermManageUserID],
                 perm: PERM_WRITE,
-            })
-            .into(),
+            }),
             csrf,
         },
         Router {
             path: String::from("/groups/{gid}"),
-            route: get().to(group::get),
+            method: Method::GET,
+            route: box_json_router(group::get),
             checker: PermType::Entry(PermEntry {
                 pid: id[PermManageUserID],
                 perm: PERM_READ,
-            })
-            .into(),
+            }),
             csrf,
         },
         Router {
             path: String::from("/groups/{gid}"),
-            route: put().to(group::put),
+            method: Method::PUT,
+            route: box_json_router(group::put),
             checker: PermType::Entry(PermEntry {
                 pid: id[PermManageUserID],
                 perm: PERM_WRITE,
-            })
-            .into(),
+            }),
             csrf,
         },
         Router {
             path: String::from("/groups/{gid}"),
-            route: delete().to(group::delete),
+            method: Method::DELETE,
+            route: box_json_router(group::delete),
             checker: PermType::Entry(PermEntry {
                 pid: id[PermManageUserID],
                 perm: PERM_WRITE,
-            })
-            .into(),
+            }),
             csrf,
         },
         Router {
             path: String::from("/groups/{gid}/users"),
-            route: get().to(group::get_user),
+            method: Method::GET,
+            route: box_json_router(group::get_user),
             checker: PermType::Entry(PermEntry {
                 pid: id[PermManageUserID],
                 perm: PERM_READ,
-            })
-            .into(),
+            }),
             csrf,
         },
         Router {
             path: String::from("/groups/{gid}/users"),
-            route: post().to(group::add_user),
+            method: Method::POST,
+            route: box_json_router(group::add_user),
             checker: PermType::Entry(PermEntry {
                 pid: id[PermManageUserID],
                 perm: PERM_WRITE,
-            })
-            .into(),
+            }),
             csrf,
         },
         Router {
             path: String::from("/groups/{gid}/users"),
-            route: delete().to(group::delete_user_batch),
+            method: Method::DELETE,
+            route: box_json_router(group::delete_user_batch),
             checker: PermType::Entry(PermEntry {
                 pid: id[PermManageUserID],
                 perm: PERM_WRITE,
-            })
-            .into(),
+            }),
             csrf,
         },
         Router {
             path: String::from("/groups/{gid}/users/{uid}"),
-            route: delete().to(group::delete_user),
+            method: Method::DELETE,
+            route: box_json_router(group::delete_user),
             checker: PermType::Entry(PermEntry {
                 pid: id[PermManageUserID],
                 perm: PERM_WRITE,
-            })
-            .into(),
+            }),
             csrf,
         },
         Router {
             path: String::from("/groups/{gid}/permissions"),
-            route: get().to(permission::get_group),
+            method: Method::GET,
+            route: box_json_router(permission::get_group),
             checker: PermType::Entry(PermEntry {
                 pid: id[PermManageUserID],
                 perm: PERM_READ,
-            })
-            .into(),
+            }),
             csrf,
         },
         Router {
             path: String::from("/groups/{gid}/permissions"),
-            route: put().to(permission::put_group),
+            method: Method::PUT,
+            route: box_json_router(permission::put_group),
             checker: PermType::Entry(PermEntry {
                 pid: id[PermManageUserID],
                 perm: PERM_WRITE,
-            })
-            .into(),
+            }),
             csrf,
         },
         Router {
             path: String::from("/permissions"),
-            route: get().to(permission::get),
+            method: Method::GET,
+            route: box_json_router(permission::get),
             checker: PermType::Entry(PermEntry {
                 pid: id[PermManageUserID],
                 perm: PERM_READ,
-            })
-            .into(),
+            }),
             csrf,
         },
         Router {
             path: String::from("/notifications"),
-            route: get().to(notifications::get_all),
+            method: Method::GET,
+            route: box_json_router(notifications::get_all),
             checker: PermType::Entry(PermEntry {
                 pid: id[PermManageNotificationID],
                 perm: PERM_READ,
-            })
-            .into(),
+            }),
             csrf,
         },
         Router {
             path: String::from("/notifications"),
-            route: delete().to(notifications::delete_all),
+            method: Method::DELETE,
+            route: box_json_router(notifications::delete_all),
             checker: PermType::Entry(PermEntry {
                 pid: id[PermManageNotificationID],
                 perm: PERM_WRITE,
-            })
-            .into(),
+            }),
             csrf,
         },
         Router {
             path: String::from("/notifications/unread"),
-            route: get().to(notifications::get_unread),
+            method: Method::GET,
+            route: box_json_router(notifications::get_unread),
             checker: PermType::Entry(PermEntry {
                 pid: id[PermManageNotificationID],
                 perm: PERM_READ,
-            })
-            .into(),
+            }),
             csrf,
         },
         Router {
             path: String::from("/plugins"),
-            route: get().to(plugin::get),
+            method: Method::GET,
+            route: box_json_router(plugin::get),
             checker: PermType::Entry(PermEntry {
                 pid: id[PermManagePluginID],
                 perm: PERM_READ,
-            })
-            .into(),
+            }),
             csrf,
         },
         Router {
             path: String::from("/plugins/{id}"),
-            route: put().to(plugin::put),
+            method: Method::PUT,
+            route: box_json_router(plugin::put),
             checker: PermType::Entry(PermEntry {
                 pid: id[PermManagePluginID],
                 perm: PERM_WRITE,
-            })
-            .into(),
+            }),
             csrf,
         },
         Router {
             path: String::from("/plugins/{id}"),
-            route: delete().to(plugin::delete),
+            method: Method::DELETE,
+            route: box_json_router(plugin::delete),
             checker: PermType::Entry(PermEntry {
                 pid: id[PermManagePluginID],
                 perm: PERM_WRITE,
-            })
-            .into(),
+            }),
             csrf,
         },
         Router {
             path: String::from("/plugins/entries"),
-            route: get().to(plugin::get_entries),
-            checker: PermType::Entry(PermEntry::new_guest()).into(),
+            method: Method::GET,
+            route: box_json_router(plugin::get_entries),
+            checker: PermType::Entry(PermEntry::new_guest()),
             csrf,
         },
     ]

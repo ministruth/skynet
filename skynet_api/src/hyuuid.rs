@@ -1,13 +1,14 @@
 use std::fmt::{self, Display};
 
+use anyhow::{bail, Result};
+#[cfg(feature = "database")]
 use sea_orm::{
     sea_query::{ArrayType, Nullable, ValueType, ValueTypeErr},
     ColIdx, ColumnType, DbErr, QueryResult, TryFromU64, TryGetError, TryGetable, Value,
 };
+#[cfg(feature = "serde")]
 use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
 use uuid::Uuid;
-
-use actix_cloud::{bail, Result};
 
 #[derive(Clone, Copy, Hash, Debug, PartialEq, Eq, Default)]
 pub struct HyUuid(pub Uuid);
@@ -41,18 +42,25 @@ impl HyUuid {
     }
 }
 
+pub fn uuids2strings(u: &[HyUuid]) -> Vec<String> {
+    u.iter().map(ToString::to_string).collect()
+}
+
+#[cfg(feature = "database")]
 impl Nullable for HyUuid {
     fn null() -> Value {
         Value::String(None)
     }
 }
 
+#[cfg(feature = "database")]
 impl TryFromU64 for HyUuid {
     fn try_from_u64(_: u64) -> Result<Self, DbErr> {
         Err(DbErr::ConvertFromU64(stringify!(HyUuid)))
     }
 }
 
+#[cfg(feature = "database")]
 impl ValueType for HyUuid {
     fn try_from(v: Value) -> Result<Self, ValueTypeErr> {
         ValueType::try_from(v).and_then(|v: String| Self::parse(&v).map_err(|_e| ValueTypeErr {}))
@@ -71,12 +79,14 @@ impl ValueType for HyUuid {
     }
 }
 
+#[cfg(feature = "database")]
 impl From<HyUuid> for Value {
     fn from(value: HyUuid) -> Self {
         Self::String(Some(Box::new(value.0.hyphenated().to_string())))
     }
 }
 
+#[cfg(feature = "database")]
 impl TryGetable for HyUuid {
     fn try_get_by<I: ColIdx>(res: &QueryResult, index: I) -> Result<Self, TryGetError> {
         TryGetable::try_get_by(res, index).and_then(|v: String| {
@@ -85,12 +95,13 @@ impl TryGetable for HyUuid {
     }
 }
 
+#[cfg(feature = "serde")]
 impl Serialize for HyUuid {
     fn serialize<S: Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
         serializer.serialize_str(self.0.hyphenated().encode_lower(&mut Uuid::encode_buffer()))
     }
 }
-
+#[cfg(feature = "serde")]
 impl<'de> Deserialize<'de> for HyUuid {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         struct UuidVisitor;
@@ -112,8 +123,4 @@ impl<'de> Deserialize<'de> for HyUuid {
 
         deserializer.deserialize_str(UuidVisitor)
     }
-}
-
-pub fn uuids2strings(u: &[HyUuid]) -> Vec<String> {
-    u.iter().map(ToString::to_string).collect()
 }

@@ -1,6 +1,6 @@
+use actix_cloud::{async_trait, Result};
 use derivative::Derivative;
 use skynet_api::{
-    async_trait,
     entity::{groups, permission_links, permissions, users},
     handler::PermHandler,
     permission::{PermEntry, PermissionItem, UserPerm, PERM_REVOKE},
@@ -8,7 +8,7 @@ use skynet_api::{
         ActiveModelBehavior, ActiveModelTrait, ColumnTrait, DatabaseTransaction, EntityTrait,
         JoinType::InnerJoin, PaginatorTrait, QueryFilter, QuerySelect, RelationTrait, Set,
     },
-    HyUuid, Result,
+    HyUuid,
 };
 use skynet_macro::default_handler_impl;
 

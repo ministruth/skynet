@@ -145,7 +145,7 @@ pub fn default_handler_impl(attr: TokenStream, input: TokenStream) -> TokenStrea
                 &self,
                 db: &skynet_api::sea_orm::DatabaseTransaction,
                 cond: skynet_api::request::Condition,
-            ) -> skynet_api::actix_cloud::Result<(Vec<#attr::Model>, u64)> {
+            ) -> actix_cloud::Result<(Vec<#attr::Model>, u64)> {
                 cond.select_page(#attr::Entity::find(), db).await
             }
         });
@@ -156,7 +156,7 @@ pub fn default_handler_impl(attr: TokenStream, input: TokenStream) -> TokenStrea
                 &self,
                 db: &skynet_api::sea_orm::DatabaseTransaction,
                 id: &skynet_api::HyUuid,
-            ) -> skynet_api::actix_cloud::Result<Option<#attr::Model>> {
+            ) -> actix_cloud::Result<Option<#attr::Model>> {
                 #attr::Entity::find_by_id(id.to_owned())
                     .one(db)
                     .await
@@ -169,7 +169,7 @@ pub fn default_handler_impl(attr: TokenStream, input: TokenStream) -> TokenStrea
             async fn delete_all(
                 &self,
                 db: &skynet_api::sea_orm::DatabaseTransaction
-            ) -> skynet_api::actix_cloud::Result<u64> {
+            ) -> actix_cloud::Result<u64> {
                 #attr::Entity::delete_many()
                     .exec(db)
                     .await
@@ -184,7 +184,7 @@ pub fn default_handler_impl(attr: TokenStream, input: TokenStream) -> TokenStrea
                 &self,
                 db: &skynet_api::sea_orm::DatabaseTransaction,
                 id: &[skynet_api::HyUuid]
-            ) -> skynet_api::actix_cloud::Result<u64> {
+            ) -> actix_cloud::Result<u64> {
                 #attr::Entity::delete_many()
                     .filter(#attr::Column::Id.is_in(skynet_api::hyuuid::uuids2strings(id)))
                     .exec(db)
@@ -200,7 +200,7 @@ pub fn default_handler_impl(attr: TokenStream, input: TokenStream) -> TokenStrea
                 &self,
                 db: &skynet_api::sea_orm::DatabaseTransaction,
                 cond: skynet_api::request::Condition,
-            ) -> skynet_api::actix_cloud::Result<u64> {
+            ) -> actix_cloud::Result<u64> {
                 Ok(cond.build(#attr::Entity::find()).0.count(db).await?)
             }
         });
@@ -225,18 +225,16 @@ macro_rules! parse_type {
 /// # Examples
 /// ```ignore
 /// #[plugin_api]
-/// async fn get() -> RspResult<impl Responder> {}
+/// async fn get() -> RspResult<JsonResponse> {}
 /// // or
 /// use skynet::request::Request;
 /// #[plugin_api]
-/// async fn get_custom(xxx: Request) -> RspResult<impl Responder> {}
+/// async fn get_custom(xxx: Request) -> RspResult<JsonResponse> {}
 /// ```
 #[proc_macro_attribute]
 pub fn plugin_api(attr: TokenStream, input: TokenStream) -> TokenStream {
     let attr = parse_macro_input!(attr as Option<Ident>);
     let mut func = parse_macro_input!(input as ItemFn);
-    let mut span_name = format_ident!("_plugin_span_req");
-    let mut span_flag = false;
     let mut req_name = format_ident!("_plugin_req");
     let mut req_flag = false;
     for i in &func.sig.inputs {
@@ -246,33 +244,16 @@ pub fn plugin_api(attr: TokenStream, input: TokenStream) -> TokenStream {
                 || *x.ty == parse_type! {Request}
             {
                 if let Pat::Ident(ident) = x.pat.as_ref() {
-                    span_name = ident.ident.clone();
-                    span_flag = true;
-                }
-            }
-            if *x.ty == parse_type! {skynet_api::actix_cloud::actix_web::HttpRequest}
-                || *x.ty == parse_type! {actix_cloud::actix_web::HttpRequest}
-                || *x.ty == parse_type! {actix_web::HttpRequest}
-                || *x.ty == parse_type! {HttpRequest}
-            {
-                if let Pat::Ident(ident) = x.pat.as_ref() {
                     req_name = ident.ident.clone();
                     req_flag = true;
                 }
             }
         }
     }
-    if !span_flag {
-        func.sig.inputs.insert(
-            0,
-            parse_quote!(_plugin_span_req: skynet_api::request::Request),
-        );
-    }
     if !req_flag {
-        func.sig.inputs.insert(
-            0,
-            parse_quote!(_plugin_req: skynet_api::actix_cloud::actix_web::HttpRequest),
-        );
+        func.sig
+            .inputs
+            .insert(0, parse_quote!(_plugin_req: skynet_api::request::Request));
     }
     if let Some(attr) = attr {
         func.block.stmts.insert(
@@ -298,10 +279,10 @@ pub fn plugin_api(attr: TokenStream, input: TokenStream) -> TokenStream {
     func.block.stmts.insert(
         0,
         parse_quote!(
-            let _plugin_span = skynet_api::tracing::info_span!(
+            let _plugin_span = actix_cloud::tracing::info_span!(
                 "HTTP request",
-                trace_id = #span_name.extension.trace_id,
-                ip = %#span_name.extension.real_ip,
+                trace_id = #req_name.extension.trace_id,
+                ip = %#req_name.extension.real_ip,
                 method = _plugin_method,
                 path = _plugin_path,
                 user_agent = _plugin_user_agent,
@@ -311,7 +292,7 @@ pub fn plugin_api(attr: TokenStream, input: TokenStream) -> TokenStream {
     func.block.stmts.insert(
         0,
         parse_quote!(
-            let _plugin_user_agent = #req_name
+            let _plugin_user_agent = #req_name.http_request
                 .headers()
                 .get("User-Agent")
                 .map_or("", |h| h.to_str().unwrap_or(""))
@@ -321,13 +302,13 @@ pub fn plugin_api(attr: TokenStream, input: TokenStream) -> TokenStream {
     func.block.stmts.insert(
         0,
         parse_quote!(
-            let _plugin_method = #req_name.method().to_string();
+            let _plugin_method = #req_name.http_request.method().to_string();
         ),
     );
     func.block.stmts.insert(
         0,
         parse_quote!(
-            let _plugin_path = #req_name
+            let _plugin_path = #req_name.http_request
                 .uri()
                 .path_and_query()
                 .map(ToString::to_string)

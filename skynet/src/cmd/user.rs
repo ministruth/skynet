@@ -1,9 +1,9 @@
 use std::{fs, path::PathBuf};
 
+use actix_cloud::tracing::{debug, error, info};
 use skynet_api::{
     logger::Logger,
     sea_orm::{DatabaseConnection, TransactionTrait},
-    tracing::{debug, error, info},
     Skynet,
 };
 
@@ -44,7 +44,7 @@ async fn create(
 }
 
 pub async fn command(cli: &Cli, logger: Logger, user_cli: &UserCli) {
-    let (skynet, state, db) = init(cli, logger).await;
+    let (skynet, state, db, _) = init(cli, logger).await;
 
     match &user_cli.command {
         // skynet user add

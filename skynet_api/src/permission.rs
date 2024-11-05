@@ -1,5 +1,6 @@
 use derivative::Derivative;
 use enum_map::Enum;
+#[cfg(feature = "database")]
 use sea_orm::FromQueryResult;
 use std::{collections::HashMap, fmt};
 
@@ -108,7 +109,8 @@ impl PermEntry {
     }
 }
 
-#[derive(Debug, FromQueryResult, Derivative)]
+#[cfg_attr(feature = "database", derive(FromQueryResult))]
+#[derive(Debug, Derivative)]
 #[derivative(Default(new = "true"))]
 pub struct PermissionItem {
     pub id: HyUuid,
@@ -119,7 +121,7 @@ pub struct PermissionItem {
     pub uid: Option<HyUuid>,
     pub gid: Option<HyUuid>,
     pub ug_name: String,
-    #[sea_orm(skip)]
+    #[cfg_attr(feature = "database", sea_orm(skip))]
     pub origin: Vec<(HyUuid, String, i32)>,
     pub created_at: i64,
     pub updated_at: i64,
@@ -132,4 +134,11 @@ impl From<PermissionItem> for PermEntry {
             perm: value.perm,
         }
     }
+}
+
+pub type PermChecker = dyn Fn(&HashMap<HyUuid, PermissionItem>) -> bool;
+
+pub enum PermType {
+    Entry(PermEntry),
+    Custom(Box<PermChecker>),
 }

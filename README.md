@@ -1,6 +1,6 @@
 # skynet
 
-![version](https://img.shields.io/badge/version-0.2.3-blue?style=flat-square) ![api](https://img.shields.io/badge/api-0.1.2-light_green?style=flat-square) ![rustc](https://img.shields.io/badge/rustc-1.56+-red?style=flat-square) ![license](https://img.shields.io/github/license/ministruth/skynet?style=flat-square)
+![version](https://img.shields.io/badge/version-0.2.5-blue?style=flat-square) ![api](https://img.shields.io/badge/api-0.2.9-light_green?style=flat-square) ![rustc](https://img.shields.io/badge/rustc-1.56+-red?style=flat-square) ![license](https://img.shields.io/github/license/ministruth/skynet?style=flat-square)
 
 Skynet is a service integration and management system, specially optimized for personal and home-lab use. With plugin support, you can easily embed whatever software you want to satisfy your need.
 
@@ -22,10 +22,12 @@ You can download pre-built libraries in our [release](https://github.com/MXWXZ/s
 
 We offer `linux-{x86_64,i686,aarch64}`, `darwin-{x86_64,aarch64}` and `windows-x86_64` binaries. You might build from source if your platform is not included.
 
+**Due to some bugs, SQLite backend may lead to load error in plugins currently.**
+
 1. Download the release and extract.
-2. (Optional) Install redis on your machine.
-3. `vim conf.yml` to modify your config.
-4. `touch data.db` or copy your existing database.
+2. Install postgresql on your machine.
+3. (Optional) Install redis on your machine.
+4. `vim conf.yml` to modify your config.
 5. `./skynet check` to verify your config.
 6. `./skynet run` to start up the server.
 7. Visit `localhost:8080`.

@@ -1,5 +1,5 @@
-use actix_cloud::response::generate_response;
+use actix_cloud::response_build::generate_response;
 
 fn main() {
-    generate_response("skynet_api::", "response", "response.rs").unwrap();
+    generate_response("", "response", "response.rs").unwrap();
 }
