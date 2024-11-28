@@ -6,16 +6,20 @@ use actix_cloud::{
         web::Data,
     },
     response::{JsonResponse, RspResult},
+    session::Session,
+    state::GlobalState,
     tracing::{info, warn},
 };
 use actix_web_validator::Json;
 use awc::Client;
 use serde::{Deserialize, Serialize};
 use skynet_api::{
-    anyhow, bail, finish,
+    anyhow::anyhow,
+    bail, finish,
     request::Request,
     sea_orm::{DatabaseConnection, TransactionTrait},
-    HyUuid, Result,
+    viewer::users::UserViewer,
+    HyUuid, Result, Skynet,
 };
 use validator::Validate;
 
@@ -38,17 +42,19 @@ pub struct SigninReq {
 pub async fn signin(
     req: Request,
     param: Json<SigninReq>,
+    skynet: Data<Skynet>,
+    session: Session,
     db: Data<DatabaseConnection>,
 ) -> RspResult<JsonResponse> {
-    if req.skynet.config.recaptcha.enable {
+    if skynet.config.recaptcha.enable {
         if let Some(x) = &param.recaptcha {
-            let timeout = req.skynet.config.recaptcha.timeout;
+            let timeout = skynet.config.recaptcha.timeout;
             if verify_recaptcha(
                 x.to_owned(),
                 req.extension.real_ip.ip().to_string(),
                 RecaptchaOption {
-                    url: req.skynet.config.recaptcha.url.clone(),
-                    secret: req.skynet.config.recaptcha.secret.clone().unwrap(),
+                    url: skynet.config.recaptcha.url.clone(),
+                    secret: skynet.config.recaptcha.secret.clone().unwrap(),
                     timeout: if timeout == 0 {
                         None
                     } else {
@@ -69,36 +75,27 @@ pub async fn signin(
     }
 
     let tx = db.begin().await?;
-    let (ok, user) = req
-        .skynet
-        .user
-        .check_pass(&tx, &param.username, &param.password)
-        .await?;
+    let (ok, user) = UserViewer::check_pass(&tx, &param.username, &param.password).await?;
     if !ok {
         warn!(username = param.username, "Invalid username or password");
         finish_err!(SkynetResponse::UserInvalid);
     }
-    let user = req
-        .skynet
-        .user
-        .update_login(
-            &tx,
-            &user.unwrap().id,
-            &req.extension.real_ip.ip().to_string(),
-        )
-        .await?;
+    let user = UserViewer::update_login(
+        &tx,
+        &user.unwrap().id,
+        &req.extension.real_ip.ip().to_string(),
+    )
+    .await?;
     tx.commit().await?;
 
-    req.session.renew();
-    req.session.insert("_id", user.id)?;
-    req.session.insert("name", user.username.clone())?;
-    req.session.insert("time", user.last_login.unwrap())?;
+    session.renew();
+    session.insert("_id", user.id)?;
+    session.insert("name", user.username.clone())?;
+    session.insert("time", user.last_login.unwrap())?;
     if param.remember.is_some_and(|x| x) {
-        req.session
-            .insert("_ttl", req.skynet.config.session.remember)?;
+        session.insert("_ttl", skynet.config.session.remember)?;
     } else {
-        req.session
-            .insert("_ttl", req.skynet.config.session.expire)?;
+        session.insert("_ttl", skynet.config.session.expire)?;
     }
     info!(success = true, id = %user.id, name = user.username, "User signin");
     finish_ok!();
@@ -145,8 +142,8 @@ async fn verify_recaptcha(response: String, ip: String, option: RecaptchaOption)
     Ok(())
 }
 
-pub async fn signout(req: Request) -> RspResult<JsonResponse> {
-    req.session.purge();
+pub async fn signout(session: Session) -> RspResult<JsonResponse> {
+    session.purge();
     finish_ok!();
 }
 
@@ -173,17 +170,17 @@ pub async fn get_access(req: Request) -> RspResult<JsonResponse> {
     finish_data!(rsp);
 }
 
-pub async fn get_token(req: Request) -> RspResult<JsonResponse> {
-    let token = new_csrf_token(&req.skynet, &req.state).await?;
+pub async fn get_token(state: Data<GlobalState>, skynet: Data<Skynet>) -> RspResult<JsonResponse> {
+    let token = new_csrf_token(&skynet, &state).await?;
     finish!(
         JsonResponse::new(SkynetResponse::Success).builder(move |r| {
             r.cookie(
                 Cookie::build(CSRF_COOKIE, &token)
-                    .max_age(Duration::seconds(req.skynet.config.csrf.expire.into()))
+                    .max_age(Duration::seconds(skynet.config.csrf.expire.into()))
                     .http_only(false)
                     .path("/")
                     .same_site(SameSite::Strict)
-                    .secure(req.skynet.config.listen.ssl)
+                    .secure(skynet.config.listen.ssl)
                     .finish(),
             );
         })

@@ -1,4 +1,5 @@
 use actix_cloud_codegen::{entity_behavior, entity_id, entity_timestamp};
+use anyhow::Result;
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 

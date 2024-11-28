@@ -1,7 +1,7 @@
 use std::path::Path;
 
 use actix_cloud::config;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use serde_inline_default::serde_inline_default;
 use validator::{Validate, ValidationError};
 
@@ -14,7 +14,7 @@ fn check_file(path: &str) -> Result<(), ValidationError> {
 }
 
 #[serde_inline_default]
-#[derive(Deserialize, Debug, Validate)]
+#[derive(Serialize, Deserialize, Debug, Validate, Clone)]
 pub struct ConfigListen {
     #[serde_inline_default("0.0.0.0:8080".into())]
     #[validate(length(min = 1))]
@@ -29,13 +29,13 @@ pub struct ConfigListen {
     pub ssl_key: Option<String>,
 }
 
-#[derive(Deserialize, Debug, Validate)]
+#[derive(Serialize, Deserialize, Debug, Validate, Clone)]
 pub struct ConfigDatabase {
     #[validate(length(min = 1))]
     pub dsn: String,
 }
 
-#[derive(Deserialize, Debug, Validate)]
+#[derive(Serialize, Deserialize, Debug, Validate, Clone)]
 pub struct ConfigRedis {
     #[serde(default)]
     pub enable: bool,
@@ -44,7 +44,7 @@ pub struct ConfigRedis {
 }
 
 #[serde_inline_default]
-#[derive(Deserialize, Debug, Validate)]
+#[derive(Serialize, Deserialize, Debug, Validate, Clone)]
 pub struct ConfigSession {
     #[validate(length(min = 64))]
     pub key: String,
@@ -63,7 +63,7 @@ pub struct ConfigSession {
 }
 
 #[serde_inline_default]
-#[derive(Deserialize, Debug, Validate)]
+#[derive(Serialize, Deserialize, Debug, Validate, Clone)]
 pub struct ConfigHeader {
     #[serde_inline_default("default-src 'none'; script-src 'self' 'unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' data:; connect-src 'self'; base-uri 'self'".into())]
     #[validate(length(min = 1))]
@@ -71,7 +71,7 @@ pub struct ConfigHeader {
 }
 
 #[serde_inline_default]
-#[derive(Deserialize, Debug, Validate)]
+#[derive(Serialize, Deserialize, Debug, Validate, Clone)]
 pub struct ConfigProxy {
     #[serde(default)]
     pub enable: bool,
@@ -81,7 +81,7 @@ pub struct ConfigProxy {
 }
 
 #[serde_inline_default]
-#[derive(Deserialize, Debug, Validate)]
+#[derive(Serialize, Deserialize, Debug, Validate, Clone)]
 pub struct ConfigCsrf {
     #[serde_inline_default("csrf_".into())]
     #[validate(length(min = 1))]
@@ -92,7 +92,7 @@ pub struct ConfigCsrf {
 }
 
 #[serde_inline_default]
-#[derive(Deserialize, Debug, Validate)]
+#[derive(Serialize, Deserialize, Debug, Validate, Clone)]
 pub struct ConfigRecaptcha {
     #[serde(default)]
     pub enable: bool,
@@ -108,7 +108,7 @@ pub struct ConfigRecaptcha {
 }
 
 #[serde_inline_default]
-#[derive(Deserialize, Debug, Validate)]
+#[derive(Serialize, Deserialize, Debug, Validate, Clone)]
 pub struct Config {
     #[validate(nested)]
     pub database: ConfigDatabase,

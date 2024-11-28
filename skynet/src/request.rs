@@ -1,6 +1,6 @@
 use std::{
-    collections::HashMap, future::Future, net::SocketAddr, pin::Pin, rc::Rc, sync::Arc,
-    time::Duration,
+    collections::HashMap, future::Future, net::SocketAddr, pin::Pin, rc::Rc, str::FromStr,
+    sync::Arc, time::Duration,
 };
 
 use actix_cloud::{
@@ -8,35 +8,44 @@ use actix_cloud::{
         self,
         body::MessageBody,
         dev::{ServiceRequest, ServiceResponse},
-        http::{Method, StatusCode},
+        http::StatusCode,
         middleware::Next,
-        web::{delete, get, head, patch, post, put, trace, Data, Payload},
-        HttpMessage, HttpRequest,
+        rt::spawn,
+        web::{Bytes, Data, Payload},
+        HttpMessage, HttpRequest, HttpResponse,
     },
     async_trait,
     chrono::Utc,
     request::Extension,
     response::RspResult,
-    router::Checker,
-    session::{Session, SessionExt},
+    router::{CSRFType, Checker},
+    session::SessionExt,
     state::GlobalState,
+    tokio::select,
     tracing::{error, info, info_span, Span},
     tracing_actix_web::{DefaultRootSpanBuilder, RequestId, RootSpanBuilder},
     utils,
 };
+use actix_ws::Message;
+use awc::{error::HeaderValue, http::header::HeaderName};
 use derivative::Derivative;
+use futures::StreamExt;
 use skynet_api::{
-    anyhow,
     permission::{
-        PermType, PermissionItem, GUEST_ID, GUEST_NAME, PERM_ALL, ROOT_ID, ROOT_NAME, USER_ID,
+        PermChecker, PermissionItem, GUEST_ID, GUEST_NAME, PERM_ALL, ROOT_ID, ROOT_NAME, USER_ID,
         USER_NAME,
     },
+    plugin::{self, Body, WSMessage},
     request::{Request, Router, RouterType},
-    sea_orm::{DatabaseConnection, TransactionTrait},
     HyUuid, Result, Skynet,
 };
 
-use crate::Cli;
+use crate::{
+    api::api_call,
+    plugin::PluginManager,
+    service::{websocket::WEBSOCKETIMPL_INSTANCE, SERVICEIMPL_INSTANCE},
+    Cli,
+};
 
 pub const CSRF_COOKIE: &str = "CSRF_TOKEN";
 pub const CSRF_HEADER: &str = "X-CSRF-Token";
@@ -219,57 +228,163 @@ impl RootSpanBuilder for TracingMiddleware {
     }
 }
 
-fn route_handler<F, T>(
-    func: Rc<F>,
-) -> impl Fn(HttpRequest, Payload) -> Pin<Box<dyn Future<Output = RspResult<T>>>> + Clone + 'static
-where
-    F: Fn(Request, Payload) -> Pin<Box<dyn Future<Output = RspResult<T>>>> + ?Sized + 'static,
-{
-    move |req, payload| {
-        let func = func.clone();
-        let r = req
-            .extensions_mut()
-            .remove::<Request>()
-            .ok_or(anyhow!("Request is not parsed"))
-            .unwrap();
-        Box::pin(async move { func(r, payload).await })
+fn http_handler(
+    id: HyUuid,
+    name: String,
+) -> impl Fn(
+    HttpRequest,
+    Request,
+    Data<PluginManager>,
+    Data<Skynet>,
+    Bytes,
+) -> Pin<Box<dyn Future<Output = RspResult<HttpResponse<Bytes>>>>>
+       + Clone
+       + 'static {
+    move |http_req, req, plugin_manager, skynet, body| {
+        let r = plugin::Request::from_request(
+            skynet.as_ref().to_owned(),
+            req,
+            &http_req,
+            Body::Bytes(body),
+        );
+        let name = name.clone();
+        Box::pin(async move {
+            let rsp = plugin_manager
+                .get(&id)
+                .unwrap()
+                .instance
+                .as_ref()
+                .unwrap()
+                .on_route(&plugin_manager.reg, &name, &r)
+                .await?;
+            let mut ret =
+                HttpResponse::new(StatusCode::from_u16(rsp.http_code)?).set_body(rsp.body);
+            let mut prev = HeaderName::from_static("invalid-header");
+            for (k, v) in rsp.header {
+                if let Some(x) = k {
+                    prev = HeaderName::from_str(&x)?;
+                }
+                ret.headers_mut()
+                    .insert(prev.clone(), HeaderValue::from_bytes(&v)?);
+            }
+            Ok(ret)
+        })
     }
 }
 
-pub fn wrap_router(r: Vec<Router>) -> Vec<actix_cloud::router::Router> {
+fn ws_handler(
+    id: HyUuid,
+    name: String,
+) -> impl Fn(
+    HttpRequest,
+    Request,
+    Data<PluginManager>,
+    Data<Skynet>,
+    Payload,
+) -> Pin<Box<dyn Future<Output = Result<HttpResponse, actix_web::Error>>>>
+       + Clone
+       + 'static {
+    move |http_req, req, plugin_manager, skynet, payload| {
+        let trace_id = req.trace_id();
+        let mut r = plugin::Request::from_request(
+            skynet.as_ref().to_owned(),
+            req,
+            &http_req,
+            Body::Message(WSMessage::Close),
+        );
+        let name = name.clone();
+        Box::pin(async move {
+            let (response, mut session, mut stream) = actix_ws::handle(&http_req, payload)?;
+
+            let mut rx = WEBSOCKETIMPL_INSTANCE.add(trace_id, session.clone());
+            spawn(async move {
+                r.body = Body::Message(WSMessage::Connect);
+                let _ = plugin_manager
+                    .get(&id)
+                    .unwrap()
+                    .instance
+                    .as_ref()
+                    .unwrap()
+                    .on_route(&plugin_manager.reg, &name, &r)
+                    .await;
+                loop {
+                    select! {
+                        _ = rx.recv() =>{
+                            break;
+                        },
+                        Some(Ok(msg)) = stream.next() => {
+                            match msg {
+                                Message::Ping(bytes) => {
+                                    if session.pong(&bytes).await.is_err() {
+                                        break;
+                                    }
+                                    continue
+                                }
+                                Message::Text(msg) => {
+                                    r.body = Body::Message(WSMessage::Text(msg));
+                                }
+                                Message::Binary(msg) => {
+                                    r.body = Body::Message(WSMessage::Binary(msg));
+                                }
+                                _ => break,
+                            }
+                            let _ = plugin_manager
+                                .get(&id)
+                                .unwrap()
+                                .instance
+                                .as_ref()
+                                .unwrap()
+                                .on_route(&plugin_manager.reg, &name, &r)
+                                .await;
+                        },
+                    };
+                }
+                let _ = session.close(None).await;
+                WEBSOCKETIMPL_INSTANCE.remove(&trace_id);
+                r.body = Body::Message(WSMessage::Close);
+                let _ = plugin_manager
+                    .get(&id)
+                    .unwrap()
+                    .instance
+                    .as_ref()
+                    .unwrap()
+                    .on_route(&plugin_manager.reg, &name, &r)
+                    .await;
+            });
+
+            Ok(response)
+        })
+    }
+}
+
+pub fn wrap_router(r: Vec<Router>, disable_csrf: bool) -> Vec<actix_cloud::router::Router> {
     r.into_iter()
         .map(|r| {
-            let method = match r.method {
-                Method::DELETE => delete(),
-                Method::GET => get(),
-                Method::HEAD => head(),
-                Method::PATCH => patch(),
-                Method::POST => post(),
-                Method::PUT => put(),
-                Method::TRACE => trace(),
-                _ => unimplemented!(),
-            };
             let route = match r.route {
-                RouterType::Json(rt) => method.to(route_handler(rt)),
-                RouterType::Http(rt) => method.to(route_handler(rt)),
-                RouterType::Raw(rt) => rt,
+                RouterType::Inner(name) => api_call(&name, r.method.get_route()),
+                RouterType::Http(id, name) => r.method.get_route().to(http_handler(id, name)),
+                RouterType::Websocket(id, name) => r.method.get_route().to(ws_handler(id, name)),
             };
             actix_cloud::router::Router {
                 path: r.path.clone(),
                 route,
                 checker: Some(Rc::new(AuthChecker::new(r.checker))),
-                csrf: r.csrf,
+                csrf: if disable_csrf {
+                    CSRFType::Disabled
+                } else {
+                    r.csrf
+                },
             }
         })
         .collect()
 }
 
 pub struct AuthChecker {
-    perm: PermType,
+    perm: PermChecker,
 }
 
 impl AuthChecker {
-    pub fn new(perm: PermType) -> Self {
+    pub fn new(perm: PermChecker) -> Self {
         Self { perm }
     }
 
@@ -291,18 +406,15 @@ impl AuthChecker {
                     )])
                 } else {
                     // user
-                    let skynet = req.app_data::<Data<Skynet>>().unwrap();
-                    let db = req.app_data::<Data<DatabaseConnection>>().unwrap();
-                    let tx = db.begin().await.unwrap();
-                    let perm = skynet
-                        .get_user_perm(&tx, x)
+                    SERVICEIMPL_INSTANCE
+                        .get()
+                        .unwrap()
+                        .get_user_perm(x)
                         .await
                         .unwrap()
                         .into_iter()
                         .map(|x| (x.pid, x))
-                        .collect();
-                    tx.commit().await.unwrap();
-                    perm
+                        .collect()
                 };
                 perm.insert(
                     USER_ID,
@@ -326,16 +438,11 @@ impl AuthChecker {
                 ..Default::default()
             },
         );
-        let session = req.extract::<Session>().await.unwrap();
         Ok(Request {
             uid: id,
             username: s.get::<String>("name")?,
             perm,
             extension: req.extensions().get::<Arc<Extension>>().unwrap().to_owned(),
-            skynet: req.app_data::<Data<Skynet>>().unwrap().to_owned(),
-            state: req.app_data::<Data<GlobalState>>().unwrap().to_owned(),
-            session,
-            http_request: req.request().clone(),
         })
     }
 }
@@ -344,10 +451,7 @@ impl AuthChecker {
 impl Checker for AuthChecker {
     async fn check(&self, req: &mut ServiceRequest) -> Result<bool> {
         let r = Self::get_request(req).await?;
-        let result = match &self.perm {
-            PermType::Entry(x) => x.check(&r.perm),
-            PermType::Custom(x) => x(&r.perm),
-        };
+        let result = self.perm.check(&r.perm);
         if result {
             req.extensions_mut().insert(r);
             Ok(true)

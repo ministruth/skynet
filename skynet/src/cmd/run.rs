@@ -6,7 +6,9 @@ use actix_cloud::{
         web::{scope, Data},
         App, HttpMessage, HttpServer,
     },
-    build_router, csrf, request,
+    build_router, csrf,
+    logger::Logger,
+    request,
     security::SecurityHeader,
     session::{
         config::{PersistentSession, TtlExtensionPolicy},
@@ -19,7 +21,8 @@ use actix_cloud::{
 };
 use actix_files::NamedFile;
 use qstring::QString;
-use skynet_api::{logger::Logger, plugin::init_rustls, Skynet};
+use rustls::crypto::aws_lc_rs;
+use skynet_api::Skynet;
 
 use super::init;
 use crate::{
@@ -28,7 +31,7 @@ use crate::{
         check_csrf_token, error_middleware, wrap_router, RealIP, TracingMiddleware, CSRF_COOKIE,
         CSRF_HEADER, TRACE_HEADER,
     },
-    Cli,
+    service, Cli,
 };
 
 fn print_cover() {
@@ -59,7 +62,7 @@ fn get_session_middleware(skynet: &Skynet, state: &GlobalState) -> SessionMiddle
     .build()
 }
 
-pub async fn command(cli: &Cli, logger: Logger, skip_cover: bool, disable_csrf: bool) {
+pub async fn command(cli: &Cli, logger: Option<Logger>, skip_cover: bool, disable_csrf: bool) {
     if !skip_cover {
         print_cover();
     }
@@ -96,18 +99,19 @@ pub async fn command(cli: &Cli, logger: Logger, skip_cover: bool, disable_csrf: 
     let cli_data = Data::new(cli.clone());
     let db = Data::new(db);
     let plugin_manager = Data::new(plugin_manager);
+    let mut route = api::new_api(&skynet.default_id);
+    service::init_handler(skynet.clone(), state.clone());
+    route = plugin_manager.register(&skynet, route).await;
+
     let server = HttpServer::new({
         let state = state.clone();
         let skynet = skynet.clone();
         move || {
-            let mut route = api::new_api(&skynet.default_id, disable_csrf);
-            route = plugin_manager.parse_route(&skynet, route);
-
             App::new()
                 .service(
                     scope("/api")
                         .configure(build_router(
-                            wrap_router(route),
+                            wrap_router(route.clone(), disable_csrf),
                             csrf::Middleware::new(
                                 CSRF_COOKIE.into(),
                                 CSRF_HEADER.into(),
@@ -164,7 +168,7 @@ pub async fn command(cli: &Cli, logger: Logger, skip_cover: bool, disable_csrf: 
             .unwrap()
             .run()
     } else {
-        init_rustls();
+        aws_lc_rs::default_provider().install_default().unwrap();
         server.bind(address).unwrap().run()
     };
     info!("Listening on {address}");

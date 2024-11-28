@@ -1,6 +1,6 @@
 # yaml-language-server: $schema=conf.schema.json
 database:
-  dsn: "postgres://postgres:123456@localhost:5432/postgres" # database dsn, support sqlite, mysql, postgresql
+  dsn: "sqlite://../data.db?mode=rwc" # database dsn, support sqlite, mysql, postgresql
 
 redis:
   enable: true # enable redis

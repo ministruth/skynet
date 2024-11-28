@@ -1,29 +1,38 @@
 use std::{
     path::PathBuf,
     sync::{
-        atomic::{AtomicU64, Ordering},
-        Arc, OnceLock,
+        atomic::{AtomicI32, Ordering},
+        Arc, LazyLock, OnceLock,
     },
     thread,
 };
 
 use actix_cloud::{
-    logger::{LogItem, LoggerBuilder, LoggerGuard},
+    logger::{LogItem, Logger, LoggerBuilder, LoggerGuard},
     tokio::runtime,
     tracing::Level,
 };
 use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
+use serde_repr::{Deserialize_repr, Serialize_repr};
 use skynet_api::{
     entity::notifications,
-    logger::{Logger, NotifyLevel},
     sea_orm::{ActiveModelTrait, DatabaseConnection, Set},
 };
 
 static DB: OnceLock<DatabaseConnection> = OnceLock::new();
 static CACHE: OnceLock<Mutex<Vec<notifications::ActiveModel>>> = OnceLock::new();
-static UNREAD: OnceLock<Arc<AtomicU64>> = OnceLock::new();
+pub static UNREAD: LazyLock<Arc<AtomicI32>> = LazyLock::new(|| Arc::new(AtomicI32::new(0)));
+
+#[derive(Serialize_repr, Deserialize_repr, Debug, PartialEq, Eq, Hash, Clone, Copy)]
+#[repr(i32)]
+pub enum NotifyLevel {
+    Info = 0,
+    Success,
+    Warning,
+    Error,
+}
 
 #[derive(Deserialize, Serialize, Debug)]
 struct DetailItem {
@@ -73,7 +82,7 @@ async fn write_notification(
         CACHE.get().unwrap().lock().push(model);
     }
     if !success {
-        UNREAD.get().unwrap().fetch_add(1, Ordering::SeqCst);
+        UNREAD.fetch_add(1, Ordering::SeqCst);
     }
 }
 
@@ -132,15 +141,11 @@ fn transformer(mut item: LogItem) -> LogItem {
     // Only keep path starting from the last `src`.
     if let Some(filename) = &item.filename {
         let mut buf = Vec::new();
-        let mut flag = false;
         let s = PathBuf::from(filename);
         for i in s.iter().rev() {
             buf.push(i);
-            if flag {
-                break;
-            }
             if i.eq_ignore_ascii_case("src") {
-                flag = true;
+                break;
             }
         }
         let mut s = PathBuf::new();
@@ -194,11 +199,13 @@ fn transformer(mut item: LogItem) -> LogItem {
     item
 }
 
-pub fn start_logger(enable: bool, json: bool, verbose: bool) -> (Logger, Option<LoggerGuard>) {
-    let unread = Arc::new(AtomicU64::new(0));
+pub fn start_logger(
+    enable: bool,
+    json: bool,
+    verbose: bool,
+) -> (Option<Logger>, Option<LoggerGuard>) {
     CACHE.set(Mutex::new(Vec::new())).unwrap();
-    UNREAD.set(unread.clone()).unwrap();
-    let (logger, guard) = if enable {
+    if enable {
         let mut builder = LoggerBuilder::new();
         if json {
             builder = builder.json();
@@ -211,16 +218,5 @@ pub fn start_logger(enable: bool, json: bool, verbose: bool) -> (Logger, Option<
         (Some(logger), Some(guard))
     } else {
         (None, None)
-    };
-
-    (
-        Logger {
-            verbose,
-            json,
-            enable,
-            unread,
-            logger,
-        },
-        guard,
-    )
+    }
 }

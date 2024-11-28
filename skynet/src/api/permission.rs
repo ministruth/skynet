@@ -10,18 +10,19 @@ use serde::{Deserialize, Serialize};
 use skynet_api::{
     finish,
     permission::UserPerm,
-    request::{unique_validator, Condition, Request},
+    request::{unique_validator, Condition},
     sea_orm::{DatabaseConnection, TransactionTrait},
+    viewer::{groups::GroupViewer, permissions::PermissionViewer, users::UserViewer},
     HyUuid,
 };
 use validator::Validate;
 
-use crate::{finish_data, finish_err, finish_ok, SkynetResponse};
+use crate::{finish_data, finish_err, finish_ok, service::SERVICEIMPL_INSTANCE, SkynetResponse};
 
-pub async fn get(req: Request, db: Data<DatabaseConnection>) -> RspResult<JsonResponse> {
-    let tx = db.begin().await?;
-    let data = req.skynet.perm.find(&tx, Condition::default()).await?.0;
-    tx.commit().await?;
+pub async fn get(db: Data<DatabaseConnection>) -> RspResult<JsonResponse> {
+    let data = PermissionViewer::find(db.as_ref(), Condition::default())
+        .await?
+        .0;
     finish_data!(data);
 }
 
@@ -45,19 +46,12 @@ struct GetRsp {
     updated_at: i64,
 }
 
-pub async fn get_group(
-    req: Request,
-    gid: Path<HyUuid>,
-    db: Data<DatabaseConnection>,
-) -> RspResult<JsonResponse> {
+pub async fn get_group(gid: Path<HyUuid>, db: Data<DatabaseConnection>) -> RspResult<JsonResponse> {
     let tx = db.begin().await?;
-    if req.skynet.group.find_by_id(&tx, &gid).await?.is_none() {
+    if GroupViewer::find_by_id(&tx, &gid).await?.is_none() {
         finish!(JsonResponse::not_found());
     }
-    let data: Vec<GetRsp> = req
-        .skynet
-        .perm
-        .find_group(&tx, &gid)
+    let data: Vec<GetRsp> = PermissionViewer::find_group(&tx, &gid)
         .await?
         .into_iter()
         .map(|x| GetRsp {
@@ -74,18 +68,14 @@ pub async fn get_group(
     finish_data!(data);
 }
 
-pub async fn get_user(
-    req: Request,
-    uid: Path<HyUuid>,
-    db: Data<DatabaseConnection>,
-) -> RspResult<JsonResponse> {
-    let tx = db.begin().await?;
-    if req.skynet.user.find_by_id(&tx, &uid).await?.is_none() {
+pub async fn get_user(uid: Path<HyUuid>, db: Data<DatabaseConnection>) -> RspResult<JsonResponse> {
+    if UserViewer::find_by_id(db.as_ref(), &uid).await?.is_none() {
         finish!(JsonResponse::not_found());
     }
-    let data: Vec<GetRsp> = req
-        .skynet
-        .get_user_perm(&tx, &uid)
+    let data: Vec<GetRsp> = SERVICEIMPL_INSTANCE
+        .get()
+        .unwrap()
+        .get_user_perm(&uid)
         .await?
         .into_iter()
         .map(|x| GetRsp {
@@ -106,7 +96,6 @@ pub async fn get_user(
             updated_at: x.updated_at,
         })
         .collect();
-    tx.commit().await?;
     finish_data!(data);
 }
 
@@ -138,19 +127,15 @@ pub struct VecPutReq {
 }
 
 pub async fn put_group(
-    req: Request,
     gid: Path<HyUuid>,
     param: Json<VecPutReq>,
     db: Data<DatabaseConnection>,
 ) -> RspResult<JsonResponse> {
     let tx = db.begin().await?;
-    if req.skynet.group.find_by_id(&tx, &gid).await?.is_none() {
+    if GroupViewer::find_by_id(&tx, &gid).await?.is_none() {
         finish!(JsonResponse::not_found());
     }
-    let perm: Vec<HyUuid> = req
-        .skynet
-        .perm
-        .find(&tx, Condition::default())
+    let perm: Vec<HyUuid> = PermissionViewer::find(&tx, Condition::default())
         .await?
         .0
         .into_iter()
@@ -162,10 +147,7 @@ pub async fn put_group(
         }
     }
     for i in &param.inner {
-        req.skynet
-            .perm
-            .grant(&tx, None, Some(&gid), &i.id, i.perm)
-            .await?;
+        PermissionViewer::grant(&tx, None, Some(&gid), &i.id, i.perm).await?;
     }
     tx.commit().await?;
     info!(
@@ -178,7 +160,6 @@ pub async fn put_group(
 }
 
 pub async fn put_user(
-    req: Request,
     uid: Path<HyUuid>,
     param: Json<VecPutReq>,
     db: Data<DatabaseConnection>,
@@ -187,13 +168,10 @@ pub async fn put_user(
         finish_err!(SkynetResponse::UserRoot);
     }
     let tx = db.begin().await?;
-    if req.skynet.user.find_by_id(&tx, &uid).await?.is_none() {
+    if UserViewer::find_by_id(&tx, &uid).await?.is_none() {
         finish!(JsonResponse::not_found());
     }
-    let perm: Vec<HyUuid> = req
-        .skynet
-        .perm
-        .find(&tx, Condition::default())
+    let perm: Vec<HyUuid> = PermissionViewer::find(&tx, Condition::default())
         .await?
         .0
         .into_iter()
@@ -205,10 +183,7 @@ pub async fn put_user(
         }
     }
     for i in &param.inner {
-        req.skynet
-            .perm
-            .grant(&tx, Some(&uid), None, &i.id, i.perm)
-            .await?;
+        PermissionViewer::grant(&tx, Some(&uid), None, &i.id, i.perm).await?;
     }
     tx.commit().await?;
     info!(success = true, uid = %uid, perm = ?param.inner, "Put user permission");

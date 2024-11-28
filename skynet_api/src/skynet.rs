@@ -1,42 +1,45 @@
 use crate::{
-    api::APIManager,
     config::Config,
-    handler::*,
     logger::Logger,
-    permission::{IDTypes, PermEntry, PermissionItem},
+    permission::{IDTypes, PermChecker, PermissionItem},
     HyUuid,
 };
-use anyhow::{anyhow, Result};
 use derivative::Derivative;
 use enum_map::EnumMap;
-use sea_orm::DatabaseTransaction;
-use std::{cmp, collections::HashMap};
+use serde::{Deserialize, Serialize};
+use std::{
+    cmp,
+    collections::HashMap,
+    sync::{atomic::AtomicI32, Arc},
+};
 
 /// Main entrance providing skynet function.
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Skynet {
-    pub user: Box<dyn UserHandler>,
-    pub group: Box<dyn GroupHandler>,
-    pub perm: Box<dyn PermHandler>,
-    pub notification: Box<dyn NotificationHandler>,
-    pub setting: Box<dyn SettingHandler>,
-
     pub logger: Logger,
     pub config: Config,
 
     pub default_id: EnumMap<IDTypes, HyUuid>,
     pub menu: Vec<MenuItem>,
-
-    pub shared_api: APIManager,
-}
-
-impl Drop for Skynet {
-    fn drop(&mut self) {
-        // clear API first otherwise SIGSEGV.
-        self.shared_api.clear();
-    }
 }
 
 impl Skynet {
+    pub fn reset_menu_badge(&mut self, id: HyUuid, badge: Arc<AtomicI32>) -> bool {
+        fn dfs(id: HyUuid, badge: Arc<AtomicI32>, item: &mut Vec<MenuItem>) -> bool {
+            for i in item {
+                if i.id == id {
+                    i.badge = badge.clone();
+                    return true;
+                }
+                if dfs(id, badge.clone(), &mut i.children) {
+                    return true;
+                }
+            }
+            false
+        }
+        dfs(id, badge, &mut self.menu)
+    }
+
     pub fn insert_menu(&mut self, item: MenuItem, pos: usize, parent: Option<HyUuid>) -> bool {
         if let Some(parent) = parent {
             let mut parent: Vec<&mut MenuItem> =
@@ -53,62 +56,30 @@ impl Skynet {
         true
     }
 
-    /// Get merged user permission.
-    ///
-    /// # Errors
-    ///
-    /// Will return `Err` when db error.
-    pub async fn get_user_perm(
-        &self,
-        db: &DatabaseTransaction,
-        uid: &HyUuid,
-    ) -> Result<Vec<PermissionItem>> {
-        let mut ret: HashMap<String, PermissionItem> = HashMap::new();
-        let groups = self.group.find_user_group(db, uid, false).await?;
-        for i in groups {
-            let perm = self.perm.find_group(db, &i.id).await?;
-            for mut j in perm {
-                let origin_perm = j.perm;
-                if let Some(x) = ret.remove(&j.name) {
-                    j.perm |= x.perm;
-                    j.created_at = cmp::min(j.created_at, x.created_at);
-                    j.updated_at = cmp::max(j.updated_at, x.updated_at);
-                    j.origin = x.origin;
-                }
-                j.origin.push((
-                    j.gid.ok_or(anyhow!("GID is null"))?,
-                    j.ug_name.clone(),
-                    origin_perm,
-                ));
-                ret.insert(j.name.clone(), j);
-            }
-        }
-        let users = self.perm.find_user(db, uid).await?;
-        for i in users {
-            ret.insert(i.name.clone(), i);
-        }
-        Ok(ret.into_values().collect())
+    #[cfg(feature = "database")]
+    pub async fn get_db(&self) -> anyhow::Result<sea_orm::DatabaseConnection> {
+        let mut opt = sea_orm::ConnectOptions::new(&self.config.database.dsn);
+        opt.sqlx_logging(false);
+        sea_orm::Database::connect(opt).await.map_err(Into::into)
     }
 }
 
-type MenuBadgeFunc = Box<dyn Fn(&Skynet) -> i64 + Send + Sync>;
-
-#[derive(Derivative)]
+#[derive(Derivative, Serialize, Deserialize, Clone)]
 #[derivative(Default(new = "true"), Debug)]
 pub struct MenuItem {
     pub id: HyUuid,
+    pub plugin: Option<HyUuid>,
     pub name: String,
     pub path: String,
     pub icon: String,
     pub children: Vec<MenuItem>,
-    #[derivative(Debug = "ignore")]
-    pub badge_func: Option<MenuBadgeFunc>,
+    pub badge: Arc<AtomicI32>,
     pub omit_empty: bool,
-    pub perm: Option<PermEntry>,
+    pub checker: PermChecker,
 }
 
 impl MenuItem {
     pub fn check(&self, p: &HashMap<HyUuid, PermissionItem>) -> bool {
-        self.perm.as_ref().map_or(true, |x| x.check(p))
+        self.checker.check(p)
     }
 }

@@ -6,21 +6,9 @@ branch = main
 path = plugin/common
 url = https://github.com/ministruth/plugin_common.git
 branch = main
-[submodule "plugin/monitor_api"]
-path = plugin/monitor_api
-url = https://github.com/ministruth/monitor_api.git
-branch = main
-[submodule "plugin/agent_api"]
-path = plugin/agent_api
-url = https://github.com/ministruth/agent_api.git
-branch = main
 [submodule "plugin/agent"]
 path = plugin/agent
 url = https://github.com/ministruth/agent.git
-branch = main
-[submodule "plugin/task_api"]
-path = plugin/task_api
-url = https://github.com/ministruth/task_api
 branch = main
 [submodule "plugin/task"]
 path = plugin/task

@@ -12,8 +12,9 @@ use skynet_api::{
     finish,
     hyuuid::uuids2strings,
     permission::PermEntry,
-    request::{Condition, IDsReq, IntoExpr, PageData, PaginationParam, Request, TimeParam},
+    request::{Condition, IDsReq, IntoExpr, PageData, PaginationParam, TimeParam},
     sea_orm::{ColumnTrait, DatabaseConnection, IntoSimpleExpr, TransactionTrait},
+    viewer::{groups::GroupViewer, permissions::PermissionViewer, users::UserViewer},
     HyUuid,
 };
 use skynet_macro::common_req;
@@ -35,7 +36,6 @@ pub struct GetGroupReq {
 }
 
 pub async fn get_all(
-    req: Request,
     param: QsQuery<GetGroupReq>,
     db: Data<DatabaseConnection>,
 ) -> RspResult<JsonResponse> {
@@ -48,23 +48,15 @@ pub async fn get_all(
                 .add(text.like_expr(groups::Column::Note)),
         );
     }
-    let tx = db.begin().await?;
-    let data = req.skynet.group.find(&tx, cond).await?;
-    tx.commit().await?;
+    let data = GroupViewer::find(db.as_ref(), cond).await?;
     finish_data!(PageData::new(data));
 }
 
-pub async fn get(
-    req: Request,
-    gid: Path<HyUuid>,
-    db: Data<DatabaseConnection>,
-) -> RspResult<JsonResponse> {
-    let tx = db.begin().await?;
-    let data = req.skynet.group.find_by_id(&tx, &gid).await?;
+pub async fn get(gid: Path<HyUuid>, db: Data<DatabaseConnection>) -> RspResult<JsonResponse> {
+    let data = GroupViewer::find_by_id(db.as_ref(), &gid).await?;
     if data.is_none() {
         finish!(JsonResponse::not_found());
     }
-    tx.commit().await?;
     finish_data!(data);
 }
 
@@ -82,7 +74,6 @@ pub struct GetUserReq {
 }
 
 pub async fn get_user(
-    req: Request,
     gid: Path<HyUuid>,
     param: QsQuery<GetUserReq>,
     db: Data<DatabaseConnection>,
@@ -105,13 +96,10 @@ pub async fn get_user(
         );
     }
     let tx = db.begin().await?;
-    if req.skynet.group.find_by_id(&tx, &gid).await?.is_none() {
+    if GroupViewer::find_by_id(&tx, &gid).await?.is_none() {
         finish!(JsonResponse::not_found());
     }
-    let data: (Vec<Rsp>, u64) = req
-        .skynet
-        .group
-        .find_group_user(&tx, &gid, cond)
+    let data: (Vec<Rsp>, u64) = GroupViewer::find_group_user(&tx, &gid, cond)
         .await
         .map(|x| (x.0.into_iter().map(Into::into).collect(), x.1))?;
     tx.commit().await?;
@@ -128,58 +116,39 @@ pub struct AddReq {
     pub clone_user: Option<bool>,
 }
 
-pub async fn add(
-    req: Request,
-    param: Json<AddReq>,
-    db: Data<DatabaseConnection>,
-) -> RspResult<JsonResponse> {
+pub async fn add(param: Json<AddReq>, db: Data<DatabaseConnection>) -> RspResult<JsonResponse> {
     if param.clone_user.is_some() && param.base.is_none() {
         finish!(JsonResponse::bad_request(
             "Base should not be None when clone user"
         ));
     }
     let tx = db.begin().await?;
-    if req
-        .skynet
-        .group
-        .find_by_name(&tx, &param.name)
-        .await?
-        .is_some()
-    {
+    if GroupViewer::find_by_name(&tx, &param.name).await?.is_some() {
         finish_err!(SkynetResponse::GroupExist);
     }
     if let Some(x) = param.base {
-        if req.skynet.group.find_by_id(&tx, &x).await?.is_none() {
+        if GroupViewer::find_by_id(&tx, &x).await?.is_none() {
             finish_err!(SkynetResponse::GroupNotExist);
         }
     }
-    let group = req
-        .skynet
-        .group
-        .create(&tx, &param.name, &param.note)
-        .await?;
+    let group = GroupViewer::create(&tx, &param.name, &param.note).await?;
     if let Some(x) = param.base {
-        let perm: Vec<PermEntry> = req
-            .skynet
-            .perm
-            .find_group(&tx, &x)
+        let perm: Vec<PermEntry> = PermissionViewer::find_group(&tx, &x)
             .await?
             .into_iter()
             .map(Into::into)
             .collect();
-        req.skynet.perm.create_group(&tx, &group.id, &perm).await?;
+        PermissionViewer::create_group(&tx, &group.id, &perm).await?;
     }
     if param.clone_user.is_some_and(|x| x) {
-        let uid: Vec<HyUuid> = req
-            .skynet
-            .group
-            .find_group_user(&tx, &param.base.unwrap(), Condition::default())
-            .await?
-            .0
-            .into_iter()
-            .map(|x| x.id)
-            .collect();
-        req.skynet.group.link(&tx, &uid, &[group.id]).await?;
+        let uid: Vec<HyUuid> =
+            GroupViewer::find_group_user(&tx, &param.base.unwrap(), Condition::default())
+                .await?
+                .0
+                .into_iter()
+                .map(|x| x.id)
+                .collect();
+        GroupViewer::link(&tx, &uid, &[group.id]).await?;
     }
     tx.commit().await?;
     info!(
@@ -202,24 +171,20 @@ pub struct PutReq {
 }
 
 pub async fn put(
-    req: Request,
     gid: Path<HyUuid>,
     param: Json<PutReq>,
     db: Data<DatabaseConnection>,
 ) -> RspResult<JsonResponse> {
     let tx = db.begin().await?;
-    if let Some(group) = req.skynet.group.find_by_id(&tx, &gid).await? {
+    if let Some(group) = GroupViewer::find_by_id(&tx, &gid).await? {
         if let Some(name) = &param.name {
-            if let Some(x) = req.skynet.group.find_by_name(&tx, name).await? {
+            if let Some(x) = GroupViewer::find_by_name(&tx, name).await? {
                 if x.id != group.id {
                     finish_err!(SkynetResponse::GroupExist);
                 }
             }
         }
-        req.skynet
-            .group
-            .update(&tx, &group.id, param.name.as_deref(), param.note.as_deref())
-            .await?;
+        GroupViewer::update(&tx, &group.id, param.name.as_deref(), param.note.as_deref()).await?;
     } else {
         finish!(JsonResponse::not_found());
     }
@@ -233,13 +198,10 @@ pub async fn put(
 }
 
 pub async fn delete_batch(
-    req: Request,
     param: Json<IDsReq>,
     db: Data<DatabaseConnection>,
 ) -> RspResult<JsonResponse> {
-    let tx = db.begin().await?;
-    let rows = req.skynet.group.delete(&tx, &param.id).await?;
-    tx.commit().await?;
+    let rows = GroupViewer::delete(db.as_ref(), &param.id).await?;
     if rows != 0 {
         info!(
             success = true,
@@ -250,16 +212,12 @@ pub async fn delete_batch(
     finish_data!(rows);
 }
 
-pub async fn delete(
-    req: Request,
-    gid: Path<HyUuid>,
-    db: Data<DatabaseConnection>,
-) -> RspResult<JsonResponse> {
+pub async fn delete(gid: Path<HyUuid>, db: Data<DatabaseConnection>) -> RspResult<JsonResponse> {
     let tx = db.begin().await?;
-    if req.skynet.group.find_by_id(&tx, &gid).await?.is_none() {
+    if GroupViewer::find_by_id(&tx, &gid).await?.is_none() {
         finish!(JsonResponse::not_found());
     }
-    let rows = req.skynet.group.delete(&tx, &[*gid]).await?;
+    let rows = GroupViewer::delete(&tx, &[*gid]).await?;
     tx.commit().await?;
     info!(
         success = true,
@@ -270,32 +228,25 @@ pub async fn delete(
 }
 
 pub async fn add_user(
-    req: Request,
     gid: Path<HyUuid>,
     param: Json<IDsReq>,
     db: Data<DatabaseConnection>,
 ) -> RspResult<JsonResponse> {
     let tx = db.begin().await?;
-    if req.skynet.group.find_by_id(&tx, &gid).await?.is_none() {
+    if GroupViewer::find_by_id(&tx, &gid).await?.is_none() {
         finish!(JsonResponse::not_found());
     }
-    let cnt = req
-        .skynet
-        .user
-        .count(
-            &tx,
-            Condition::new(Condition::all().add(users::Column::Id.is_in(uuids2strings(&param.id)))),
-        )
-        .await?;
+    let cnt = UserViewer::count(
+        &tx,
+        Condition::new(Condition::all().add(users::Column::Id.is_in(uuids2strings(&param.id)))),
+    )
+    .await?;
     if cnt != param.id.len() as u64 {
         finish_err!(SkynetResponse::UserNotExist);
     }
 
     // remove already exist
-    let uid: Vec<HyUuid> = req
-        .skynet
-        .group
-        .find_group_user(&tx, &gid, Condition::default())
+    let uid: Vec<HyUuid> = GroupViewer::find_group_user(&tx, &gid, Condition::default())
         .await?
         .0
         .into_iter()
@@ -308,7 +259,7 @@ pub async fn add_user(
         .map(ToOwned::to_owned)
         .collect();
     if !uid.is_empty() {
-        req.skynet.group.link(&tx, &uid, &[*gid]).await?;
+        GroupViewer::link(&tx, &uid, &[*gid]).await?;
     }
     tx.commit().await?;
     if !uid.is_empty() {
@@ -323,16 +274,15 @@ pub async fn add_user(
 }
 
 pub async fn delete_user_batch(
-    req: Request,
     gid: Path<HyUuid>,
     param: Json<IDsReq>,
     db: Data<DatabaseConnection>,
 ) -> RspResult<JsonResponse> {
     let tx = db.begin().await?;
-    if req.skynet.group.find_by_id(&tx, &gid).await?.is_none() {
+    if GroupViewer::find_by_id(&tx, &gid).await?.is_none() {
         finish!(JsonResponse::not_found());
     }
-    let rows = req.skynet.group.unlink(&tx, &param.id, &[*gid]).await?;
+    let rows = GroupViewer::unlink(&tx, &param.id, &[*gid]).await?;
     tx.commit().await?;
     if rows != 0 {
         info!(
@@ -346,23 +296,19 @@ pub async fn delete_user_batch(
 }
 
 pub async fn delete_user(
-    req: Request,
     ids: Path<(HyUuid, HyUuid)>,
     db: Data<DatabaseConnection>,
 ) -> RspResult<JsonResponse> {
     let (gid, uid) = ids.into_inner();
     let tx = db.begin().await?;
-    if req.skynet.group.find_by_id(&tx, &gid).await?.is_none()
-        || req
-            .skynet
-            .group
-            .find_group_user_by_id(&tx, &gid, &uid)
+    if GroupViewer::find_by_id(&tx, &gid).await?.is_none()
+        || GroupViewer::find_group_user_by_id(&tx, &gid, &uid)
             .await?
             .is_none()
     {
         finish!(JsonResponse::not_found());
     }
-    let rows = req.skynet.group.unlink(&tx, &[uid], &[gid]).await?;
+    let rows = GroupViewer::unlink(&tx, &[uid], &[gid]).await?;
     tx.commit().await?;
     info!(
         success = true,

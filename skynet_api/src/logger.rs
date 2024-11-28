@@ -1,56 +1,41 @@
-use std::sync::{
-    atomic::{AtomicU64, Ordering},
-    Arc,
-};
+use serde::{Deserialize, Serialize};
 
-use actix_cloud::{logger, tracing::Level};
-use serde_repr::{Deserialize_repr, Serialize_repr};
+#[cfg(all(feature = "plugin-api", feature = "service-skynet"))]
+pub static PLUGIN_LOGGER: std::sync::OnceLock<actix_cloud::logger::Logger> =
+    std::sync::OnceLock::new();
+#[cfg(all(feature = "plugin-api", feature = "service-skynet"))]
+pub static PLUGIN_LOGGERGUARD: std::sync::OnceLock<actix_cloud::logger::LoggerGuard> =
+    std::sync::OnceLock::new();
 
-#[derive(Serialize_repr, Deserialize_repr, Debug, PartialEq, Eq, Hash, Clone, Copy)]
-#[repr(i32)]
-pub enum NotifyLevel {
-    Info = 0,
-    Success,
-    Warning,
-    Error,
-}
-
+#[derive(Serialize, Deserialize, Clone)]
 pub struct Logger {
     pub verbose: bool,
     pub json: bool,
     pub enable: bool,
-    pub unread: Arc<AtomicU64>,
-    pub logger: Option<logger::Logger>,
 }
 
+#[cfg(all(feature = "plugin-api", feature = "service-skynet"))]
 impl Logger {
-    fn get_builder(&self) -> logger::LoggerBuilder {
-        let mut logger = logger::LoggerBuilder::new();
-        if self.verbose {
-            logger = logger.filename().line_number().level(Level::DEBUG);
-        }
-        logger
-    }
-
-    /// Set unread notifications to `num`.
-    pub fn set_unread(&self, num: u64) {
-        self.unread.store(num, Ordering::SeqCst);
-    }
-
-    /// Add `num` to unread notifications.
-    pub fn add_unread(&self, num: u64) {
-        self.unread.fetch_add(num, Ordering::SeqCst);
-    }
-
-    /// Get the number of unread notifications.
-    pub fn get_unread(&self) -> u64 {
-        self.unread.load(Ordering::Relaxed)
-    }
-
-    /// Init logger, plugins will call this automatically when loaded.
-    pub fn init(&self) {
-        if let Some(logger) = &self.logger {
-            logger.init(&self.get_builder())
+    pub fn plugin_start(&self, api: crate::service::Service) {
+        if self.enable {
+            let mut builder = actix_cloud::logger::LoggerBuilder::new().json();
+            if self.verbose {
+                builder = builder
+                    .filename()
+                    .line_number()
+                    .level(actix_cloud::tracing::Level::DEBUG);
+            }
+            builder = builder.handler(move |v: &serde_json::Map<String, serde_json::Value>| {
+                let api = api.clone();
+                let v = serde_json::to_string(v).unwrap();
+                Box::pin(async move {
+                    api.log(&ffi_rpc::registry::Registry::default(), &v).await;
+                    false
+                })
+            });
+            let (logger, guard) = builder.start();
+            let _ = PLUGIN_LOGGER.set(logger);
+            let _ = PLUGIN_LOGGERGUARD.set(guard);
         }
     }
 }

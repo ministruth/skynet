@@ -10,10 +10,10 @@ include!(concat!(env!("OUT_DIR"), "/response.rs"));
 mod api;
 mod cmd;
 mod db;
-mod handler;
 mod logger;
 mod plugin;
 mod request;
+mod service;
 
 #[derive(Parser, Clone)]
 #[command(author, version, about, long_about = None)]

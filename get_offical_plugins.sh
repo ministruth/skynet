@@ -110,6 +110,30 @@ read -p "Your choice (default: $default): " choice
 if [ -z "$choice" ]; then
     choice=$default
 fi
+case $choice in
+'1')
+    version='linux-x86_64'
+    ;;
+'2')
+    version='linux-i686'
+    ;;
+'3')
+    version='linux-aarch64'
+    ;;
+'4')
+    version='windows-x86_64'
+    ;;
+'5')
+    version='darwin-x86_64'
+    ;;
+'6')
+    version='darwin-aarch64'
+    ;;
+*)
+    error "Error: Unknown choice."
+    exit 1
+    ;;
+esac
 if [ $choice == '4' ]; then
     extension=.zip
 fi
@@ -123,15 +147,15 @@ mkdir -p $path && cd $path
 plugins=("monitor" "agent" "task")
 for plugin in "${plugins[@]}"; do
     echo "Downloading $plugin..."
-    wget https://github.com/ministruth/$plugin/releases/latest/download/plugin-$OS-$ARCH$extension -O plugin-$OS-$ARCH$extension
+    wget https://github.com/ministruth/$plugin/releases/latest/download/plugin-$version$extension -O plugin-$version$extension
     if [ $extension == '.tar.gz' ]; then
-        tar -xzf plugin-$OS-$ARCH$extension
+        tar -xzf plugin-$version$extension
     else
-        unzip plugin-$OS-$ARCH$extension
+        unzip plugin-$version$extension
     fi
 done
-mv -f plugin-$OS-$ARCH/* .
-rm -rf plugin-$OS-$ARCH$extension plugin-$OS-$ARCH
+mv -f plugin-$version/* .
+rm -rf plugin-$version$extension plugin-$version
 cd -
 
 echo

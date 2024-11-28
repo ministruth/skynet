@@ -7,16 +7,17 @@ use actix_cloud::{
     state::{GlobalState, ServerHandle},
     tracing::debug,
 };
-use enum_map::EnumMap;
 use skynet_api::{
-    api::APIManager,
-    config,
-    logger::Logger,
-    sea_orm::{DatabaseConnection, TransactionTrait},
-    Skynet,
+    config, ffi_rpc::registry::Registry, logger::Logger, sea_orm::DatabaseConnection,
+    service::SKYNET_SERVICE, Skynet,
 };
 
-use crate::{api, db, handler::*, logger, plugin::PluginManager, Cli};
+use crate::{
+    api, db, logger,
+    plugin::PluginManager,
+    service::{self, ServiceImpl},
+    Cli,
+};
 
 pub mod check;
 pub mod run;
@@ -24,7 +25,7 @@ pub mod user;
 
 async fn init(
     cli: &Cli,
-    logger: Logger,
+    logger: Option<actix_cloud::logger::Logger>,
 ) -> (Skynet, GlobalState, DatabaseConnection, PluginManager) {
     // load config
     let (state_config, config) = config::load_file(cli.config.to_str().unwrap());
@@ -46,45 +47,43 @@ async fn init(
     };
     debug!("Memorydb connected");
 
-    let mut skynet = Skynet {
-        user: Box::new(DefaultUserHandler::new()),
-        group: Box::new(DefaultGroupHandler::new()),
-        perm: Box::new(DefaultPermHandler::new()),
-        notification: Box::new(DefaultNotificationHandler::new()),
-        setting: Box::new(DefaultSettingHandler::new()),
-        logger,
-        default_id: EnumMap::default(),
-        config,
-        menu: Vec::new(),
-        shared_api: APIManager::new(),
-    };
-    let state = GlobalState {
-        memorydb,
-        config: state_config,
-        logger: skynet.logger.logger.clone(),
-        locale,
-        server: ServerHandle::default(),
-    };
-
     // init db
-    let (db, default_id) = db::init(&skynet).await.expect("DB connect failed");
-    skynet.default_id = default_id;
-    debug!("DB connected");
+    let (db, default_id) = db::init(&config.database.dsn)
+        .await
+        .expect("DB connect failed");
 
     // init notification
     logger::set_db(db.clone()).await;
 
-    // init setting
-    let tx = db.begin().await.unwrap();
-    skynet.setting.build_cache(&tx).await.unwrap();
-    tx.commit().await.unwrap();
+    let skynet = Skynet {
+        default_id,
+        config,
+        logger: Logger {
+            verbose: cli.verbose,
+            json: cli.log_json,
+            enable: !cli.quiet,
+        },
+        menu: api::new_menu(&default_id),
+    };
+    let state = GlobalState {
+        memorydb,
+        config: state_config,
+        logger,
+        locale,
+        server: ServerHandle::default(),
+    };
+    let mut reg = Registry::default();
+    ServiceImpl::register_mock(&mut reg, SKYNET_SERVICE);
 
-    // init menu
-    skynet.menu = api::new_menu(&skynet.default_id);
+    // init service
+    service::init(&state, db.clone());
 
     // init plugin
-    let mut plugin = PluginManager::new();
-    let (skynet, state) = plugin.load_all(skynet, state, &cli.plugin);
+    let mut plugin = PluginManager::new(reg);
+    let mut skynet = plugin.load_all(&db, skynet, &cli.plugin).await;
+
+    // set menu badge, must after plugin init.
+    api::set_menu_badge(&mut skynet);
 
     (skynet, state, db, plugin)
 }

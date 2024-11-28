@@ -40,7 +40,7 @@ fn get_authorized_plugins(
                     }
                 }
                 ret = ret
-                    .union(&mut dfs(&i.children, perm))
+                    .union(&dfs(&i.children, perm))
                     .map(ToOwned::to_owned)
                     .collect();
             }
@@ -50,8 +50,8 @@ fn get_authorized_plugins(
     dfs(&skynet.menu, perm)
 }
 
-pub async fn get_entries(req: Request) -> RspResult<JsonResponse> {
-    finish_data!(get_authorized_plugins(&req.skynet, &req.perm));
+pub async fn get_entries(req: Request, skynet: Data<Skynet>) -> RspResult<JsonResponse> {
+    finish_data!(get_authorized_plugins(&skynet, &req.perm));
 }
 
 #[derive(Debug, Validate, Deserialize)]
@@ -66,15 +66,10 @@ pub struct GetReq {
     pub page: PaginationParam,
 }
 
-pub async fn get(
-    _: Request,
-    param: QsQuery<GetReq>,
-    plugin: Data<PluginManager>,
-) -> RspResult<JsonResponse> {
+pub async fn get(param: QsQuery<GetReq>, plugin: Data<PluginManager>) -> RspResult<JsonResponse> {
     let mut data: Vec<serde_json::Value> = plugin
         .get_all()
-        .read()
-        .iter()
+        .into_iter()
         .filter(|p| {
             if let Some(x) = &param.status {
                 if !x.contains(&p.status) {
@@ -102,14 +97,13 @@ pub struct PutReq {
 }
 
 pub async fn put(
-    req: Request,
     id: Path<HyUuid>,
     param: Json<PutReq>,
-    db: Data<DatabaseConnection>,
     plugin: Data<PluginManager>,
+    db: Data<DatabaseConnection>,
 ) -> RspResult<JsonResponse> {
     let tx = db.begin().await?;
-    if !plugin.set(&tx, &req.skynet, &id, param.enable).await? {
+    if !plugin.set(&tx, &id, param.enable).await? {
         finish!(JsonResponse::not_found());
     }
     tx.commit().await?;
@@ -118,10 +112,9 @@ pub async fn put(
 }
 
 pub async fn delete(
-    req: Request,
     id: Path<HyUuid>,
-    db: Data<DatabaseConnection>,
     cli: Data<Cli>,
+    db: Data<DatabaseConnection>,
     plugin: Data<PluginManager>,
 ) -> RspResult<JsonResponse> {
     if let Some(x) = plugin.get(&id) {
@@ -129,7 +122,7 @@ pub async fn delete(
             finish_err!(SkynetResponse::PluginLoaded);
         }
         let tx = db.begin().await?;
-        plugin.set(&tx, &req.skynet, &id, false).await?;
+        plugin.set(&tx, &id, false).await?;
         tx.commit().await?;
         // Ignore error from this point.
         let _ = remove_dir_all(path::Path::new(&cli.plugin).join(&x.path));
@@ -138,7 +131,7 @@ pub async fn delete(
                 .join("_plugin")
                 .join(x.id.to_string()),
         );
-        plugin.get_all().write().retain(|v| v.id != x.id);
+        plugin.delete(&x.id);
     } else {
         finish!(JsonResponse::not_found());
     }

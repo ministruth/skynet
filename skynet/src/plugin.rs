@@ -9,22 +9,24 @@ use std::{
     sync::Arc,
 };
 
+use abi_stable::std_types::RString;
 use actix_cloud::{
     config,
-    state::GlobalState,
     tracing::{debug, error, info},
 };
 use derivative::Derivative;
-use dlopen2::wrapper::{Container, WrapperApi};
+use futures::executor::block_on;
 use parking_lot::RwLock;
 use semver::{Version, VersionReq};
 use serde::{Deserialize, Serialize};
 use serde_with::{serde_as, DisplayFromStr};
 use skynet_api::{
     bail,
+    ffi_rpc::registry::Registry,
     plugin::{Plugin, PluginStatus},
     request::Router,
-    sea_orm::DatabaseTransaction,
+    sea_orm::{ConnectionTrait, DatabaseTransaction},
+    viewer::settings::SettingViewer,
     HyUuid, Result, Skynet,
 };
 use validator::Validate;
@@ -32,11 +34,6 @@ use walkdir::WalkDir;
 
 const PLUGIN_SETTING_PREFIX: &str = "plugin_";
 const PLUGIN_CONFIG: &str = "config.yml";
-
-#[derive(WrapperApi)]
-struct PluginApi {
-    _plugin_create: fn() -> *mut dyn Plugin,
-}
 
 #[serde_as]
 #[derive(Derivative, Serialize)]
@@ -56,17 +53,7 @@ pub struct PluginInstance {
 
     #[serde(skip)]
     #[derivative(Debug = "ignore")]
-    pub instance: Option<Box<dyn Plugin>>,
-    #[serde(skip)]
-    #[derivative(Debug = "ignore")]
-    library: Option<Container<PluginApi>>,
-}
-
-impl Drop for PluginInstance {
-    fn drop(&mut self) {
-        self.instance = None;
-        self.library = None;
-    }
+    pub instance: Option<Plugin>,
 }
 
 impl PluginInstance {
@@ -120,10 +107,9 @@ struct PluginSetting {
     priority: i32,
 }
 
-#[derive(Derivative)]
-#[derivative(Default(new = "true"), Debug)]
 pub struct PluginManager {
     plugin: RwLock<Vec<Arc<PluginInstance>>>,
+    pub reg: Registry,
 }
 
 impl Drop for PluginManager {
@@ -133,21 +119,33 @@ impl Drop for PluginManager {
 }
 
 impl PluginManager {
+    pub fn new(reg: Registry) -> Self {
+        Self {
+            plugin: Default::default(),
+            reg,
+        }
+    }
+
     /// Unload all plugins.
     fn unloadall(&mut self) {
         for plugin in self.plugin.write().drain(..) {
             if let Some(x) = &plugin.instance {
-                x.on_unload(plugin.status);
+                block_on(async {
+                    x.on_unload(&self.reg, &plugin.status).await;
+                });
+
                 debug!(id = %plugin.id, name = plugin.name, "Plugin unloaded");
             }
         }
     }
-}
 
-impl PluginManager {
     /// Get all instance.
-    pub fn get_all(&self) -> &RwLock<Vec<Arc<PluginInstance>>> {
-        &self.plugin
+    pub fn get_all(&self) -> Vec<Arc<PluginInstance>> {
+        self.plugin.read().clone()
+    }
+
+    pub fn delete(&self, id: &HyUuid) {
+        self.plugin.write().retain(|v| v.id != *id);
     }
 
     /// Get instance by `id`.
@@ -165,13 +163,7 @@ impl PluginManager {
     /// # Errors
     ///
     /// Will return `Err` when db error.
-    pub async fn set(
-        &self,
-        db: &DatabaseTransaction,
-        skynet: &Skynet,
-        id: &HyUuid,
-        enable: bool,
-    ) -> Result<bool> {
+    pub async fn set(&self, db: &DatabaseTransaction, id: &HyUuid, enable: bool) -> Result<bool> {
         let mut idx = None;
         {
             let rlock = self.plugin.read();
@@ -183,11 +175,7 @@ impl PluginManager {
             }
         }
         if let Some((idx, setting_name)) = idx {
-            if enable {
-                skynet.setting.set(db, &setting_name, "1").await?;
-            } else {
-                skynet.setting.set(db, &setting_name, "0").await?;
-            }
+            SettingViewer::set(db, &setting_name, if enable { "1" } else { "0" }).await?;
             if let Some(inst) = Arc::get_mut(self.plugin.write().index_mut(idx)) {
                 match inst.status {
                     PluginStatus::Unload => {
@@ -223,74 +211,73 @@ impl PluginManager {
     /// # Panics
     ///
     /// Panics if `dir` cannot be parsed or db error.
-    pub fn load_all(
-        &mut self,
-        skynet: Skynet,
-        state: GlobalState,
-        dir: &Path,
-    ) -> (Skynet, GlobalState) {
-        let mut instance = Self::load_all_internal(dir);
+    pub async fn load_all<C>(&mut self, db: &C, mut skynet: Skynet, dir: &Path) -> Skynet
+    where
+        C: ConnectionTrait,
+    {
+        let mut instance = Self::load_all_internal(&mut self.reg, dir);
 
         for i in &mut instance {
-            if skynet
-                .setting
-                .get(&i.setting_name())
+            if SettingViewer::get(db, &i.setting_name())
+                .await
+                .unwrap()
                 .is_some_and(|x| x == "1")
             {
                 i.status = PluginStatus::Enable;
             }
         }
 
-        let mut skynet = Box::new(skynet);
-        let mut state = Box::new(state);
         for i in &mut instance {
             if i.status.is_enable() {
                 info!(id = %i.id, name = i.name, "Plugin init");
                 let inst = i.instance.as_ref().unwrap();
-                if let Err(e) = inst._init(&skynet) {
-                    i.status = PluginStatus::Unload;
-                    error!(
-                        id = %i.id, name = i.name, error=%e,
-                        "Plugin unload because of `_init` error",
-                    );
-                } else {
-                    let load_res =
-                        inst.on_load(canonicalize(dir.join(&i.path)).unwrap(), skynet, state);
-                    skynet = load_res.0;
-                    state = load_res.1;
-                    if let Err(e) = load_res.2 {
+                match inst
+                    .on_load(
+                        &self.reg,
+                        &skynet,
+                        &canonicalize(dir.join(&i.path)).unwrap(),
+                    )
+                    .await
+                {
+                    Ok(ret) => {
+                        skynet = ret;
+                        info!(id = %i.id, name = i.name, "Plugin loaded");
+                    }
+                    Err(e) => {
                         i.status = PluginStatus::Unload;
                         error!(
-                            id = %i.id, name = i.name, error=%e,
+                            id = %i.id, name = i.name, error=?e,
                             "Plugin unload because of `on_load` error",
-                        );
-                    } else {
-                        info!(id = %i.id, name = i.name, "Plugin loaded");
+                        )
                     }
                 }
             }
             if !i.status.is_enable() {
-                i.instance = None; // instance MUST be released before library
-                i.library = None;
+                i.instance = None;
+                self.reg.item.remove(&RString::from(i.id.to_string()));
             }
         }
         self.plugin = RwLock::new(instance.into_iter().map(Arc::new).collect());
-        (*skynet, *state)
+        skynet
     }
 
     /// Parse route.
-    pub fn parse_route(&self, skynet: &Skynet, route: Vec<Router>) -> Vec<Router> {
+    pub async fn register(&self, skynet: &Skynet, route: Vec<Router>) -> Vec<Router> {
         let mut route = route;
-        for i in self.plugin.read().iter() {
+        for i in self.get_all() {
             if let Some(x) = &i.instance {
-                route = x.on_route(skynet, route);
+                route = x.on_register(&self.reg, skynet, &route).await;
             }
         }
         route
     }
 
     /// Load plugin .dll/.so/.dylib file.
-    fn load_internal<P: AsRef<Path>>(config: P, filename: P) -> Result<PluginInstance> {
+    fn load_internal<P: AsRef<Path>>(
+        reg: &mut Registry,
+        config: P,
+        filename: P,
+    ) -> Result<PluginInstance> {
         let config = config
             .as_ref()
             .to_str()
@@ -302,42 +289,35 @@ impl PluginManager {
         settings.validate()?;
         let mut path = PathBuf::from(filename.as_ref()).canonicalize()?;
         path.pop();
-        let mut ret = PluginInstance {
+
+        let api_version = VersionReq::parse(&settings.api_version)?;
+        if !api_version.matches(&Version::parse(skynet_api::VERSION).unwrap()) {
+            bail!(PluginError::Incompatible(
+                settings.name,
+                settings.id,
+                api_version.to_string()
+            ));
+        }
+
+        Ok(PluginInstance {
             id: settings.id,
             name: settings.name,
             description: settings.description,
             version: Version::parse(&settings.version)?,
-            api_version: VersionReq::parse(&settings.api_version)?,
+            api_version,
             priority: settings.priority,
             path: path.file_name().unwrap().into(),
             status: PluginStatus::Unload,
-            instance: None,
-            library: None,
-        };
-        if !ret
-            .api_version
-            .matches(&Version::parse(skynet_api::VERSION).unwrap())
-        {
-            bail!(PluginError::Incompatible(
-                ret.name.clone(),
-                ret.id,
-                ret.api_version.to_string()
-            ));
-        }
-
-        // SAFETY: plugin load must be unsafe.
-        unsafe {
-            let api: Container<PluginApi> = Container::load(filename.as_ref())?;
-            let plugin = Box::from_raw(api._plugin_create());
-            ret.instance = Some(plugin);
-            ret.library = Some(api);
-
-            Ok(ret)
-        }
+            instance: Some(Plugin::new(
+                filename.as_ref(),
+                reg,
+                settings.id.to_string(),
+            )?),
+        })
     }
 
     /// Load plugin folder.
-    fn load_all_internal<P: AsRef<Path>>(dir: P) -> Vec<PluginInstance> {
+    fn load_all_internal<P: AsRef<Path>>(reg: &mut Registry, dir: P) -> Vec<PluginInstance> {
         let mut instance = Vec::new();
         let mut conflict_id: HashMap<HyUuid, String> = HashMap::new();
         for entry in WalkDir::new(dir.as_ref())
@@ -353,6 +333,7 @@ impl PluginManager {
             .filter_map(result::Result::ok)
         {
             match Self::load_internal(
+                reg,
                 entry.path().parent().unwrap().join(PLUGIN_CONFIG),
                 entry.path().into(),
             ) {

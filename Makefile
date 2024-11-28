@@ -19,13 +19,13 @@ else
     endif
 endif
 
-.PHONY: check help build build_release clean static static_plugin run dev output build_plugin build_plugin_release
+.PHONY: check help build build_release clean static static_plugin run dev output build_plugin build_plugin_release update
 
 all: help
 
 ## check: Check code and style.
 check:
-	@cargo clippy -- -D clippy::all
+	@cargo clippy --all-features -- -D clippy::all
 	@cargo fmt --all -- --check
 
 ## build: Build skynet(debug).
@@ -65,7 +65,7 @@ output:
 	@echo OUTPUT_DIR=$(OUTPUT_DIR)
 	@echo TARGET_DIR=$(TARGET_DIR)
 	@echo Output Skynet...
-	@mkdir -p $(OUTPUT_DIR)
+	@mkdir -p $(OUTPUT_DIR) && mkdir -p $(OUTPUT_DIR)/assets
 	@cp conf.yml $(OUTPUT_DIR)
 	@cp conf.schema.json $(OUTPUT_DIR)
 	@cp default.webp $(OUTPUT_DIR)
@@ -127,6 +127,19 @@ clean:
  			pushd . > /dev/null;					\
  			cd $(PLUGIN_DIR)/$$d;					\
  			make --no-print-directory clean; 		\
+ 			popd > /dev/null;						\
+ 		fi											\
+ 	done
+
+## update: Update cargo lock.
+update:
+	@cargo update
+	@for d in `ls $(PLUGIN_DIR)`;do					\
+ 		if [[ -f $(PLUGIN_DIR)/$$d/Makefile ]];then	\
+ 			echo Updating $$d...;					\
+ 			pushd . > /dev/null;					\
+ 			cd $(PLUGIN_DIR)/$$d;					\
+ 			cargo update; 							\
  			popd > /dev/null;						\
  		fi											\
  	done

@@ -1,10 +1,13 @@
-use actix_cloud::response::{JsonResponse, RspResult};
+use actix_cloud::{
+    actix_web::web::Data,
+    response::{JsonResponse, RspResult},
+};
 use serde::Serialize;
-use skynet_api::request::Request;
+use skynet_api::Skynet;
 
 use crate::finish_data;
 
-pub async fn get_public(req: Request) -> RspResult<JsonResponse> {
+pub async fn get_public(skynet: Data<Skynet>) -> RspResult<JsonResponse> {
     #[derive(Serialize)]
     struct Rsp {
         #[serde(rename(serialize = "recaptcha.enable"))]
@@ -19,10 +22,10 @@ pub async fn get_public(req: Request) -> RspResult<JsonResponse> {
         lang: String,
     }
     let ret = Rsp {
-        recaptcha_enable: req.skynet.config.recaptcha.enable,
-        recaptcha_url: req.skynet.config.recaptcha.url.clone(),
-        recaptcha_sitekey: req.skynet.config.recaptcha.sitekey.clone(),
-        lang: req.skynet.config.lang.clone(),
+        recaptcha_enable: skynet.config.recaptcha.enable,
+        recaptcha_url: skynet.config.recaptcha.url.clone(),
+        recaptcha_sitekey: skynet.config.recaptcha.sitekey.clone(),
+        lang: skynet.config.lang.clone(),
     };
     finish_data!(ret);
 }

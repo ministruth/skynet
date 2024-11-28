@@ -1,74 +1,68 @@
 use std::{fs, path::PathBuf};
 
-use actix_cloud::tracing::{debug, error, info};
-use skynet_api::{
+use actix_cloud::{
     logger::Logger,
-    sea_orm::{DatabaseConnection, TransactionTrait},
-    Skynet,
+    tracing::{debug, error, info},
+};
+use skynet_api::{
+    sea_orm::{ConnectionTrait, TransactionTrait},
+    viewer::users::UserViewer,
 };
 
 use crate::{Cli, UserCli, UserCommands};
 
 use super::init;
 
-async fn create(
-    skynet: &Skynet,
-    db: &DatabaseConnection,
-    avatar: &Option<PathBuf>,
-    username: &str,
-    root: bool,
-) {
+async fn create<C>(db: &C, username: &str, avatar: &Option<PathBuf>, root: bool)
+where
+    C: ConnectionTrait,
+{
     let mut avatar_file: Option<Vec<u8>> = None;
     if let Some(x) = avatar {
         avatar_file = Some(fs::read(x).expect("Read avatar failed"));
         debug!("Read avatar success: {:?}", x);
     }
-    let tx = db.begin().await.unwrap();
-    if skynet
-        .user
-        .find_by_name(&tx, username)
+    if UserViewer::find_by_name(db, username)
         .await
         .unwrap()
         .is_some()
     {
         error!("User `{username}` already exists");
     } else {
-        let user = skynet
-            .user
-            .create(&tx, username, None, avatar_file, root)
+        let user = UserViewer::create(db, username, None, avatar_file, root)
             .await
             .unwrap();
         info!("New pass: {}", user.password);
     }
-    tx.commit().await.unwrap();
 }
 
-pub async fn command(cli: &Cli, logger: Logger, user_cli: &UserCli) {
+pub async fn command(cli: &Cli, logger: Option<Logger>, user_cli: &UserCli) {
     let (skynet, state, db, _) = init(cli, logger).await;
 
+    let tx = db.begin().await.unwrap();
     match &user_cli.command {
         // skynet user add
-        UserCommands::Add { avatar, username } => {
-            create(&skynet, &db, avatar, username, false).await
-        }
+        UserCommands::Add { avatar, username } => create(&tx, username, avatar, false).await,
         // skynet user reset
         UserCommands::Reset { username } => {
-            let tr = db.begin().await.unwrap();
-            let user = skynet.user.find_by_name(&tr, username).await.unwrap();
+            let user = UserViewer::find_by_name(&tx, username).await.unwrap();
             if let Some(x) = user {
-                let x = skynet
-                    .user
-                    .reset(&tr, state.memorydb, &skynet, &x.id)
-                    .await
-                    .unwrap()
-                    .unwrap();
+                let x = UserViewer::reset(
+                    &tx,
+                    state.memorydb.as_ref(),
+                    &x.id,
+                    &skynet.config.session.prefix,
+                )
+                .await
+                .unwrap()
+                .unwrap();
                 info!("New pass: {}", x.password);
                 info!("Reset user success");
             } else {
                 error!("User `{username}` not found");
             };
-            tr.commit().await.unwrap();
         }
-        UserCommands::Init { avatar } => create(&skynet, &db, avatar, "root", true).await,
+        UserCommands::Init { avatar } => create(&tx, "root", avatar, true).await,
     }
+    tx.commit().await.unwrap();
 }

@@ -1,3 +1,7 @@
+# v0.3.0
+## Changes
+1. New plugin system.
+
 # v0.2.5
 ## Bug fix
 1. Fix several bugs about plugins.

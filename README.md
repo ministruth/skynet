@@ -22,12 +22,10 @@ You can download pre-built libraries in our [release](https://github.com/MXWXZ/s
 
 We offer `linux-{x86_64,i686,aarch64}`, `darwin-{x86_64,aarch64}` and `windows-x86_64` binaries. You might build from source if your platform is not included.
 
-**Due to some bugs, SQLite backend may lead to load error in plugins currently.**
-
 1. Download the release and extract.
-2. Install postgresql on your machine.
-3. (Optional) Install redis on your machine.
-4. `vim conf.yml` to modify your config.
+2. (Optional) Install redis on your machine.
+3. `vim conf.yml` to modify your config.
+4. `touch data.db` or copy your existing database.
 5. `./skynet check` to verify your config.
 6. `./skynet run` to start up the server.
 7. Visit `localhost:8080`.

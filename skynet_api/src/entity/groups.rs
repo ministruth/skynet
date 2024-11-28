@@ -1,10 +1,11 @@
 use actix_cloud_codegen::{entity_behavior, entity_id, entity_timestamp};
+use anyhow::Result;
 use sea_orm::entity::prelude::*;
-use serde::Serialize;
+use serde::{Deserialize, Serialize};
 
 use crate::HyUuid;
 
-#[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Default, Serialize)]
+#[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Default, Serialize, Deserialize)]
 #[sea_orm(table_name = "groups")]
 pub struct Model {
     #[sea_orm(primary_key, auto_increment = false)]
