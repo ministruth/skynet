@@ -37,6 +37,7 @@ use skynet_api::{
     },
     plugin::{self, Body, WSMessage},
     request::{Request, Router, RouterType},
+    tracing::debug,
     HyUuid, Result, Skynet,
 };
 
@@ -142,7 +143,7 @@ pub async fn error_middleware(
             }
 
             let (req, rsp) = rsp.into_parts();
-            if !cli.verbose && !rsp.status().is_success() {
+            if !cli.verbose && (rsp.status().is_client_error() || rsp.status().is_server_error()) {
                 Ok(ServiceResponse::new(req, rsp.drop_body()).map_into_left_body())
             } else {
                 Ok(ServiceResponse::new(req, rsp).map_into_right_body())
@@ -312,7 +313,19 @@ fn ws_handler(
                         _ = rx.recv() =>{
                             break;
                         },
-                        Some(Ok(msg)) = stream.next() => {
+                        msg = stream.next() => {
+                            let msg = if let Some(msg) = msg {
+                                msg
+                            } else {
+                                break;
+                            };
+                            let msg = match msg {
+                                Ok(msg) => msg,
+                                Err(e) => {
+                                    debug!(error = %e, "Websocket error");
+                                    continue;
+                                }
+                            };
                             match msg {
                                 Message::Ping(bytes) => {
                                     if session.pong(&bytes).await.is_err() {
