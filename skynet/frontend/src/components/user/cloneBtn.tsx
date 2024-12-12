@@ -11,7 +11,7 @@ const cloneColumns: Columns = (intl) => [
   {
     renderFormItem: () => (
       <Alert
-        message={intl.get('pages.user.op.clone.content')}
+        message={intl.get('pages.user.clone.content')}
         type="info"
         showIcon
       />
@@ -68,7 +68,7 @@ const UserClone: React.FC<UserBtnProps> = (props) => {
       perm={UserPerm.PermWrite}
       rollback={<PlusOutlined key="clone" />}
       width={500}
-      title={intl.get('pages.user.op.clone.title')}
+      title={intl.get('pages.user.clone.title')}
     />
   );
 };

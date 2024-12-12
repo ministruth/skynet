@@ -115,6 +115,10 @@ fn filter(item: &LogItem) -> bool {
     {
         return false;
     }
+    // ignore maxminddb
+    if item.target.starts_with("maxminddb::") {
+        return false;
+    }
     true
 }
 

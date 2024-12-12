@@ -58,10 +58,7 @@ const Permission: React.FC<PermProps> = (props) => {
               name: e.name + ':' + permstr,
             };
           });
-        else
-          v.origin = [
-            { id: '0', name: intl.get('pages.permission.table.self') },
-          ];
+        else v.origin = [{ id: '0', name: intl.get('tables.self') }];
       }
       return v;
     });
@@ -115,7 +112,7 @@ const Permission: React.FC<PermProps> = (props) => {
   let columns: ProColumns[] = [
     IDColumn(intl),
     {
-      title: intl.get('pages.permission.table.name'),
+      title: intl.get('tables.name'),
       dataIndex: 'name',
       align: 'center',
       ellipsis: true,
@@ -128,7 +125,7 @@ const Permission: React.FC<PermProps> = (props) => {
       },
     },
     {
-      title: intl.get('pages.permission.table.note'),
+      title: intl.get('tables.note'),
       dataIndex: 'note',
       ellipsis: true,
       align: 'center',
@@ -144,7 +141,7 @@ const Permission: React.FC<PermProps> = (props) => {
   if (props.origin)
     columns = columns.concat([
       {
-        title: intl.get('pages.permission.table.origin'),
+        title: intl.get('tables.origin'),
         dataIndex: 'origin',
         align: 'center',
         width: 100,
@@ -169,7 +166,7 @@ const Permission: React.FC<PermProps> = (props) => {
     ]);
   columns = columns.concat([
     {
-      title: intl.get('pages.permission.table.perm'),
+      title: intl.get('tables.perm'),
       valueType: 'checkbox',
       align: 'center',
       width: 180,
@@ -185,7 +182,7 @@ const Permission: React.FC<PermProps> = (props) => {
       },
     },
     {
-      title: intl.get('pages.permission.table.ban'),
+      title: intl.get('tables.ban'),
       valueType: 'checkbox',
       align: 'center',
       width: 50,
@@ -220,11 +217,11 @@ const Permission: React.FC<PermProps> = (props) => {
       <>
         <TableBtn
           icon={ProfileOutlined}
-          tip={intl.get(`pages.${base.slice(0, -1)}.op.perm.tip`)}
+          tip={intl.get('pages.permission.tip')}
           onClick={() => setIsModalOpen(true)}
         />
         <Modal
-          title={intl.get(`pages.${base.slice(0, -1)}.op.perm.title`)}
+          title={intl.get(`pages.permission.${base.slice(0, -1)}.title`)}
           open={isModalOpen}
           footer={null}
           onCancel={() => {

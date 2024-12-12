@@ -38,5 +38,9 @@ csrf:
   prefix: "csrf_" # redis prefix
   expire: 10 # timeout second
 
+geoip:
+  enable: false # enable geoip
+  database: "GeoLite2-Country.mmdb" # GeoLite2-Country database from maxmind.com
+
 avatar: "default.webp" # default avatar
 lang: "en-US" # default language

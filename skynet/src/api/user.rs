@@ -10,7 +10,7 @@ use actix_cloud::{
 use actix_web_validator::{Json, QsQuery};
 use serde::{Deserialize, Serialize};
 use skynet_api::{
-    entity::{groups, users::Column},
+    entity::{groups, user_histories, users::Column},
     finish,
     permission::{PermEntry, ROOT_ID},
     request::{
@@ -61,7 +61,7 @@ pub async fn get_all(
         );
     }
     cond = cond.add_option(param.login_start.map(|x| Column::LastLogin.gte(x)));
-    cond = cond.add_option(param.login_start.map(|x| Column::LastLogin.lte(x)));
+    cond = cond.add_option(param.login_end.map(|x| Column::LastLogin.lte(x)));
     if let Some(x) = param.login_sort {
         cond = cond.add_sort(Column::LastLogin.into_simple_expr(), x.into());
     };
@@ -97,15 +97,25 @@ pub async fn get(
         finish!(JsonResponse::not_found());
     }
     let mut data = data.unwrap();
-    if data.avatar.is_none() {
-        let (avatar, mime) = get_dataurl(&fs::read(&skynet.config.avatar)?);
-        if mime.is_none() {
-            finish_err!(SkynetResponse::UserInvalidAvatar);
-        }
-        data.avatar = Some(avatar.into());
+    let (avatar, mime) = if let Some(avatar) = data.avatar {
+        get_dataurl(&avatar)
+    } else {
+        get_dataurl(&fs::read(&skynet.config.avatar)?)
+    };
+    if mime.is_none() {
+        finish_err!(SkynetResponse::UserInvalidAvatar);
     }
+    data.avatar = Some(avatar.into());
 
     finish_data!(data);
+}
+
+pub async fn get_self(
+    req: Request,
+    skynet: Data<Skynet>,
+    db: Data<DatabaseConnection>,
+) -> RspResult<JsonResponse> {
+    get(req.uid.unwrap().into(), skynet, db).await
 }
 
 #[derive(Debug, Validate, Deserialize)]
@@ -292,6 +302,34 @@ pub async fn put(
     finish_ok!();
 }
 
+#[derive(Debug, Validate, Deserialize)]
+pub struct PutSelfReq {
+    pub password: Option<String>,
+    pub avatar: Option<String>,
+}
+pub async fn put_self(
+    param: Json<PutSelfReq>,
+    req: Request,
+    skynet: Data<Skynet>,
+    state: Data<GlobalState>,
+    db: Data<DatabaseConnection>,
+) -> RspResult<JsonResponse> {
+    put(
+        req.uid.unwrap().into(),
+        Json(PutReq {
+            username: None,
+            password: param.password.clone(),
+            avatar: param.avatar.clone(),
+            group: None,
+        }),
+        req,
+        skynet,
+        state,
+        db,
+    )
+    .await
+}
+
 pub async fn delete_batch(
     param: Json<IDsReq>,
     req: Request,
@@ -362,6 +400,15 @@ pub async fn kick(
     finish_ok!();
 }
 
+pub async fn kick_self(
+    req: Request,
+    skynet: Data<Skynet>,
+    state: Data<GlobalState>,
+    db: Data<DatabaseConnection>,
+) -> RspResult<JsonResponse> {
+    kick(req.uid.unwrap().into(), req, skynet, state, db).await
+}
+
 pub async fn get_group(uid: Path<HyUuid>, db: Data<DatabaseConnection>) -> RspResult<JsonResponse> {
     #[partial_entity(groups::Model)]
     #[derive(Serialize)]
@@ -381,4 +428,76 @@ pub async fn get_group(uid: Path<HyUuid>, db: Data<DatabaseConnection>) -> RspRe
         .map(|x| (x.into_iter().map(Into::into).collect()))?;
     tx.commit().await?;
     finish_data!(data);
+}
+
+#[derive(Debug, Validate, Deserialize)]
+pub struct GetHistoryReq {
+    pub ip: Option<String>,
+
+    pub time_sort: Option<SortType>,
+    #[validate(range(min = 0))]
+    pub time_start: Option<i64>,
+    #[validate(range(min = 0))]
+    pub time_end: Option<i64>,
+
+    #[serde(flatten)]
+    #[validate(nested)]
+    pub page: PaginationParam,
+}
+
+pub async fn get_histories(
+    uid: Path<HyUuid>,
+    param: QsQuery<GetHistoryReq>,
+    db: Data<DatabaseConnection>,
+) -> RspResult<JsonResponse> {
+    #[derive(Serialize)]
+    struct Rsp {
+        id: HyUuid,
+        ip: String,
+        time: i64,
+    }
+    let tx = db.begin().await?;
+    if UserViewer::find_by_id(&tx, &uid).await?.is_none() {
+        finish!(JsonResponse::not_found());
+    }
+
+    let mut cond = Condition::new(Condition::all()).add_page(param.page.clone());
+    cond = cond.add_option(
+        param
+            .time_start
+            .map(|x| user_histories::Column::CreatedAt.gte(x)),
+    );
+    cond = cond.add_option(
+        param
+            .time_end
+            .map(|x| user_histories::Column::CreatedAt.lte(x)),
+    );
+    if let Some(x) = param.time_sort {
+        cond = cond.add_sort(
+            user_histories::Column::CreatedAt.into_simple_expr(),
+            x.into(),
+        );
+    };
+    if let Some(ip) = &param.ip {
+        cond = cond.add(ip.like_expr(user_histories::Column::Ip));
+    }
+    let (data, cnt) = UserViewer::find_history_by_id(&tx, &uid, cond).await?;
+    let data: Vec<_> = data
+        .into_iter()
+        .map(|x| Rsp {
+            id: x.id,
+            ip: x.ip,
+            time: x.created_at,
+        })
+        .collect();
+    tx.commit().await?;
+    finish_data!(PageData::new((data, cnt)));
+}
+
+pub async fn get_histories_self(
+    param: QsQuery<GetHistoryReq>,
+    req: Request,
+    db: Data<DatabaseConnection>,
+) -> RspResult<JsonResponse> {
+    get_histories(req.uid.unwrap().into(), param, db).await
 }

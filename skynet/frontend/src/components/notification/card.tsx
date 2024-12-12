@@ -52,7 +52,7 @@ const handleDeleteAll = async (
   ref: React.MutableRefObject<ActionType | undefined>,
 ) => {
   confirm({
-    title: intl.get('pages.notification.op.deleteall.title'),
+    title: intl.get('pages.notification.deleteall.title'),
     content: intl.get('app.confirm'),
     onOk() {
       return new Promise((resolve, reject) => {
@@ -76,19 +76,19 @@ const NotificationCard = () => {
   const access = useAccess();
   const levelEnum: { [Key: number]: { label: string; color: string } } = {
     0: {
-      label: intl.get('pages.notification.table.level.info'),
+      label: intl.get('tables.level.info'),
       color: 'processing',
     },
     1: {
-      label: intl.get('pages.notification.table.level.success'),
+      label: intl.get('tables.level.success'),
       color: 'success',
     },
     2: {
-      label: intl.get('pages.notification.table.level.warning'),
+      label: intl.get('tables.level.warning'),
       color: 'warning',
     },
     3: {
-      label: intl.get('pages.notification.table.level.error'),
+      label: intl.get('tables.level.error'),
       color: 'error',
     },
   };
@@ -97,7 +97,7 @@ const NotificationCard = () => {
     SearchColumn(intl),
     IDColumn(intl),
     {
-      title: intl.get('pages.notification.table.target'),
+      title: intl.get('tables.target'),
       dataIndex: 'target',
       align: 'center',
       hideInSearch: true,
@@ -109,13 +109,9 @@ const NotificationCard = () => {
         };
       },
     },
-    StatusColumn(
-      intl.get('pages.notification.table.level'),
-      'level',
-      levelEnum,
-    ),
+    StatusColumn(intl.get('tables.level'), 'level', levelEnum),
     {
-      title: intl.get('pages.notification.table.message'),
+      title: intl.get('tables.message'),
       dataIndex: 'message',
       align: 'center',
       hideInSearch: true,

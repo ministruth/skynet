@@ -20,12 +20,15 @@ pub async fn get_public(skynet: Data<Skynet>) -> RspResult<JsonResponse> {
         )]
         recaptcha_sitekey: Option<String>,
         lang: String,
+        #[serde(rename(serialize = "geoip.enable"))]
+        geoip_enable: bool,
     }
     let ret = Rsp {
         recaptcha_enable: skynet.config.recaptcha.enable,
         recaptcha_url: skynet.config.recaptcha.url.clone(),
         recaptcha_sitekey: skynet.config.recaptcha.sitekey.clone(),
         lang: skynet.config.lang.clone(),
+        geoip_enable: skynet.config.geoip.enable,
     };
     finish_data!(ret);
 }

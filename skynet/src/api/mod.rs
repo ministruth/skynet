@@ -12,6 +12,7 @@ use skynet_api::{
 use crate::logger;
 
 mod auth;
+mod dashboard;
 mod group;
 mod misc;
 mod notifications;
@@ -109,16 +110,22 @@ pub fn api_call(name: &str, r: Route) -> Route {
         "auth::get_token" => r.to(auth::get_token),
         "misc::shutdown" => r.to(misc::shutdown),
         "misc::get_menus" => r.to(misc::get_menus),
+        "misc::geoip" => r.to(misc::geoip),
         "user::get_all" => r.to(user::get_all),
         "user::add" => r.to(user::add),
         "user::delete_batch" => r.to(user::delete_batch),
+        "user::get_self" => r.to(user::get_self),
         "user::get" => r.to(user::get),
+        "user::put_self" => r.to(user::put_self),
         "user::put" => r.to(user::put),
         "user::delete" => r.to(user::delete),
+        "user::kick_self" => r.to(user::kick_self),
         "user::kick" => r.to(user::kick),
         "user::get_group" => r.to(user::get_group),
         "permission::get_user" => r.to(permission::get_user),
         "permission::put_user" => r.to(permission::put_user),
+        "user::get_histories_self" => r.to(user::get_histories_self),
+        "user::get_histories" => r.to(user::get_histories),
         "group::get_all" => r.to(group::get_all),
         "group::add" => r.to(group::add),
         "group::delete_batch" => r.to(group::delete_batch),
@@ -139,6 +146,8 @@ pub fn api_call(name: &str, r: Route) -> Route {
         "plugin::put" => r.to(plugin::put),
         "plugin::delete" => r.to(plugin::delete),
         "plugin::get_entries" => r.to(plugin::get_entries),
+        "dashboard::system_info" => r.to(dashboard::system_info),
+        "dashboard::runtime_info" => r.to(dashboard::runtime_info),
         _ => unreachable!(),
     }
 }
@@ -202,6 +211,13 @@ pub fn new_api(id: &EnumMap<IDTypes, HyUuid>) -> Vec<Router> {
             csrf: CSRFType::Header,
         },
         Router {
+            path: String::from("/geoip"),
+            method: Method::Get,
+            route: Inner(String::from("misc::geoip")),
+            checker: PermChecker::Entry(PermEntry::new_user()),
+            csrf: CSRFType::Header,
+        },
+        Router {
             path: String::from("/users"),
             method: Method::Get,
             route: Inner(String::from("user::get_all")),
@@ -223,10 +239,24 @@ pub fn new_api(id: &EnumMap<IDTypes, HyUuid>) -> Vec<Router> {
             csrf: CSRFType::Header,
         },
         Router {
+            path: String::from("/users/self"),
+            method: Method::Get,
+            route: Inner(String::from("user::get_self")),
+            checker: PermChecker::Entry(PermEntry::new_user()),
+            csrf: CSRFType::Header,
+        },
+        Router {
             path: String::from("/users/{uid}"),
             method: Method::Get,
             route: Inner(String::from("user::get")),
             checker: PermChecker::new_entry(id[PermManageUserID], PERM_READ),
+            csrf: CSRFType::Header,
+        },
+        Router {
+            path: String::from("/users/self"),
+            method: Method::Put,
+            route: Inner(String::from("user::put_self")),
+            checker: PermChecker::Entry(PermEntry::new_user()),
             csrf: CSRFType::Header,
         },
         Router {
@@ -241,6 +271,13 @@ pub fn new_api(id: &EnumMap<IDTypes, HyUuid>) -> Vec<Router> {
             method: Method::Delete,
             route: Inner(String::from("user::delete")),
             checker: PermChecker::new_entry(id[PermManageUserID], PERM_WRITE),
+            csrf: CSRFType::Header,
+        },
+        Router {
+            path: String::from("/users/self/kick"),
+            method: Method::Post,
+            route: Inner(String::from("user::kick_self")),
+            checker: PermChecker::Entry(PermEntry::new_user()),
             csrf: CSRFType::Header,
         },
         Router {
@@ -269,6 +306,20 @@ pub fn new_api(id: &EnumMap<IDTypes, HyUuid>) -> Vec<Router> {
             method: Method::Put,
             route: Inner(String::from("permission::put_user")),
             checker: PermChecker::new_entry(id[PermManageUserID], PERM_WRITE),
+            csrf: CSRFType::Header,
+        },
+        Router {
+            path: String::from("/users/self/histories"),
+            method: Method::Get,
+            route: Inner(String::from("user::get_histories_self")),
+            checker: PermChecker::Entry(PermEntry::new_user()),
+            csrf: CSRFType::Header,
+        },
+        Router {
+            path: String::from("/users/{uid}/histories"),
+            method: Method::Get,
+            route: Inner(String::from("user::get_histories")),
+            checker: PermChecker::new_entry(id[PermManageUserID], PERM_READ),
             csrf: CSRFType::Header,
         },
         Router {
@@ -409,6 +460,20 @@ pub fn new_api(id: &EnumMap<IDTypes, HyUuid>) -> Vec<Router> {
             method: Method::Get,
             route: Inner(String::from("plugin::get_entries")),
             checker: PermChecker::Entry(PermEntry::new_guest()),
+            csrf: CSRFType::Header,
+        },
+        Router {
+            path: String::from("/dashboard/system_info"),
+            method: Method::Get,
+            route: Inner(String::from("dashboard::system_info")),
+            checker: PermChecker::new_entry(id[PermManageSystemID], PERM_READ),
+            csrf: CSRFType::Header,
+        },
+        Router {
+            path: String::from("/dashboard/runtime_info"),
+            method: Method::Get,
+            route: Inner(String::from("dashboard::runtime_info")),
+            checker: PermChecker::new_entry(id[PermManageSystemID], PERM_READ),
             csrf: CSRFType::Header,
         },
     ]

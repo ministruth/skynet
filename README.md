@@ -23,12 +23,11 @@ You can download pre-built libraries in our [release](https://github.com/MXWXZ/s
 We offer `linux-{x86_64,i686,aarch64}`, `darwin-{x86_64,aarch64}` and `windows-x86_64` binaries. You might build from source if your platform is not included.
 
 1. Download the release and extract.
-2. (Optional) Install redis on your machine.
-3. `vim conf.yml` to modify your config.
-4. `touch data.db` or copy your existing database.
-5. `./skynet check` to verify your config.
-6. `./skynet run` to start up the server.
-7. Visit `localhost:8080`.
+2. `vim conf.yml` to modify your config.
+3. `touch data.db` or copy your existing database.
+4. `./skynet check` to verify your config.
+5. `./skynet run` to start up the server.
+6. Visit `localhost:8080`.
 
 ### Build from source
 
@@ -53,6 +52,52 @@ You may add more users in the web UI or use the command line for batch add:
     skynet user add <USERNAME>
 
 Note that no permission is allowed for these users.
+
+## Optional features
+### Redis
+You can enable redis to replace the built-in memory database.
+
+1. Install redis
+2. Change `redis.enable` to `true`.
+3. Modify `redis.dsn` to connect your database.
+
+### SSL
+Enable SSL to secure your connection.
+
+1. Get your SSL certificate (certificate `*.crt` and key `*.key`)
+2. Change `listen.ssl` to `true`.
+3. Modify `listen.ssl_cert` and `listen.ssl_key` to file path.
+
+### Proxy
+You need to enable this if Skynet is behind some kind of proxy (Nginx, Load balancer, etc.).
+Otherwise, you cannot obtain users' real IP.
+
+1. Change `proxy.enable` to `true`.
+2. Modify `proxy.header` to the `ip:port` header set by the proxy server.
+   
+   Config example:
+   ```
+   proxy:
+     header: "X-Real-Address"
+   ```
+   The proxy server should pass the following header (peer ip/port):
+   ```
+   X-Real-Address: 192.168.0.1:12345
+   ```
+
+### Recaptcha
+You can enable Google recaptcha to protect against brute force attack.
+
+1. Register recaptcha site on https://www.google.com/recaptcha/about/ (Type: V2 Checkbox).
+2. Change `recaptcha.enable` to `true`.
+3. Modify `recaptcha.sitekey` and `recaptcha.secret`.
+
+### Geoip
+For every IP address, you can enable geoip to view the country directly.
+
+1. Get `GeoLite2-Country.mmdb` from Github or maxmind official website.
+2. Change `geoip.enable` to `true`.
+3. Modify `geoip.database` to the `.mmdb` file path.
 
 ## Plugins
 

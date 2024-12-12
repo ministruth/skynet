@@ -81,6 +81,11 @@ pub async fn command(cli: &Cli, logger: Option<Logger>, skip_cover: bool, disabl
     if !cli.persist_session {
         state.memorydb.flush().await.unwrap();
     }
+    let geoip = if skynet.config.geoip.enable {
+        Some(maxminddb::Reader::open_readfile(&skynet.config.geoip.database).unwrap())
+    } else {
+        None
+    };
 
     let mut worker = skynet.config.listen.worker;
     if worker == 0 {
@@ -99,6 +104,7 @@ pub async fn command(cli: &Cli, logger: Option<Logger>, skip_cover: bool, disabl
     let cli_data = Data::new(cli.clone());
     let db = Data::new(db);
     let plugin_manager = Data::new(plugin_manager);
+    let geoip = Data::new(geoip);
     let mut route = api::new_api(&skynet.default_id);
     service::init_handler(skynet.clone(), state.clone());
     route = plugin_manager.register(&skynet, route).await;
@@ -150,6 +156,7 @@ pub async fn command(cli: &Cli, logger: Option<Logger>, skip_cover: bool, disabl
                 .app_data(cli_data.clone())
                 .app_data(db.clone())
                 .app_data(plugin_manager.clone())
+                .app_data(geoip.clone())
         }
     })
     .workers(worker);

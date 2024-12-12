@@ -1,7 +1,7 @@
 use sea_orm_migration::prelude::*;
 
 #[derive(Iden)]
-enum Users {
+pub(crate) enum Users {
     Table,
     ID,
     Username,
@@ -14,7 +14,7 @@ enum Users {
 }
 
 #[derive(Iden)]
-enum Groups {
+pub(crate) enum Groups {
     Table,
     ID,
     Name,
@@ -24,7 +24,7 @@ enum Groups {
 }
 
 #[derive(Iden)]
-enum UserGroupLinks {
+pub(crate) enum UserGroupLinks {
     Table,
     ID,
     Uid,
@@ -34,7 +34,7 @@ enum UserGroupLinks {
 }
 
 #[derive(Iden)]
-enum PermissionLinks {
+pub(crate) enum PermissionLinks {
     Table,
     ID,
     Uid,
@@ -46,7 +46,7 @@ enum PermissionLinks {
 }
 
 #[derive(Iden)]
-enum Permissions {
+pub(crate) enum Permissions {
     Table,
     ID,
     Name,
@@ -56,7 +56,7 @@ enum Permissions {
 }
 
 #[derive(Iden)]
-enum Settings {
+pub(crate) enum Settings {
     Table,
     ID,
     Name,
@@ -66,7 +66,7 @@ enum Settings {
 }
 
 #[derive(Iden)]
-enum Notifications {
+pub(crate) enum Notifications {
     Table,
     ID,
     Level,

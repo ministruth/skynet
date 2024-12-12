@@ -1,5 +1,6 @@
 import menus from './en-US/menus';
 import pages from './en-US/pages';
+import tables from './en-US/tables';
 import titles from './en-US/titles';
 
 export default {
@@ -8,6 +9,7 @@ export default {
   'app.cancel': 'Cancel',
   'app.confirm': 'This operation cannot be undone!',
   'app.filesize': 'File is too large, should be less than {size}',
+  'app.loading': 'Loading',
 
   'app.table.lastupdate': 'Last update: {time}',
   'app.table.polling.start': 'Poll',
@@ -25,6 +27,7 @@ export default {
   'app.op.update': 'Update',
   'app.op.upload': 'Upload',
   ...pages,
+  ...tables,
   ...titles,
   ...menus,
 };

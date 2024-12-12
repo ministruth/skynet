@@ -27,3 +27,7 @@ response:
     notexist: "Permission does not exist"
   plugin:
     loaded: "Plugin is already loaded"
+
+text:
+  na: "N/A"
+  loopback: "Loopback"

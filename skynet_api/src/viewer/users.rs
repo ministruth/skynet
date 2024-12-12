@@ -1,5 +1,9 @@
 use crate::{
-    entity::users, hyuuid::uuids2strings, permission::ROOT_ID, request::Condition, HyUuid,
+    entity::{user_histories, users},
+    hyuuid::uuids2strings,
+    permission::ROOT_ID,
+    request::Condition,
+    HyUuid,
 };
 use actix_cloud::{memorydb::MemoryDB, utils};
 use anyhow::{anyhow, Result};
@@ -57,14 +61,25 @@ impl UserViewer {
     }
 
     /// Update login `uid` and `ip`.
-    pub async fn update_login<C>(db: &C, uid: &HyUuid, ip: &str) -> Result<users::Model>
-    where
-        C: ConnectionTrait,
-    {
+    pub async fn update_login(
+        db: &DatabaseTransaction,
+        uid: &HyUuid,
+        ip: &str,
+    ) -> Result<users::Model> {
+        let ts = Utc::now().timestamp_millis();
+        user_histories::ActiveModel {
+            uid: Set(*uid),
+            ip: Set(ip.to_owned()),
+            created_at: Set(ts),
+            updated_at: Set(ts),
+            ..Default::default()
+        }
+        .insert(db)
+        .await?;
         users::ActiveModel {
-            id: Unchanged(uid.to_owned()),
+            id: Unchanged(*uid),
             last_ip: Set(Some(ip.to_owned())),
-            last_login: Set(Some(Utc::now().timestamp_millis())),
+            last_login: Set(Some(ts)),
             ..Default::default()
         }
         .update(db)
@@ -188,15 +203,17 @@ impl UserViewer {
                     Set(Some(x))
                 }
             }),
-            password: match password {
-                Some(x) => Set(Self::hash_pass(x)?),
+            password: match &password {
+                Some(x) => Set(Self::hash_pass(*x)?),
                 None => NotSet,
             },
             ..Default::default()
         }
         .update(db)
         .await?;
-        Self::kick(memorydb, uid, session_prefix).await?;
+        if password.is_some() {
+            Self::kick(memorydb, uid, session_prefix).await?;
+        }
         Ok(ret)
     }
 
@@ -240,5 +257,20 @@ impl UserViewer {
             Self::kick(memorydb, i, session_prefix).await?;
         }
         Ok(cnt)
+    }
+
+    pub async fn find_history_by_id<C>(
+        db: &C,
+        id: &HyUuid,
+        cond: Condition,
+    ) -> Result<(Vec<user_histories::Model>, u64)>
+    where
+        C: ConnectionTrait,
+    {
+        cond.select_page(
+            user_histories::Entity::find().filter(user_histories::Column::Uid.eq(*id)),
+            db,
+        )
+        .await
     }
 }

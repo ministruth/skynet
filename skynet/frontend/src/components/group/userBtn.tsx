@@ -37,7 +37,7 @@ const handleDeleteSelected = async (
   gid: string,
 ) => {
   confirm({
-    title: intl.get('pages.group.op.delete.selected.title'),
+    title: intl.get('pages.group.delete.selected.title'),
     content: intl.get('app.confirm'),
     onOk() {
       return new Promise((resolve, reject) => {
@@ -80,7 +80,7 @@ const GroupUser: React.FC<UserBtnProps> = (props) => {
   const ref = useRef<ActionType>();
   const addColumns: ProFormColumnsType[] = [
     {
-      title: intl.get('pages.user.table.username'),
+      title: intl.get('tables.username'),
       dataIndex: 'id',
       fieldProps: {
         mode: 'multiple',
@@ -109,7 +109,7 @@ const GroupUser: React.FC<UserBtnProps> = (props) => {
   const columns: ProColumns[] = [
     IDColumn(intl),
     {
-      title: intl.get('pages.user.table.username'),
+      title: intl.get('tables.username'),
       dataIndex: 'username',
       align: 'center',
       ellipsis: true,
@@ -136,7 +136,7 @@ const GroupUser: React.FC<UserBtnProps> = (props) => {
             permName="manage.user"
             perm={UserPerm.PermWrite}
             url={`/groups/${props.gid}/users/${row.id}`}
-            confirmTitle={intl.get('pages.group.op.delete.user.title', {
+            confirmTitle={intl.get('pages.group.delete.user.title', {
               name: row.username,
             })}
           />,
@@ -169,11 +169,11 @@ const GroupUser: React.FC<UserBtnProps> = (props) => {
       <>
         <TableBtn
           icon={UserOutlined}
-          tip={intl.get('pages.group.op.user.tip')}
+          tip={intl.get('pages.group.user.tip')}
           onClick={() => setIsModalOpen(true)}
         />
         <Modal
-          title={intl.get('pages.group.op.user.title')}
+          title={intl.get('pages.group.user.title')}
           open={isModalOpen}
           footer={null}
           onCancel={() => {
@@ -209,7 +209,7 @@ const GroupUser: React.FC<UserBtnProps> = (props) => {
                   perm={UserPerm.PermWrite}
                   key="add"
                   width={500}
-                  title={intl.get('pages.group.op.add.user.title')}
+                  title={intl.get('pages.group.add.user.title')}
                   schemaProps={{
                     onFinish: handleAdd,
                     columns: addColumns,

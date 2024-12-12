@@ -24,10 +24,10 @@ const handleAble = (
     );
   } else {
     confirm({
-      title: intl.get('pages.plugin.table.disable.title', {
+      title: intl.get('pages.plugin.disable.title', {
         name: name,
       }),
-      content: intl.get('pages.plugin.table.disable.content'),
+      content: intl.get('pages.plugin.disable.content'),
       onOk() {
         return checkAPI(putAPI(`/plugins/${id}`, { enable: enable })).then(() =>
           ref.current?.reloadAndRest?.(),
@@ -44,7 +44,7 @@ const PluginAble: React.FC<PluginAbleProps> = (props) => {
     return (
       <TableBtn
         icon={DisconnectOutlined}
-        tip={intl.get('pages.plugin.table.disabletip')}
+        tip={intl.get('pages.plugin.disable.tip')}
         perm={UserPerm.PermWrite}
         permName="manage.plugin"
         onClick={() =>
@@ -62,7 +62,7 @@ const PluginAble: React.FC<PluginAbleProps> = (props) => {
     return (
       <TableBtn
         icon={LinkOutlined}
-        tip={intl.get('pages.plugin.table.enabletip')}
+        tip={intl.get('pages.plugin.enable.tip')}
         perm={UserPerm.PermWrite}
         permName="manage.plugin"
         onClick={() =>

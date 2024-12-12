@@ -22,6 +22,7 @@ import type { SortOrder } from 'antd/es/table/interface';
 import { CustomTagProps } from 'rc-select/es/BaseSelect';
 import { Key, useRef, useState } from 'react';
 import { FormattedMessage } from 'react-intl';
+import GeoIP from '../geoip';
 import confirm from '../layout/modal';
 import {
   Column,
@@ -37,6 +38,7 @@ import TableBtn from '../layout/table/tableBtn';
 import Permission from '../permission/permBtn';
 import AvatarUpload from './avatar';
 import UserClone from './cloneBtn';
+import HistoryBtn from './historyBtn';
 import UserUpdate from './updateBtn';
 
 export interface UserBtnProps {
@@ -51,7 +53,7 @@ const handleDeleteSelected = async (
   keys: Key[],
 ) => {
   confirm({
-    title: intl.get('pages.user.op.delete.selected.title'),
+    title: intl.get('pages.user.delete.selected.title'),
     content: intl.get('app.confirm'),
     onOk() {
       return new Promise((resolve, reject) => {
@@ -76,7 +78,7 @@ const handleKick = (
   refresh: boolean,
 ) => {
   confirm({
-    title: intl.get('pages.user.op.kick.title', {
+    title: intl.get('pages.user.kick.title', {
       username: name,
     }),
     content: intl.get('app.confirm'),
@@ -120,7 +122,7 @@ const request = async (
 
 export const UserColumns: Columns = (intl) => [
   {
-    title: intl.get('pages.user.table.username'),
+    title: intl.get('tables.username'),
     dataIndex: 'username',
     tooltip: intl.get('pages.user.form.username.tip'),
     fieldProps: {
@@ -131,7 +133,7 @@ export const UserColumns: Columns = (intl) => [
     },
   },
   {
-    title: intl.get('pages.user.table.password'),
+    title: intl.get('tables.password'),
     dataIndex: 'password',
     valueType: 'password',
     formItemProps: {
@@ -180,7 +182,7 @@ export const GroupColumn: Column = (intl) => {
 
 export const AvatarColumn: Column = (intl) => {
   return {
-    title: intl.get('pages.user.table.avatar'),
+    title: intl.get('tables.avatar'),
     dataIndex: 'avatar',
     renderFormItem: () => {
       return <AvatarUpload />;
@@ -192,7 +194,7 @@ export const AddColumns: Columns = (intl) => [
   {
     renderFormItem: () => (
       <Alert
-        message={intl.get('pages.user.op.add.content')}
+        message={intl.get('pages.user.add.content')}
         type="info"
         showIcon
       />
@@ -212,14 +214,14 @@ const UserCard = () => {
     SearchColumn(intl),
     IDColumn(intl),
     {
-      title: intl.get('pages.user.table.avatar'),
+      title: intl.get('tables.avatar'),
       dataIndex: 'avatar',
       valueType: 'avatar',
       align: 'center',
       hideInSearch: true,
     },
     {
-      title: intl.get('pages.user.table.username'),
+      title: intl.get('tables.username'),
       dataIndex: 'username',
       align: 'center',
       hideInSearch: true,
@@ -233,13 +235,14 @@ const UserCard = () => {
       },
     },
     {
-      title: intl.get('pages.user.table.lastip'),
+      title: intl.get('tables.lastip'),
       dataIndex: 'last_ip',
       align: 'center',
       hideInSearch: true,
+      render: (_, row) => <GeoIP value={row.last_ip} />,
     },
     {
-      title: intl.get('pages.user.table.lastlogin'),
+      title: intl.get('tables.lastlogin'),
       dataIndex: 'last_login',
       align: 'center',
       valueType: 'dateTime',
@@ -247,7 +250,7 @@ const UserCard = () => {
       hideInSearch: true,
     },
     {
-      title: intl.get('pages.user.table.lastlogin'),
+      title: intl.get('tables.lastlogin'),
       dataIndex: 'last_login',
       valueType: 'dateRange',
       hideInTable: true,
@@ -265,7 +268,7 @@ const UserCard = () => {
       title: intl.get('app.op'),
       valueType: 'option',
       align: 'center',
-      width: 100,
+      width: 150,
       className: styles.operation,
       render: (_, row) => {
         let root = row.id === '00000000-0000-0000-0000-000000000000';
@@ -296,10 +299,11 @@ const UserCard = () => {
             refresh={row.id == initialState?.id}
             disabled={root}
           />,
+          <HistoryBtn key="history" uid={row.id} />,
           <TableBtn
             key="kick"
             icon={LogoutOutlined}
-            tip={intl.get('pages.user.op.kick.tip')}
+            tip={intl.get('pages.user.kick.tip')}
             color="#faad14"
             perm={UserPerm.PermWrite}
             permName="manage.user"
@@ -319,7 +323,7 @@ const UserCard = () => {
             perm={UserPerm.PermWrite}
             tableRef={ref}
             url={`/users/${row.id}`}
-            confirmTitle={intl.get('pages.user.op.delete.title', {
+            confirmTitle={intl.get('pages.user.delete.title', {
               username: row.username,
             })}
             disabled={root && !self_root}
@@ -367,7 +371,7 @@ const UserCard = () => {
             perm={UserPerm.PermWrite}
             key="add"
             width={500}
-            title={intl.get('pages.user.op.add.title')}
+            title={intl.get('pages.user.add.title')}
             schemaProps={{
               onFinish: handleAdd,
               columns: AddColumns(intl),

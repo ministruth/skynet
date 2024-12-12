@@ -109,6 +109,15 @@ pub struct ConfigRecaptcha {
 
 #[serde_inline_default]
 #[derive(Serialize, Deserialize, Debug, Validate, Clone)]
+pub struct ConfigGeoip {
+    #[serde(default)]
+    pub enable: bool,
+    #[serde_inline_default("GeoLite2-City.mmdb".into())]
+    pub database: String,
+}
+
+#[serde_inline_default]
+#[derive(Serialize, Deserialize, Debug, Validate, Clone)]
 pub struct Config {
     #[validate(nested)]
     pub database: ConfigDatabase,
@@ -126,6 +135,8 @@ pub struct Config {
     pub recaptcha: ConfigRecaptcha,
     #[validate(nested)]
     pub csrf: ConfigCsrf,
+    #[validate(nested)]
+    pub geoip: ConfigGeoip,
     #[serde_inline_default("default.webp".into())]
     #[validate(custom(function = "check_file"))]
     pub avatar: String,
@@ -164,6 +175,12 @@ pub fn load_file<S: AsRef<str>>(path: S) -> (config::Config, Config) {
     }
     if ret.redis.enable {
         assert!(ret.redis.dsn.is_some(), "`redis.dsn` is not provided");
+    }
+    if ret.geoip.enable {
+        assert!(
+            check_file(&ret.geoip.database).is_ok(),
+            "`geoip.database` file not exist"
+        );
     }
     (cfg, ret)
 }

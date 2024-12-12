@@ -27,3 +27,7 @@ response:
     notexist: "权限不存在"
   plugin:
     loaded: "插件已加载"
+
+text:
+  na: "未知"
+  loopback: "本地地址"

@@ -1,3 +1,11 @@
+# v0.4.0
+## Changes
+1. Finish dashboard page.
+2. New feature: login histories, geoip.
+
+## Bug fix
+1. Fix `login_end` parameter in user get.
+
 # v0.3.1
 ## Bug fix
 1. Fix several bugs about websocket router.

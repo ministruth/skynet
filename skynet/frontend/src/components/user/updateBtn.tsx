@@ -20,7 +20,7 @@ const updateColumns: (
 ) => ProFormColumnsType[] = (intl, root) => {
   let ret = [
     {
-      title: intl.get('pages.user.table.username'),
+      title: intl.get('tables.username'),
       dataIndex: 'username',
       tooltip: intl.get('pages.user.form.username.tip'),
       fieldProps: {
@@ -31,7 +31,7 @@ const updateColumns: (
       },
     },
     {
-      title: intl.get('pages.user.table.password'),
+      title: intl.get('tables.password'),
       dataIndex: 'password',
       valueType: 'password',
       fieldProps: {
@@ -76,13 +76,17 @@ const UserUpdate: React.FC<UserBtnProps> = (props) => {
       }
       schemaProps={{
         request: async (_params: Record<string, any>, _props: any) => {
-          let rsp = await getAPI(`/users/${props.initialValues?.id}/groups`);
-          props.initialValues!.group = rsp.data.map((e: any) => ({
-            value: e.id,
-            label: e.name,
-            key: e.id, // labelInValue has these additinal object
-            title: e.name, // labelInValue has these additinal object
-          }));
+          if (
+            props.initialValues?.id !== '00000000-0000-0000-0000-000000000000'
+          ) {
+            let rsp = await getAPI(`/users/${props.initialValues?.id}/groups`);
+            props.initialValues!.group = rsp.data.map((e: any) => ({
+              value: e.id,
+              label: e.name,
+              key: e.id, // labelInValue has these additinal object
+              title: e.name, // labelInValue has these additinal object
+            }));
+          }
           props.initialValues!.password = '';
           return props.initialValues!;
         },
@@ -95,7 +99,7 @@ const UserUpdate: React.FC<UserBtnProps> = (props) => {
       perm={UserPerm.PermWrite}
       disabled={props.disabled}
       width={500}
-      title={intl.get('pages.user.op.update.title')}
+      title={intl.get('pages.user.update.title')}
       changedSubmit={true}
     />
   );

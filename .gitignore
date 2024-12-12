@@ -10,3 +10,4 @@ log.txt
 *.key
 .VSCodeCounter
 .DS_Store
+GeoLite2-Country.mmdb

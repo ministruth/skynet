@@ -33,19 +33,19 @@ const PluginCard = () => {
   const ref = useRef<ActionType>();
   const statusEnum: { [Key: number]: { label: string; color: string } } = {
     0: {
-      label: intl.get('pages.plugin.table.status.unload'),
+      label: intl.get('tables.status.unload'),
       color: 'default',
     },
     1: {
-      label: intl.get('pages.plugin.table.status.pending.disable'),
+      label: intl.get('tables.status.pending.disable'),
       color: 'warning',
     },
     2: {
-      label: intl.get('pages.plugin.table.status.pending.enable'),
+      label: intl.get('tables.status.pending.enable'),
       color: 'orange',
     },
     3: {
-      label: intl.get('pages.plugin.table.status.enable'),
+      label: intl.get('tables.status.enable'),
       color: 'success',
     },
   };
@@ -53,26 +53,26 @@ const PluginCard = () => {
     SearchColumn(intl),
     IDColumn(intl),
     {
-      title: intl.get('pages.plugin.table.name'),
+      title: intl.get('tables.name'),
       dataIndex: 'name',
       align: 'center',
       hideInSearch: true,
     },
     {
-      title: intl.get('pages.plugin.table.description'),
+      title: intl.get('tables.description'),
       dataIndex: 'description',
       align: 'center',
       hideInSearch: true,
     },
-    StatusColumn(intl.get('pages.plugin.table.status'), 'status', statusEnum),
+    StatusColumn(intl.get('tables.status'), 'status', statusEnum),
     {
-      title: intl.get('pages.plugin.table.version'),
+      title: intl.get('tables.version'),
       dataIndex: 'version',
       align: 'center',
       hideInSearch: true,
     },
     {
-      title: intl.get('pages.plugin.table.priority'),
+      title: intl.get('tables.priority'),
       dataIndex: 'priority',
       align: 'center',
       sorter: true,
@@ -100,7 +100,7 @@ const PluginCard = () => {
             permName="manage.plugin"
             perm={UserPerm.PermWrite}
             url={`/plugins/${row.id}`}
-            confirmTitle={intl.get('pages.plugin.table.delete.title', {
+            confirmTitle={intl.get('pages.plugin.delete.title', {
               name: row.name,
             })}
           />,

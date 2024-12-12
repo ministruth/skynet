@@ -1,5 +1,6 @@
 import menus from './zh-CN/menus';
 import pages from './zh-CN/pages';
+import tables from './zh-CN/tables';
 import titles from './zh-CN/titles';
 
 export default {
@@ -8,6 +9,7 @@ export default {
   'app.cancel': '取消',
   'app.confirm': '此操作无法撤销！',
   'app.filesize': '文件过大，限制大小为{size}',
+  'app.loading': '加载中',
 
   'app.table.lastupdate': '最后更新：{time}',
   'app.table.polling.start': '拉取',
@@ -25,6 +27,7 @@ export default {
   'app.op.update': '更新',
   'app.op.upload': '上传',
   ...pages,
+  ...tables,
   ...titles,
   ...menus,
 };

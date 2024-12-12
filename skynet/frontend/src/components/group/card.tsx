@@ -47,7 +47,7 @@ const handleDeleteSelected = async (
   keys: Key[],
 ) => {
   confirm({
-    title: intl.get('pages.group.op.delete.selected.title'),
+    title: intl.get('pages.group.delete.selected.title'),
     content: intl.get('app.confirm'),
     onOk() {
       return new Promise((resolve, reject) => {
@@ -89,7 +89,7 @@ const request = async (
 
 export const GroupColumns: Columns = (intl) => [
   {
-    title: intl.get('pages.group.table.name'),
+    title: intl.get('tables.name'),
     dataIndex: 'name',
     tooltip: intl.get('pages.group.form.name.tip'),
     fieldProps: {
@@ -100,7 +100,7 @@ export const GroupColumns: Columns = (intl) => [
     },
   },
   {
-    title: intl.get('pages.group.table.note'),
+    title: intl.get('tables.note'),
     dataIndex: 'note',
     valueType: 'textarea',
     initialValue: '',
@@ -115,7 +115,7 @@ const addColumns: Columns = (intl) => [
   {
     renderFormItem: () => (
       <Alert
-        message={intl.get('pages.group.op.add.content')}
+        message={intl.get('pages.group.add.content')}
         type="info"
         showIcon
       />
@@ -132,7 +132,7 @@ const GroupCard = () => {
     SearchColumn(intl),
     IDColumn(intl),
     {
-      title: intl.get('pages.group.table.name'),
+      title: intl.get('tables.name'),
       dataIndex: 'name',
       align: 'center',
       hideInSearch: true,
@@ -146,7 +146,7 @@ const GroupCard = () => {
       },
     },
     {
-      title: intl.get('pages.group.table.note'),
+      title: intl.get('tables.note'),
       dataIndex: 'note',
       ellipsis: true,
       align: 'center',
@@ -192,7 +192,7 @@ const GroupCard = () => {
             perm={UserPerm.PermWrite}
             tableRef={ref}
             url={`/groups/${row.id}`}
-            confirmTitle={intl.get('pages.group.op.delete.title', {
+            confirmTitle={intl.get('pages.group.delete.title', {
               name: row.name,
             })}
           />,
@@ -233,7 +233,7 @@ const GroupCard = () => {
             perm={UserPerm.PermWrite}
             key="add"
             width={500}
-            title={intl.get('pages.group.op.add.title')}
+            title={intl.get('pages.group.add.title')}
             schemaProps={{
               onFinish: handleAdd,
               columns: addColumns(intl),

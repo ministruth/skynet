@@ -21,7 +21,7 @@ const GroupUpdate: React.FC<GroupBtnProps> = (props) => {
 
   return (
     <TableOp
-      title={intl.get('pages.group.op.update.title')}
+      title={intl.get('pages.group.update.title')}
       trigger={
         <TableBtn
           key="update"

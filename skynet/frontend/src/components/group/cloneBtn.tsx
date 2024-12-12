@@ -11,7 +11,7 @@ const cloneColumns: Columns = (intl) => [
   {
     renderFormItem: () => (
       <Alert
-        message={intl.get('pages.group.op.clone.content')}
+        message={intl.get('pages.group.clone.content')}
         type="info"
         showIcon
       />
@@ -49,7 +49,7 @@ const GroupClone: React.FC<GroupBtnProps> = (props) => {
 
   return (
     <TableOp
-      title={intl.get('pages.group.op.clone.title')}
+      title={intl.get('pages.group.clone.title')}
       trigger={
         <TableBtn
           key="clone"

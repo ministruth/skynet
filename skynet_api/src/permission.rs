@@ -223,10 +223,7 @@ mod checker {
 
     impl PermChecker {
         pub fn new_entry(id: HyUuid, perm: UserPerm) -> Self {
-            Self::Entry(PermEntry {
-                pid: id,
-                perm: perm,
-            })
+            Self::Entry(PermEntry { pid: id, perm })
         }
 
         pub fn new_script(code: &str) -> Self {
