@@ -30,4 +30,5 @@ response:
 
 text:
   na: "N/A"
+  unknown: "Unknown"
   loopback: "Loopback"

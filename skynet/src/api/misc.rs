@@ -94,19 +94,19 @@ pub async fn geoip(
     if param.ip.is_loopback() {
         finish_data!(t!(state.locale, "text.loopback", &req.extension.lang));
     }
-    let default = t!(state.locale, "text.na", &req.extension.lang);
+    let unknown = t!(state.locale, "text.unknown", &req.extension.lang);
     match geoip.as_ref() {
         Some(geoip) => {
             let country = geoip.lookup::<Country>(param.ip);
             if let Err(e) = &country {
                 if let MaxMindDBError::AddressNotFoundError(_) = e {
-                    finish_data!(default);
+                    finish_data!(unknown);
                 }
             }
             let country = country?;
-            finish_data!(get_geoip_country(country, &req.extension.lang, default))
+            finish_data!(get_geoip_country(country, &req.extension.lang, unknown))
         }
-        None => finish_data!(default),
+        None => finish_data!(t!(state.locale, "text.na", &req.extension.lang)),
     }
 }
 

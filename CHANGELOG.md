@@ -1,3 +1,7 @@
+# v0.4.1
+## Changes
+1. Geoip now returns N/A when disabled and unknown for not found. 
+
 # v0.4.0
 ## Changes
 1. Finish dashboard page.

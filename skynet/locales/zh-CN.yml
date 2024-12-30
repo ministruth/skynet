@@ -29,5 +29,6 @@ response:
     loaded: "插件已加载"
 
 text:
-  na: "未知"
+  na: "不可用"
+  unknown: "未知"
   loopback: "本地地址"
