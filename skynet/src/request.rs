@@ -229,6 +229,7 @@ impl RootSpanBuilder for TracingMiddleware {
     }
 }
 
+#[allow(clippy::type_complexity)]
 fn http_handler(
     id: HyUuid,
     name: String,
@@ -273,6 +274,7 @@ fn http_handler(
     }
 }
 
+#[allow(clippy::type_complexity)]
 fn ws_handler(
     id: HyUuid,
     name: String,

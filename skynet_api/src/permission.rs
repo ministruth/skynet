@@ -191,6 +191,42 @@ mod checker {
         }
     }
 
+    pub struct ScriptBuilder {
+        code: String,
+    }
+
+    impl ScriptBuilder {
+        pub fn new(id: HyUuid, perm: UserPerm) -> Self {
+            Self {
+                code: format!(r#"new_entry("{id}", {perm}).check(PERMISSION)"#),
+            }
+        }
+
+        pub fn or_script(self, other: Self) -> Self {
+            Self {
+                code: format!(r#"({}) || ({})"#, self.code, other.code),
+            }
+        }
+
+        pub fn or(self, id: HyUuid, perm: UserPerm) -> Self {
+            self.or_script(Self::new(id, perm))
+        }
+
+        pub fn and_script(self, other: Self) -> Self {
+            Self {
+                code: format!(r#"({}) && ({})"#, self.code, other.code),
+            }
+        }
+
+        pub fn and(self, id: HyUuid, perm: UserPerm) -> Self {
+            self.and_script(Self::new(id, perm))
+        }
+
+        pub fn build(self) -> String {
+            self.code
+        }
+    }
+
     #[derive(Serialize, Deserialize, Derivative)]
     #[derivative(Debug)]
     pub enum PermChecker {

@@ -204,7 +204,7 @@ impl UserViewer {
                 }
             }),
             password: match &password {
-                Some(x) => Set(Self::hash_pass(*x)?),
+                Some(x) => Set(Self::hash_pass(x)?),
                 None => NotSet,
             },
             ..Default::default()

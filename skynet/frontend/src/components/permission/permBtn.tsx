@@ -237,6 +237,7 @@ const Permission: React.FC<PermProps> = (props) => {
               data.forEach((v: any) => {
                 stat[v.id] = v.perm;
               });
+              data = _.sortBy(data, 'updated_at');
               setPermState(stat);
               setOldPermState(stat);
               return data;

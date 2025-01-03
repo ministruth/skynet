@@ -24,7 +24,7 @@ pub async fn system_info(req: Request, state: Data<GlobalState>) -> RspResult<Js
             .with_cpu(CpuRefreshKind::everything())
             .with_memory(MemoryRefreshKind::everything()),
     );
-    let brand = if sys.cpus().len() > 0 {
+    let brand = if !sys.cpus().is_empty() {
         sys.cpus()[0].brand().to_owned()
     } else {
         t!(state.locale, "text.na", &req.extension.lang)

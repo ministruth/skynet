@@ -1,6 +1,6 @@
 [package]
 name = "skynet"
-version = "0.4.0"
+version = "0.4.1"
 edition = "2021"
 authors = ["MXWXZ <matrixwxz@gmail.com>"]
 description = "Service integration and management system, optimized for home-lab use."
@@ -18,7 +18,7 @@ base64 = "0.22"
 rand = "0.8"
 num_cpus = "1.16"
 qstring = "0.7"
-thiserror = "1.0"
+thiserror = "2.0"
 semver = "1.0"
 walkdir = "2.5"
 futures = "0.3"

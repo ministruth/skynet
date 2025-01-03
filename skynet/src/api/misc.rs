@@ -98,10 +98,8 @@ pub async fn geoip(
     match geoip.as_ref() {
         Some(geoip) => {
             let country = geoip.lookup::<Country>(param.ip);
-            if let Err(e) = &country {
-                if let MaxMindDBError::AddressNotFoundError(_) = e {
-                    finish_data!(unknown);
-                }
+            if let Err(MaxMindDBError::AddressNotFoundError(_)) = &country {
+                finish_data!(unknown);
             }
             let country = country?;
             finish_data!(get_geoip_country(country, &req.extension.lang, unknown))
@@ -120,7 +118,7 @@ fn get_geoip_country(country: Country, lang: &str, default: String) -> String {
         if x.is_some() {
             return x.map(Into::into);
         }
-        return s.remove("en").map(Into::into);
+        s.remove("en").map(Into::into)
     };
     if let Some(c) = country.country {
         if let Some(n) = c.names {
@@ -143,5 +141,5 @@ fn get_geoip_country(country: Country, lang: &str, default: String) -> String {
             }
         }
     }
-    return default;
+    default
 }
