@@ -513,6 +513,97 @@ mod req {
     }
 }
 
+#[cfg(feature = "request-session")]
+mod session {
+    use std::collections::HashMap;
+
+    use actix_cloud::session;
+    use anyhow::Result;
+
+    use crate::HyUuid;
+
+    #[derive(thiserror::Error, Debug)]
+    pub enum SessionError {
+        #[error("Session field `{0}` is missing")]
+        MissingField(String),
+    }
+    pub struct Session {
+        pub id: HyUuid,
+        pub name: String,
+        pub ttl: u32,
+        pub time: i64,
+        pub user_agent: Option<String>,
+    }
+
+    impl Session {
+        pub fn into_session(self, s: session::Session) -> Result<()> {
+            s.insert("_id", self.id)?;
+            s.insert("name", self.name)?;
+            s.insert("time", self.time)?;
+            s.insert("_ttl", self.ttl)?;
+            if let Some(x) = self.user_agent {
+                s.insert("user_agent", x)?;
+            }
+            Ok(())
+        }
+
+        pub fn from_str(s: &str) -> anyhow::Result<Self> {
+            let v: HashMap<String, String> = serde_json::from_str(s)?;
+            let id = serde_json::from_str(
+                v.get("_id")
+                    .ok_or(SessionError::MissingField(String::from("_id")))?,
+            )?;
+            let name = serde_json::from_str(
+                v.get("name")
+                    .ok_or(SessionError::MissingField(String::from("name")))?,
+            )?;
+            let time = serde_json::from_str(
+                v.get("time")
+                    .ok_or(SessionError::MissingField(String::from("time")))?,
+            )?;
+            let ttl = serde_json::from_str(
+                v.get("_ttl")
+                    .ok_or(SessionError::MissingField(String::from("_ttl")))?,
+            )?;
+            let user_agent = if let Some(x) = v.get("user_agent") {
+                serde_json::from_str(x)?
+            } else {
+                None
+            };
+            Ok(Self {
+                id,
+                name,
+                ttl,
+                time,
+                user_agent,
+            })
+        }
+
+        pub fn from_session(s: session::Session) -> anyhow::Result<Self> {
+            let id = s
+                .get("_id")?
+                .ok_or(SessionError::MissingField(String::from("_id")))?;
+            let name = s
+                .get("name")?
+                .ok_or(SessionError::MissingField(String::from("name")))?;
+            let time = s
+                .get("time")?
+                .ok_or(SessionError::MissingField(String::from("time")))?;
+            let ttl = s
+                .get("_ttl")?
+                .ok_or(SessionError::MissingField(String::from("_ttl")))?;
+            let user_agent = s.get("user_agent")?;
+            Ok(Self {
+                id,
+                name,
+                ttl,
+                time,
+                user_agent,
+            })
+        }
+    }
+}
+
 #[cfg(feature = "request-condition")]
 pub use condition::*;
 #[cfg(feature = "request-pagination")]
@@ -523,3 +614,5 @@ pub use param::*;
 pub use req::*;
 #[cfg(feature = "request-route")]
 pub use route::*;
+#[cfg(feature = "request-session")]
+pub use session::*;

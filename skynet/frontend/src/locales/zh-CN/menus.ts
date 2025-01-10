@@ -7,4 +7,5 @@ export default {
   'menus.user.group': '用户组',
   'menus.plugin': '插件',
   'menus.plugin.manage': '插件管理',
+  'menus.account': '账户',
 };

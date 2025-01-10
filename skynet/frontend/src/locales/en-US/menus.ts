@@ -7,4 +7,5 @@ export default {
   'menus.user.group': 'Group',
   'menus.plugin': 'Plugin',
   'menus.plugin.manage': 'Manage',
+  'menus.account': 'Account',
 };

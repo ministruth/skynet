@@ -70,17 +70,21 @@ export default {
   'pages.plugin.delete.title': '删除插件 {name}，确认？',
   'pages.plugin.disable.tip': '禁用',
   'pages.plugin.enable.tip': '启用',
-  'pages.plugin.disable.title': '禁用插件 {name}，确认？',
-  'pages.plugin.disable.content': '重新启动 Skynet 生效。',
 
   'pages.history.tip': '历史',
   'pages.history.title': '登陆历史',
+  'pages.history.ua.mobile': '移动端',
+  'pages.history.ua.unknown': '未知',
 
-  'pages.dashboard.history': '历史',
   'pages.dashboard.system.title': '系统信息',
   'pages.dashboard.cpu.title': 'CPU 使用',
   'pages.dashboard.memory.title': '内存使用',
-  'pages.dashboard.update': '修改',
-  'pages.dashboard.logoutall': '登出全部',
-  'pages.dashboard.logoutall.title': '登出所有设备，确认？',
+
+  'pages.account.content': '管理账户信息',
+  'pages.account.history': '历史',
+  'pages.account.reset.title': '重置头像为默认，确认？',
+  'pages.account.permission.title': '权限',
+  'pages.account.session.title': '会话',
+  'pages.account.kick': '登出全部',
+  'pages.account.kick.title': '登出所有设备，确认？',
 };

@@ -40,6 +40,13 @@ pub fn new_menu(id: &EnumMap<IDTypes, HyUuid>) -> Vec<MenuItem> {
             ..Default::default()
         },
         MenuItem {
+            id: HyUuid(uuid!("6b2cfbf9-f598-4bc2-a940-42ec673df5d1")),
+            name: String::from("menu.account"),
+            path: String::from("/account"),
+            icon: String::from("UserOutlined"),
+            ..Default::default()
+        },
+        MenuItem {
             id: HyUuid(uuid!("d00d36d0-6068-4447-ab04-f82ce893c04e")),
             name: String::from("menu.service"),
             icon: String::from("FunctionOutlined"),
@@ -62,7 +69,7 @@ pub fn new_menu(id: &EnumMap<IDTypes, HyUuid>) -> Vec<MenuItem> {
             id: HyUuid(uuid!("4d6c60d7-9c2a-44f0-b85a-346425df792f")),
             name: String::from("menu.user"),
             omit_empty: true,
-            icon: String::from("UserOutlined"),
+            icon: String::from("TeamOutlined"),
             children: vec![
                 MenuItem {
                     id: HyUuid(uuid!("0d2165b9-e08b-429f-ad4e-420472083e0f")),
@@ -126,6 +133,8 @@ pub fn api_call(name: &str, r: Route) -> Route {
         "permission::put_user" => r.to(permission::put_user),
         "user::get_histories_self" => r.to(user::get_histories_self),
         "user::get_histories" => r.to(user::get_histories),
+        "user::get_sessions_self" => r.to(user::get_sessions_self),
+        "user::get_sessions" => r.to(user::get_sessions),
         "group::get_all" => r.to(group::get_all),
         "group::add" => r.to(group::add),
         "group::delete_batch" => r.to(group::delete_batch),
@@ -319,6 +328,20 @@ pub fn new_api(id: &EnumMap<IDTypes, HyUuid>) -> Vec<Router> {
             path: String::from("/users/{uid}/histories"),
             method: Method::Get,
             route: Inner(String::from("user::get_histories")),
+            checker: PermChecker::new_entry(id[PermManageUserID], PERM_READ),
+            csrf: CSRFType::Header,
+        },
+        Router {
+            path: String::from("/users/self/sessions"),
+            method: Method::Get,
+            route: Inner(String::from("user::get_sessions_self")),
+            checker: PermChecker::Entry(PermEntry::new_user()),
+            csrf: CSRFType::Header,
+        },
+        Router {
+            path: String::from("/users/{uid}/sessions"),
+            method: Method::Get,
+            route: Inner(String::from("user::get_sessions")),
             checker: PermChecker::new_entry(id[PermManageUserID], PERM_READ),
             csrf: CSRFType::Header,
         },

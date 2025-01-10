@@ -4,7 +4,6 @@ import { isEqual } from 'lodash';
 import { forwardRef, useImperativeHandle, useRef, useState } from 'react';
 
 export interface ExSchemaProps {
-  perm_disabled?: boolean;
   onSubmit: (
     param: Record<string, any>,
     initial: Record<string, any>,
@@ -25,28 +24,24 @@ const ExSchema = forwardRef<
   const data = useRef<{ [key: string]: any }>({});
   const [seed, setSeed] = useState(0);
 
-  useImperativeHandle(
-    ref,
-    () => {
-      return {
-        enableSubmit(enable: boolean) {
-          setChanged(enable);
-        },
-        refresh() {
-          setSeed(seed + 1);
-        },
-      };
-    },
-    [seed, changed],
-  );
+  useImperativeHandle(ref, () => {
+    return {
+      enableSubmit(enable: boolean) {
+        setChanged(enable);
+      },
+      refresh() {
+        setSeed(seed + 1);
+      },
+    };
+  }, [seed, changed]);
 
   return (
     <BetaSchemaForm
       key={seed}
       submitter={{
         onReset: () => setChanged(false),
-        resetButtonProps: { disabled: props.perm_disabled },
-        submitButtonProps: { disabled: props.perm_disabled || !changed },
+        resetButtonProps: { disabled: props.disabled },
+        submitButtonProps: { disabled: props.disabled || !changed },
         render: (_, dom) => [...dom.reverse()],
       }}
       // BUG: props.initialvalues is undefined

@@ -12,6 +12,8 @@ pub struct Model {
     pub id: HyUuid,
     pub uid: HyUuid,
     pub ip: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub user_agent: Option<String>,
     pub created_at: i64,
     pub updated_at: i64,
 }

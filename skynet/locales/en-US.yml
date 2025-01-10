@@ -1,6 +1,7 @@
 menu:
   system: "System"
   dashboard: "Dashboard"
+  account: "Account"
   service: "Service"
   notification: "Notification"
   user: "User"

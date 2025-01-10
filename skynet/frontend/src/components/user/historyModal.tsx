@@ -7,6 +7,7 @@ import GeoIP from '../geoip';
 import Table from '../layout/table';
 import { IDColumn } from '../layout/table/column';
 import styles from './style.less';
+import UserAgent from './userAgent';
 
 export interface HistoryModalProps {
   uid: string;
@@ -24,6 +25,13 @@ const HistoryModal: React.FC<HistoryModalProps> = (props) => {
       dataIndex: 'ip',
       align: 'center',
       render: (_, row) => <GeoIP value={row.ip} />,
+    },
+    {
+      title: intl.get('tables.device'),
+      dataIndex: 'user_agent',
+      align: 'center',
+      hideInSearch: true,
+      render: (_, row) => <UserAgent value={row.user_agent} />,
     },
     {
       title: intl.get('tables.time'),

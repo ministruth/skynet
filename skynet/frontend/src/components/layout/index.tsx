@@ -102,11 +102,16 @@ const MainLayout: React.FC<PropsWithChildren<MainLayoutProps>> = (props) => {
       footerRender={() => <Footer />}
       menu={{
         locale: true,
-        request: async (p) =>
-          getAPI('/menus').then((data) => {
-            let d = data.data as MenuDataItem[];
-            return loopMenuItem(props.postMenuData ? props.postMenuData(d) : d);
-          }),
+        request: async (p) => {
+          if (initialState?.signin)
+            return getAPI('/menus').then((data) => {
+              let d = data.data as MenuDataItem[];
+              return loopMenuItem(
+                props.postMenuData ? props.postMenuData(d) : d,
+              );
+            });
+          else return [];
+        },
       }}
       menuItemRender={(item, dom) => (
         <Link to={item.path ?? '/dashboard'}>{dom}</Link>

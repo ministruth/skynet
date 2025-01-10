@@ -1,7 +1,6 @@
-import { checkAPI, getIntl, putAPI, StringIntl, UserPerm } from '@/utils';
+import { checkAPI, getIntl, putAPI, UserPerm } from '@/utils';
 import { DisconnectOutlined, LinkOutlined } from '@ant-design/icons';
 import { ActionType } from '@ant-design/pro-table';
-import confirm from '../layout/modal';
 import TableBtn from '../layout/table/tableBtn';
 
 export interface PluginAbleProps {
@@ -10,33 +9,6 @@ export interface PluginAbleProps {
   pid: string;
   pname: string;
 }
-
-const handleAble = (
-  intl: StringIntl,
-  ref: React.MutableRefObject<ActionType | undefined>,
-  id: string,
-  name: string,
-  enable: boolean,
-) => {
-  if (enable) {
-    return checkAPI(putAPI(`/plugins/${id}`, { enable: enable })).then(() =>
-      ref.current?.reloadAndRest?.(),
-    );
-  } else {
-    confirm({
-      title: intl.get('pages.plugin.disable.title', {
-        name: name,
-      }),
-      content: intl.get('pages.plugin.disable.content'),
-      onOk() {
-        return checkAPI(putAPI(`/plugins/${id}`, { enable: enable })).then(() =>
-          ref.current?.reloadAndRest?.(),
-        );
-      },
-      intl: intl,
-    });
-  }
-};
 
 const PluginAble: React.FC<PluginAbleProps> = (props) => {
   const intl = getIntl();
@@ -48,13 +20,9 @@ const PluginAble: React.FC<PluginAbleProps> = (props) => {
         perm={UserPerm.PermWrite}
         permName="manage.plugin"
         onClick={() =>
-          handleAble(
-            intl,
-            props.tableRef,
-            props.pid,
-            props.pname,
-            !props.enable,
-          )
+          checkAPI(
+            putAPI(`/plugins/${props.pid}`, { enable: !props.enable }),
+          ).then(() => props.tableRef.current?.reloadAndRest?.())
         }
       />
     );
@@ -66,13 +34,9 @@ const PluginAble: React.FC<PluginAbleProps> = (props) => {
         perm={UserPerm.PermWrite}
         permName="manage.plugin"
         onClick={() =>
-          handleAble(
-            intl,
-            props.tableRef,
-            props.pid,
-            props.pname,
-            !props.enable,
-          )
+          checkAPI(
+            putAPI(`/plugins/${props.pid}`, { enable: !props.enable }),
+          ).then(() => props.tableRef.current?.reloadAndRest?.())
         }
       />
     );

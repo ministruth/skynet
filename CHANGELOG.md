@@ -1,3 +1,17 @@
+# dev
+## Changes
+1. Login history now records user agent header.
+2. New feature: get sessions.
+
+# frontend-dev
+## Changes
+1. Plugin disable does not need extra confirmation.
+2. PWA support.
+3. New page: account.
+
+## Bug fix
+1. Fix broken error messages.
+
 # v0.4.1
 ## Changes
 1. Geoip now returns N/A when disabled and unknown for not found. 

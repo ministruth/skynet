@@ -31,4 +31,8 @@ export default {
   'tables.cpu': 'CPU',
   'tables.memory': 'Memory',
   'tables.start_time': 'Start Time',
+  'tables.device': 'Device',
+  'tables.read': 'Read',
+  'tables.write': 'Write',
+  'tables.ttl': 'TTL',
 };

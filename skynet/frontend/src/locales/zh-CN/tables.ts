@@ -31,4 +31,8 @@ export default {
   'tables.cpu': 'CPU',
   'tables.memory': '内存',
   'tables.start_time': '启动时间',
+  'tables.device': '设备',
+  'tables.read': '读取',
+  'tables.write': '写入',
+  'tables.ttl': 'TTL',
 };

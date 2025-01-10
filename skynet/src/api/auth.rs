@@ -3,7 +3,9 @@ use std::{collections::HashMap, time};
 use actix_cloud::{
     actix_web::{
         cookie::{time::Duration, Cookie, SameSite},
+        http::header::USER_AGENT,
         web::Data,
+        HttpRequest,
     },
     response::{JsonResponse, RspResult},
     session::Session,
@@ -16,7 +18,7 @@ use serde::{Deserialize, Serialize};
 use skynet_api::{
     anyhow::anyhow,
     bail, finish,
-    request::Request,
+    request::{self, Request},
     sea_orm::{DatabaseConnection, TransactionTrait},
     viewer::users::UserViewer,
     HyUuid, Result, Skynet,
@@ -40,6 +42,7 @@ pub struct SigninReq {
 }
 
 pub async fn signin(
+    r: HttpRequest,
     req: Request,
     param: Json<SigninReq>,
     skynet: Data<Skynet>,
@@ -80,23 +83,32 @@ pub async fn signin(
         warn!(username = param.username, "Invalid username or password");
         finish_err!(SkynetResponse::UserInvalid);
     }
+    let user_agent: Option<String> = r
+        .headers()
+        .get(USER_AGENT)
+        .and_then(|x| x.to_str().ok())
+        .map(|x| x.chars().take(512).collect());
     let user = UserViewer::update_login(
         &tx,
         &user.unwrap().id,
         &req.extension.real_ip.ip().to_string(),
+        user_agent.as_deref(),
     )
     .await?;
     tx.commit().await?;
 
     session.renew();
-    session.insert("_id", user.id)?;
-    session.insert("name", user.username.clone())?;
-    session.insert("time", user.last_login.unwrap())?;
+    let mut s = request::Session {
+        id: user.id,
+        name: user.username.clone(),
+        ttl: skynet.config.session.expire,
+        time: user.last_login.unwrap(),
+        user_agent,
+    };
     if param.remember.is_some_and(|x| x) {
-        session.insert("_ttl", skynet.config.session.remember)?;
-    } else {
-        session.insert("_ttl", skynet.config.session.expire)?;
+        s.ttl = skynet.config.session.remember;
     }
+    s.into_session(session)?;
     info!(success = true, id = %user.id, name = user.username, "User signin");
     finish_ok!();
 }

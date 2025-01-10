@@ -10,7 +10,7 @@ const HistoryLink = () => {
   return (
     <>
       <Link underline onClick={() => setOpen(true)}>
-        <FormattedMessage id="pages.dashboard.history" />
+        <FormattedMessage id="pages.account.history" />
       </Link>
       <HistoryModal uid="self" open={open} setOpen={setOpen} />
     </>

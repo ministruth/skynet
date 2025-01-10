@@ -71,17 +71,21 @@ export default {
   'pages.plugin.delete.title': 'Delete plugin {name}, confirm?',
   'pages.plugin.disable.tip': 'Disable',
   'pages.plugin.enable.tip': 'Enable',
-  'pages.plugin.disable.title': 'Disable plugin {name}, confirm?',
-  'pages.plugin.disable.content': 'Restart Skynet to take effect.',
 
   'pages.history.tip': 'History',
   'pages.history.title': 'Login History',
+  'pages.history.ua.mobile': 'Mobile',
+  'pages.history.ua.unknown': 'Unknown',
 
-  'pages.dashboard.history': 'History',
   'pages.dashboard.system.title': 'System Info',
   'pages.dashboard.cpu.title': 'CPU Usage',
   'pages.dashboard.memory.title': 'Memory Usage',
-  'pages.dashboard.update': 'Update',
-  'pages.dashboard.logoutall': 'Logout All',
-  'pages.dashboard.logoutall.title': 'Logout all devices, confirm?',
+
+  'pages.account.content': 'Manage account information',
+  'pages.account.history': 'History',
+  'pages.account.reset.title': 'Reset avatar to system default, confirm?',
+  'pages.account.permission.title': 'Permission',
+  'pages.account.session.title': 'Session',
+  'pages.account.kick': 'Logout All',
+  'pages.account.kick.title': 'Logout all devices, confirm?',
 };

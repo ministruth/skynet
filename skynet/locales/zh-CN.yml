@@ -1,6 +1,7 @@
 menu:
   system: "系统"
   dashboard: "仪表盘"
+  account: "账户"
   service: "服务"
   notification: "消息"
   user: "用户"

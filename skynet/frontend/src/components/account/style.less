@@ -1,0 +1,29 @@
+.itemcenter {
+    :global(.ant-descriptions-item-container) {
+        align-items: center !important;
+    }
+}
+
+@media (min-width: @screen-sm-min) {
+    .column-padding-start :global(.ant-pro-card-body) {
+        padding-inline-start: 12px !important;
+        padding-inline-end: 0 !important;
+    }
+
+    .column-padding-end :global(.ant-pro-card-body) {
+        padding-inline-start: 0 !important;
+        padding-inline-end: 12px !important;
+    }
+}
+
+@media (max-width: @screen-xs-max) {
+    .column-padding-start :global(.ant-pro-card-body) {
+        padding-block: 0 !important;
+        padding-inline: 0 !important;
+    }
+
+    .column-padding-end :global(.ant-pro-card-body) {
+        padding-block: 0 !important;
+        padding-inline: 0 !important;
+    }
+}

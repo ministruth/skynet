@@ -7,6 +7,7 @@ export default {
   'app.copyright.author': 'imwxz',
   'app.ok': '确认',
   'app.cancel': '取消',
+  'app.reset': '重置',
   'app.confirm': '此操作无法撤销！',
   'app.filesize': '文件过大，限制大小为{size}',
   'app.loading': '加载中',

@@ -2,7 +2,7 @@ use crate::{
     entity::{user_histories, users},
     hyuuid::uuids2strings,
     permission::ROOT_ID,
-    request::Condition,
+    request::{Condition, Session},
     HyUuid,
 };
 use actix_cloud::{memorydb::MemoryDB, utils};
@@ -65,11 +65,13 @@ impl UserViewer {
         db: &DatabaseTransaction,
         uid: &HyUuid,
         ip: &str,
+        user_agent: Option<&str>,
     ) -> Result<users::Model> {
         let ts = Utc::now().timestamp_millis();
         user_histories::ActiveModel {
             uid: Set(*uid),
             ip: Set(ip.to_owned()),
+            user_agent: Set(user_agent.map(|x| x.into())),
             created_at: Set(ts),
             updated_at: Set(ts),
             ..Default::default()
@@ -272,5 +274,29 @@ impl UserViewer {
             db,
         )
         .await
+    }
+
+    pub async fn find_sessions<M>(
+        db: &M,
+        uid: &HyUuid,
+        session_prefix: &str,
+    ) -> Result<Vec<Session>>
+    where
+        M: MemoryDB + ?Sized,
+    {
+        let s = db.keys(&format!("{}{}_*", session_prefix, uid)).await?;
+        let prefix = format!("{}{}_", session_prefix, uid);
+        let mut keys = Vec::new();
+        for i in s.iter() {
+            keys.push(i.replace(&prefix, session_prefix));
+        }
+        let mut sessions = Vec::new();
+        for i in keys {
+            if let Some(x) = db.get(&i).await? {
+                let s = Session::from_str(&x)?;
+                sessions.push(s);
+            }
+        }
+        Ok(sessions)
     }
 }

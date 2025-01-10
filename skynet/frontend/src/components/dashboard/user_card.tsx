@@ -1,37 +1,13 @@
-import { getAPI, getIntl, postAPI, StringIntl } from '@/utils';
+import { getAPI, getIntl } from '@/utils';
 import {
   ProCard,
   ProDescriptions,
   ProDescriptionsItemProps,
 } from '@ant-design/pro-components';
-import { FormattedMessage } from '@umijs/max';
-import { Avatar, Button, Col, Flex, Row, Space, Typography } from 'antd';
+import { Avatar, Row, Space, Typography } from 'antd';
 import { useEffect, useState } from 'react';
 import GeoIP from '../geoip';
-import confirm from '../layout/modal';
-import HistoryLink from './historyLink';
-import UpdateBtn from './updateBtn';
 const { Text } = Typography;
-
-const handleKick = (intl: StringIntl) => {
-  confirm({
-    title: intl.get('pages.dashboard.logoutall.title'),
-    content: intl.get('app.confirm'),
-    onOk() {
-      return new Promise((resolve, reject) => {
-        postAPI(`/users/self/kick`, {}).then((rsp) => {
-          if (rsp && rsp.code === 0) {
-            resolve(rsp);
-            window.location.reload();
-          } else {
-            reject(rsp);
-          }
-        });
-      });
-    },
-    intl: intl,
-  });
-};
 
 const UserCard = () => {
   const intl = getIntl();
@@ -55,12 +31,7 @@ const UserCard = () => {
       title: intl.get('tables.lastip'),
       dataIndex: 'last_ip',
       render: (_, row) => {
-        return (
-          <Space>
-            <GeoIP value={row.last_ip} />
-            <HistoryLink />
-          </Space>
-        );
+        return <GeoIP value={row.last_ip} />;
       },
     },
     {
@@ -78,22 +49,10 @@ const UserCard = () => {
   return (
     <ProCard bordered>
       <Row align="middle">
-        <Col>
-          <Space align="center" size="middle">
-            <Avatar size="large" src={<img src={data.avatar} alt="avatar" />} />
-            <Text>{data.username}</Text>
-          </Space>
-        </Col>
-        <Col flex="auto">
-          <Flex justify="flex-end">
-            <Space align="center" size="small">
-              <UpdateBtn initialValues={data} reload={fetch} />
-              <Button size="small" danger onClick={() => handleKick(intl)}>
-                <FormattedMessage id="pages.dashboard.logoutall" />
-              </Button>
-            </Space>
-          </Flex>
-        </Col>
+        <Space align="center" size="middle">
+          <Avatar size="large" src={<img src={data.avatar} alt="avatar" />} />
+          <Text>{data.username}</Text>
+        </Space>
       </Row>
       <ProDescriptions
         style={{ marginTop: '8px' }}

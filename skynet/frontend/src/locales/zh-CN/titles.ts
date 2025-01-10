@@ -8,4 +8,5 @@ export default {
   'titles.group': 'Skynet | 用户组',
   'titles.user': 'Skynet | 用户',
   'titles.plugin': 'Skynet | 插件',
+  'titles.account': 'Skynet | 账户',
 };

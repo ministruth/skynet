@@ -20,7 +20,7 @@ export const request: RequestConfig = {
     errorHandler: (error: any, opts: any) => {
       if (opts?.skipErrorHandler) throw error;
       if (error.response) {
-        message.error(`${error.response.status}: ${error.response.statusText}`);
+        message.error(error.message);
         if (error.response.status === 403)
           setTimeout(() => {
             window.location.href = '/';

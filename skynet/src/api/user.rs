@@ -454,6 +454,8 @@ pub async fn get_histories(
     struct Rsp {
         id: HyUuid,
         ip: String,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        user_agent: Option<String>,
         time: i64,
     }
     let tx = db.begin().await?;
@@ -487,6 +489,7 @@ pub async fn get_histories(
         .map(|x| Rsp {
             id: x.id,
             ip: x.ip,
+            user_agent: x.user_agent,
             time: x.created_at,
         })
         .collect();
@@ -500,4 +503,56 @@ pub async fn get_histories_self(
     db: Data<DatabaseConnection>,
 ) -> RspResult<JsonResponse> {
     get_histories(req.uid.unwrap().into(), param, db).await
+}
+
+#[derive(Debug, Validate, Deserialize)]
+pub struct GetSessionsReq {
+    #[serde(flatten)]
+    #[validate(nested)]
+    pub page: PaginationParam,
+}
+
+pub async fn get_sessions(
+    uid: Path<HyUuid>,
+    param: QsQuery<GetSessionsReq>,
+    skynet: Data<Skynet>,
+    state: Data<GlobalState>,
+    db: Data<DatabaseConnection>,
+) -> RspResult<JsonResponse> {
+    #[derive(Serialize)]
+    struct Rsp {
+        ttl: u32,
+        time: i64,
+        #[serde(skip_serializing_if = "Option::is_none")]
+        user_agent: Option<String>,
+    }
+    let tx = db.begin().await?;
+    if UserViewer::find_by_id(&tx, &uid).await?.is_none() {
+        finish!(JsonResponse::not_found());
+    }
+    tx.commit().await?;
+
+    let sessions =
+        UserViewer::find_sessions(state.memorydb.as_ref(), &uid, &skynet.config.session.prefix)
+            .await?;
+    let data: Vec<_> = sessions
+        .into_iter()
+        .map(|x| Rsp {
+            ttl: x.ttl,
+            time: x.time,
+            user_agent: x.user_agent,
+        })
+        .collect();
+
+    finish_data!(param.page.split(data));
+}
+
+pub async fn get_sessions_self(
+    param: QsQuery<GetSessionsReq>,
+    req: Request,
+    skynet: Data<Skynet>,
+    state: Data<GlobalState>,
+    db: Data<DatabaseConnection>,
+) -> RspResult<JsonResponse> {
+    get_sessions(req.uid.unwrap().into(), param, skynet, state, db).await
 }
