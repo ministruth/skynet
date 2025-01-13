@@ -1,9 +1,9 @@
-# dev
+# v0.4.2
 ## Changes
 1. Login history now records user agent header.
 2. New feature: get sessions.
 
-# frontend-dev
+# frontend-v0.1.4
 ## Changes
 1. Plugin disable does not need extra confirmation.
 2. PWA support.
