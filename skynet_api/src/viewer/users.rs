@@ -1,3 +1,5 @@
+use std::str::FromStr;
+
 use crate::{
     entity::{user_histories, users},
     hyuuid::uuids2strings,

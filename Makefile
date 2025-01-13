@@ -27,6 +27,15 @@ all: help
 check:
 	@cargo clippy --all-features -- -D clippy::all
 	@cargo fmt --all -- --check
+	@for d in `ls $(PLUGIN_DIR)`;do					\
+ 		if [[ -f $(PLUGIN_DIR)/$$d/Makefile ]];then	\
+ 			echo Checking $$d...;					\
+ 			pushd . > /dev/null;					\
+ 			cd $(PLUGIN_DIR)/$$d;					\
+ 			make --no-print-directory check; 		\
+ 			popd > /dev/null;						\
+ 		fi											\
+ 	done
 
 ## build: Build skynet(debug).
 build:

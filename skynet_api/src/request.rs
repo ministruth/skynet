@@ -515,7 +515,7 @@ mod req {
 
 #[cfg(feature = "request-session")]
 mod session {
-    use std::collections::HashMap;
+    use std::{collections::HashMap, str::FromStr};
 
     use actix_cloud::session;
     use anyhow::Result;
@@ -535,19 +535,10 @@ mod session {
         pub user_agent: Option<String>,
     }
 
-    impl Session {
-        pub fn into_session(self, s: session::Session) -> Result<()> {
-            s.insert("_id", self.id)?;
-            s.insert("name", self.name)?;
-            s.insert("time", self.time)?;
-            s.insert("_ttl", self.ttl)?;
-            if let Some(x) = self.user_agent {
-                s.insert("user_agent", x)?;
-            }
-            Ok(())
-        }
+    impl FromStr for Session {
+        type Err = anyhow::Error;
 
-        pub fn from_str(s: &str) -> anyhow::Result<Self> {
+        fn from_str(s: &str) -> Result<Self, Self::Err> {
             let v: HashMap<String, String> = serde_json::from_str(s)?;
             let id = serde_json::from_str(
                 v.get("_id")
@@ -577,6 +568,19 @@ mod session {
                 time,
                 user_agent,
             })
+        }
+    }
+
+    impl Session {
+        pub fn into_session(self, s: session::Session) -> Result<()> {
+            s.insert("_id", self.id)?;
+            s.insert("name", self.name)?;
+            s.insert("time", self.time)?;
+            s.insert("_ttl", self.ttl)?;
+            if let Some(x) = self.user_agent {
+                s.insert("user_agent", x)?;
+            }
+            Ok(())
         }
 
         pub fn from_session(s: session::Session) -> anyhow::Result<Self> {
