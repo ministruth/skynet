@@ -32,6 +32,7 @@ jobs:
         mkdir -p skynet-linux-i686/assets/_plugin
         mkdir -p skynet-linux-aarch64/assets/_plugin
         mkdir -p skynet-windows-x86_64/assets/_plugin
+        mkdir -p skynet-windows-i686/assets/_plugin
         mkdir -p skynet-macOS-x86_64/assets/_plugin
         mkdir -p skynet-macOS-aarch64/assets/_plugin
 
