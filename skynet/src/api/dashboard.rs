@@ -6,18 +6,23 @@ use actix_cloud::{
     tokio::time::sleep,
 };
 use serde::Serialize;
-use skynet_api::request::Request;
+use skynet_api::{request::Request, Skynet};
 use sysinfo::{CpuRefreshKind, MemoryRefreshKind, RefreshKind, System};
 
 use crate::finish_data;
 
-pub async fn system_info(req: Request, state: Data<GlobalState>) -> RspResult<JsonResponse> {
+pub async fn system_info(
+    req: Request,
+    state: Data<GlobalState>,
+    skynet: Data<Skynet>,
+) -> RspResult<JsonResponse> {
     #[derive(Serialize)]
     struct Rsp {
         version: String,
         cpu: String,
         memory: u64,
         start_time: i64,
+        warning: Vec<String>,
     }
     let sys = System::new_with_specifics(
         RefreshKind::nothing()
@@ -29,11 +34,16 @@ pub async fn system_info(req: Request, state: Data<GlobalState>) -> RspResult<Js
     } else {
         t!(state.locale, "text.na", &req.extension.lang)
     };
+    let mut warning = Vec::new();
+    for i in skynet.warning.iter() {
+        warning.push(t!(state.locale, i.value(), &req.extension.lang));
+    }
     finish_data!(Rsp {
         version: env!("CARGO_PKG_VERSION").to_owned(),
         cpu: brand,
         memory: sys.total_memory(),
         start_time: state.server.start_time.read().timestamp_millis(),
+        warning,
     });
 }
 

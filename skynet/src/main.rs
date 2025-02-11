@@ -14,6 +14,7 @@ mod logger;
 mod plugin;
 mod request;
 mod service;
+mod webpush;
 
 #[derive(Parser, Clone)]
 #[command(author, version, about, long_about = None)]

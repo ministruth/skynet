@@ -19,8 +19,13 @@ use serde_repr::{Deserialize_repr, Serialize_repr};
 use skynet_api::{
     entity::notifications,
     sea_orm::{ActiveModelTrait, DatabaseConnection, Set},
+    service::Message,
+    uuid, HyUuid,
 };
 
+use crate::webpush::WebpushManager;
+
+static WEBPUSH: OnceLock<WebpushManager> = OnceLock::new();
 static DB: OnceLock<DatabaseConnection> = OnceLock::new();
 static CACHE: OnceLock<Mutex<Vec<notifications::ActiveModel>>> = OnceLock::new();
 pub static UNREAD: LazyLock<Arc<AtomicI32>> = LazyLock::new(|| Arc::new(AtomicI32::new(0)));
@@ -52,6 +57,10 @@ pub async fn set_db(db: DatabaseConnection) {
     write_pending(DB.get().unwrap()).await
 }
 
+pub async fn set_webpush(webpush: WebpushManager) {
+    WEBPUSH.set(webpush).unwrap();
+}
+
 /// Write a notification to the database.
 /// When `success` is `true`, `level` is ignored and a special level `Success` is set.
 async fn write_notification(
@@ -71,7 +80,7 @@ async fn write_notification(
     let model = notifications::ActiveModel {
         level: Set(level as i32),
         target: Set(target),
-        message: Set(msg),
+        message: Set(msg.clone()),
         detail: Set(detail),
         ..Default::default()
     };
@@ -80,6 +89,22 @@ async fn write_notification(
         let _ = model.insert(db).await;
     } else {
         CACHE.get().unwrap().lock().push(model);
+    }
+    if level == NotifyLevel::Warning || level == NotifyLevel::Error {
+        if let Some(webpush) = WEBPUSH.get() {
+            webpush.send(
+                HyUuid(uuid!("9338710c-5d89-434e-8a1f-b4eaa8446514")),
+                Message {
+                    title: if level == NotifyLevel::Warning {
+                        String::from("Warning")
+                    } else {
+                        String::from("Error")
+                    },
+                    body: msg,
+                    url: String::from("/notification"),
+                },
+            );
+        }
     }
     if !success {
         UNREAD.fetch_add(1, Ordering::SeqCst);

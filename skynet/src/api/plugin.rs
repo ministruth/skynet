@@ -101,9 +101,19 @@ pub async fn put(
     param: Json<PutReq>,
     plugin: Data<PluginManager>,
     db: Data<DatabaseConnection>,
+    skynet: Data<Skynet>,
 ) -> RspResult<JsonResponse> {
     let tx = db.begin().await?;
-    if !plugin.set(&tx, &id, param.enable).await? {
+    if let Some(x) = plugin.set(&tx, &id, param.enable).await? {
+        let key = format!("plugin.{}", x.id);
+        if plugin.is_pending() {
+            skynet
+                .warning
+                .insert(key, String::from("text.warning.plugin"));
+        } else {
+            skynet.warning.remove(&key);
+        }
+    } else {
         finish!(JsonResponse::not_found());
     }
     tx.commit().await?;

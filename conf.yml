@@ -7,11 +7,8 @@ redis:
   dsn: "redis://redis:6379/0" # redis dsn
 
 session:
-  key: "Ckm7cYj0XDaIkGQeXYun7fuduCT8V5dMwYzMAz2mb5nlj3FTAgLYp5MstHh18PW8" # session sign key, at least 64 in length
   prefix: "session_" # prefix in redis, please prevent glob pattern keywords like ? and *
   cookie: "SESSIONID" # session cookie name
-  expire: 3600 # default expire time seconds
-  remember: 5184000 # remember expire time seconds
 
 listen:
   address: "0.0.0.0:8080" # listen address
@@ -32,6 +29,11 @@ recaptcha:
   url: "https://www.recaptcha.net" # verify url
   # sitekey: "" # recaptcha sitekey
   # secret: "" # recaptcha secret
+
+client:
+  # proxy: "" # equal to all_proxy environment
+  # username: "" # proxy basic auth username
+  # password: "" # proxy basic auth password
   timeout: 10 # connect timeout seconds
 
 csrf:

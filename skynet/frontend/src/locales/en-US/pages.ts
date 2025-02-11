@@ -21,6 +21,21 @@ export default {
     'You need to restart manually if not in daemon mode, confirm?',
   'pages.system.dangerzone.shutdown.content':
     'Program will exit gracefully. You should know what you are doing.',
+  'pages.system.dangerzone.session.text': 'Regenerate session key',
+  'pages.system.dangerzone.session.button': 'Regenerate',
+  'pages.system.dangerzone.session.title':
+    'All sessions will become invalid, confirm?',
+  'pages.system.dangerzone.session.content':
+    'Changes will be applied after the restart.',
+  'pages.system.dangerzone.webpush.text': 'Regenerate webpush key',
+  'pages.system.dangerzone.webpush.button': 'Regenerate',
+  'pages.system.dangerzone.webpush.title':
+    'All subscriptions will become invalid, confirm?',
+  'pages.system.setting.title': 'Setting',
+  'pages.system.setting.session.expire': 'Session Expire',
+  'pages.system.setting.session.remember': 'Session Remember Expire',
+  'pages.system.setting.session.second': 'Seconds',
+  'pages.system.setting.webpush.endpoint': 'Webpush Endpoint',
 
   'pages.notification.content': 'Manage Skynet notifications',
   'pages.notification.deleteall.title': 'Delete all notifications, confirm?',
@@ -80,6 +95,9 @@ export default {
   'pages.dashboard.system.title': 'System Info',
   'pages.dashboard.cpu.title': 'CPU Usage',
   'pages.dashboard.memory.title': 'Memory Usage',
+  'pages.dashboard.status.healthy': 'Healthy',
+  'pages.dashboard.status.pending': 'Pending restart',
+  'pages.dashboard.status.notready': 'Not ready',
 
   'pages.account.content': 'Manage account information',
   'pages.account.history': 'History',
@@ -88,4 +106,12 @@ export default {
   'pages.account.session.title': 'Session',
   'pages.account.kick': 'Logout All',
   'pages.account.kick.title': 'Logout all devices, confirm?',
+  'pages.account.webpush.title': 'Webpush',
+  'pages.account.subscribe': 'Subscribe',
+  'pages.account.unsubscribe': 'Unsubscribe',
+  'pages.account.webpush.unsupport':
+    'Web Push is not supported in your browser',
+  'pages.account.webpush.failed': 'Failed to register Web Push',
+  'pages.account.webpush.enable': 'Enable',
+  'pages.account.webpush.disable': 'Disable',
 };

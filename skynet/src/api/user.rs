@@ -1,16 +1,18 @@
-use std::fs;
+use std::{collections::HashSet, fs};
 
 use actix_cloud::{
-    actix_web::web::{Data, Path},
+    actix_web::web::{self, Data, Path},
     macros::partial_entity,
     response::{JsonResponse, RspResult},
     state::GlobalState,
     tracing::info,
 };
 use actix_web_validator::{Json, QsQuery};
+use reqwest::Url;
 use serde::{Deserialize, Serialize};
 use skynet_api::{
-    entity::{groups, user_histories, users::Column},
+    config::CONFIG_WEBPUSH_ENDPOINT,
+    entity::{groups, user_histories, users::Column, webpush_subscriptions},
     finish,
     permission::{PermEntry, ROOT_ID},
     request::{
@@ -19,13 +21,19 @@ use skynet_api::{
     },
     sea_orm::{ColumnTrait, DatabaseConnection, IntoSimpleExpr, TransactionTrait},
     utils::{get_dataurl, parse_dataurl},
-    viewer::{groups::GroupViewer, permissions::PermissionViewer, users::UserViewer},
+    viewer::{
+        groups::GroupViewer, permissions::PermissionViewer, settings::SettingViewer,
+        users::UserViewer, webpush_clients::WebpushClientViewer,
+        webpush_subscriptions::WebpushSubscriptionViewer,
+    },
     HyUuid, Skynet,
 };
 use skynet_macro::common_req;
 use validator::Validate;
+use web_push::SubscriptionInfo;
+use wildmatch::WildMatch;
 
-use crate::{finish_data, finish_err, finish_ok, SkynetResponse};
+use crate::{finish_data, finish_err, finish_ok, webpush::WebpushManager, SkynetResponse};
 
 #[common_req(Column)]
 #[derive(Debug, Validate, Deserialize)]
@@ -506,7 +514,7 @@ pub async fn get_histories_self(
 }
 
 #[derive(Debug, Validate, Deserialize)]
-pub struct GetSessionsReq {
+pub struct GetCommonReq {
     #[serde(flatten)]
     #[validate(nested)]
     pub page: PaginationParam,
@@ -514,7 +522,7 @@ pub struct GetSessionsReq {
 
 pub async fn get_sessions(
     uid: Path<HyUuid>,
-    param: QsQuery<GetSessionsReq>,
+    param: QsQuery<GetCommonReq>,
     skynet: Data<Skynet>,
     state: Data<GlobalState>,
     db: Data<DatabaseConnection>,
@@ -548,11 +556,157 @@ pub async fn get_sessions(
 }
 
 pub async fn get_sessions_self(
-    param: QsQuery<GetSessionsReq>,
+    param: QsQuery<GetCommonReq>,
     req: Request,
     skynet: Data<Skynet>,
     state: Data<GlobalState>,
     db: Data<DatabaseConnection>,
 ) -> RspResult<JsonResponse> {
     get_sessions(req.uid.unwrap().into(), param, skynet, state, db).await
+}
+
+pub async fn get_webpush_topics(
+    param: QsQuery<GetCommonReq>,
+    req: Request,
+    webpush: Data<WebpushManager>,
+    db: Data<DatabaseConnection>,
+) -> RspResult<JsonResponse> {
+    #[derive(Serialize)]
+    struct Rsp {
+        id: HyUuid,
+        name: String,
+        enable: bool,
+    }
+    let check: HashSet<HyUuid> = WebpushSubscriptionViewer::find(
+        db.as_ref(),
+        Condition::new(
+            Condition::all().add(webpush_subscriptions::Column::Uid.eq(req.uid.unwrap())),
+        ),
+    )
+    .await?
+    .0
+    .into_iter()
+    .map(|x| x.topic)
+    .collect();
+    let data: Vec<Rsp> = webpush
+        .topic
+        .iter()
+        .filter(|x| x.perm.check(&req.perm))
+        .map(|x| Rsp {
+            id: x.id,
+            name: x.name.clone(),
+            enable: check.contains(&x.id),
+        })
+        .collect();
+    finish_data!(param.page.split(data));
+}
+
+#[derive(Debug, Validate, Deserialize)]
+pub struct PutWebpushTopicReq {
+    pub id: HyUuid,
+    pub enable: bool,
+}
+
+pub async fn put_webpush_topic(
+    param: Json<PutWebpushTopicReq>,
+    req: Request,
+    webpush: Data<WebpushManager>,
+    db: Data<DatabaseConnection>,
+) -> RspResult<JsonResponse> {
+    match webpush.topic.get(&param.id) {
+        Some(topic) => {
+            if !topic.perm.check(&req.perm) {
+                finish_err!(SkynetResponse::TopicNotExist);
+            } else {
+                if param.enable {
+                    WebpushSubscriptionViewer::subscribe(db.as_ref(), &req.uid.unwrap(), &param.id)
+                        .await?;
+                } else {
+                    WebpushSubscriptionViewer::unsubscribe(
+                        db.as_ref(),
+                        &req.uid.unwrap(),
+                        &param.id,
+                    )
+                    .await?;
+                }
+                info!(success = true, topic = %param.id, enable = param.enable, "Put webpush topic");
+                finish_ok!();
+            }
+        }
+        None => finish_err!(SkynetResponse::TopicNotExist),
+    }
+}
+
+pub async fn subscribe_webpush(
+    param: web::Json<SubscriptionInfo>,
+    req: Request,
+    db: Data<DatabaseConnection>,
+) -> RspResult<JsonResponse> {
+    let whitelist: Vec<String> =
+        if let Some(x) = SettingViewer::get(db.as_ref(), CONFIG_WEBPUSH_ENDPOINT).await? {
+            serde_json::from_str(&x)?
+        } else {
+            Vec::new()
+        };
+    let host = match Url::parse(&param.endpoint) {
+        Ok(url) => {
+            if let Some(host) = url.host_str() {
+                host.to_owned()
+            } else {
+                finish_err!(SkynetResponse::EndpointInvalid)
+            }
+        }
+        Err(_) => finish_err!(SkynetResponse::EndpointInvalid),
+    };
+    let valid = whitelist.iter().any(|x| WildMatch::new(x).matches(&host));
+    if !valid {
+        finish_err!(SkynetResponse::EndpointInvalid);
+    }
+    let ret = WebpushClientViewer::create(
+        db.as_ref(),
+        &req.uid.unwrap(),
+        &param.endpoint,
+        &param.keys.p256dh,
+        &param.keys.auth,
+        &req.extension.lang,
+    )
+    .await?;
+    info!(
+        success = true,
+        endpoint = param.endpoint,
+        "Subscribe webpush"
+    );
+    finish_data!(ret.id);
+}
+
+#[derive(Debug, Validate, Deserialize)]
+pub struct WebpushReq {
+    pub endpoint: String,
+}
+
+pub async fn check_webpush(
+    param: Json<WebpushReq>,
+    req: Request,
+    db: Data<DatabaseConnection>,
+) -> RspResult<JsonResponse> {
+    let ret =
+        WebpushClientViewer::find_by_endpoint(db.as_ref(), &req.uid.unwrap(), &param.endpoint)
+            .await?;
+    finish_data!(ret.is_some());
+}
+
+pub async fn unsubscribe_webpush(
+    param: Json<WebpushReq>,
+    req: Request,
+    db: Data<DatabaseConnection>,
+) -> RspResult<JsonResponse> {
+    let rows =
+        WebpushClientViewer::delete_by_endpoint(db.as_ref(), &req.uid.unwrap(), &param.endpoint)
+            .await?;
+    info!(
+        success = true,
+        endpoint = param.endpoint,
+        "Unsubscribe webpush"
+    );
+    finish_data!(rows)
 }

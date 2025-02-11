@@ -17,7 +17,7 @@ use skynet_api::{
 };
 use validator::Validate;
 
-use crate::{finish_data, finish_err, finish_ok, service::SERVICEIMPL_INSTANCE, SkynetResponse};
+use crate::{finish_data, finish_err, finish_ok, service, SkynetResponse};
 
 pub async fn get(db: Data<DatabaseConnection>) -> RspResult<JsonResponse> {
     let data = PermissionViewer::find(db.as_ref(), Condition::default())
@@ -72,18 +72,16 @@ pub async fn get_user(uid: Path<HyUuid>, db: Data<DatabaseConnection>) -> RspRes
     if UserViewer::find_by_id(db.as_ref(), &uid).await?.is_none() {
         finish!(JsonResponse::not_found());
     }
-    let data: Vec<GetRsp> = SERVICEIMPL_INSTANCE
-        .get()
-        .unwrap()
-        .get_user_perm(&uid)
+    let data: Vec<GetRsp> = service::get_user_dbperm(db.as_ref(), &uid)
         .await?
         .into_iter()
         .map(|x| GetRsp {
-            pid: x.pid,
-            name: x.name,
-            note: x.note,
-            perm: x.perm,
+            pid: x.1.pid,
+            name: x.1.name,
+            note: x.1.note,
+            perm: x.1.perm,
             origin: x
+                .1
                 .origin
                 .into_iter()
                 .map(|x| OriginRsp {
@@ -92,8 +90,8 @@ pub async fn get_user(uid: Path<HyUuid>, db: Data<DatabaseConnection>) -> RspRes
                     perm: x.2,
                 })
                 .collect(),
-            created_at: x.created_at,
-            updated_at: x.updated_at,
+            created_at: x.1.created_at,
+            updated_at: x.1.updated_at,
         })
         .collect();
     finish_data!(data);

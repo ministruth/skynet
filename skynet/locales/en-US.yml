@@ -28,8 +28,14 @@ response:
     notexist: "Permission does not exist"
   plugin:
     loaded: "Plugin is already loaded"
+  webpush:
+    notexist: "Webpush topic does not exist"
+    invalid: "Webpush endpoint is invalid"
 
 text:
   na: "N/A"
   unknown: "Unknown"
   loopback: "Loopback"
+  warning:
+    session: "Session key was reset"
+    plugin: "Plugin was changed"

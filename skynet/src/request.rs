@@ -8,7 +8,10 @@ use actix_cloud::{
         self,
         body::MessageBody,
         dev::{ServiceRequest, ServiceResponse},
-        http::StatusCode,
+        http::{
+            header::{HeaderName, HeaderValue},
+            StatusCode,
+        },
         middleware::Next,
         rt::spawn,
         web::{Bytes, Data, Payload},
@@ -27,16 +30,13 @@ use actix_cloud::{
     utils,
 };
 use actix_ws::Message;
-use awc::{error::HeaderValue, http::header::HeaderName};
 use derivative::Derivative;
 use futures::StreamExt;
 use skynet_api::{
-    permission::{
-        PermChecker, PermissionItem, GUEST_ID, GUEST_NAME, PERM_ALL, ROOT_ID, ROOT_NAME, USER_ID,
-        USER_NAME,
-    },
+    permission::{PermChecker, PermissionItem, GUEST_ID, GUEST_NAME, PERM_ALL},
     plugin::{self, Body, WSMessage},
     request::{Request, Router, RouterType},
+    sea_orm::DatabaseConnection,
     tracing::debug,
     HyUuid, Result, Skynet,
 };
@@ -44,7 +44,7 @@ use skynet_api::{
 use crate::{
     api::api_call,
     plugin::PluginManager,
-    service::{websocket::WEBSOCKETIMPL_INSTANCE, SERVICEIMPL_INSTANCE},
+    service::{self, websocket::WEBSOCKETIMPL_INSTANCE},
     Cli,
 };
 
@@ -119,6 +119,10 @@ pub fn check_csrf_token(
 pub enum APIError {
     #[error("Validation error: missing field `{0}`")]
     MissingField(String),
+    #[error("Missing setting `{0}`")]
+    MissingSetting(String),
+    #[error("Invalid setting `{0}`")]
+    InvalidSetting(String),
 }
 
 /// Eat additional logs to user.
@@ -217,7 +221,8 @@ impl RootSpanBuilder for TracingMiddleware {
             ip = %get_real_ip(request),
             method,
             path,
-            user_agent
+            user_agent,
+            user_id = "None",
         )
     }
 
@@ -406,52 +411,25 @@ impl AuthChecker {
     async fn get_request(req: &mut ServiceRequest) -> Result<Request> {
         let s = req.get_session();
         let id = s.get::<HyUuid>("_id")?;
-        let mut perm = match &id {
+        let perm = match &id {
             Some(x) => {
-                let mut perm = if x.is_nil() {
-                    // root
-                    HashMap::from([(
-                        ROOT_ID,
-                        PermissionItem {
-                            name: ROOT_NAME.to_owned(),
-                            pid: ROOT_ID,
-                            perm: PERM_ALL,
-                            ..Default::default()
-                        },
-                    )])
-                } else {
-                    // user
-                    SERVICEIMPL_INSTANCE
-                        .get()
-                        .unwrap()
-                        .get_user_perm(x)
-                        .await
-                        .unwrap()
-                        .into_iter()
-                        .map(|x| (x.pid, x))
-                        .collect()
-                };
-                perm.insert(
-                    USER_ID,
-                    PermissionItem {
-                        name: USER_NAME.to_owned(),
-                        pid: USER_ID,
-                        perm: PERM_ALL,
-                        ..Default::default()
-                    },
-                );
-                perm
+                let db = req.app_data::<Data<DatabaseConnection>>().unwrap();
+                service::get_user_perm(db.as_ref(), x).await?
             }
-            None => HashMap::new(),
+            None => HashMap::from([(
+                GUEST_ID,
+                PermissionItem {
+                    name: GUEST_NAME.to_owned(),
+                    pid: GUEST_ID,
+                    perm: PERM_ALL,
+                    ..Default::default()
+                },
+            )]),
         };
-        perm.insert(
-            GUEST_ID,
-            PermissionItem {
-                name: GUEST_NAME.to_owned(),
-                pid: GUEST_ID,
-                perm: PERM_ALL,
-                ..Default::default()
-            },
+        let span = Span::current();
+        span.record(
+            "user_id",
+            id.map(|x| x.to_string()).unwrap_or(String::from("None")),
         );
         Ok(Request {
             uid: id,

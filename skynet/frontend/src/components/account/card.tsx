@@ -15,6 +15,7 @@ import HistoryLink from './historyLink';
 import PermissionList from './permission';
 import SessionList from './session';
 import styles from './style.less';
+import WebpushList from './webpush';
 
 const AccountCard = () => {
   const intl = getIntl();
@@ -164,6 +165,7 @@ const AccountCard = () => {
         </Col>
         <Col xs={24} md={12}>
           <PermissionList />
+          <WebpushList />
         </Col>
       </Row>
     </ProCard>

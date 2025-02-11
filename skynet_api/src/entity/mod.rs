@@ -6,3 +6,5 @@ pub mod settings;
 pub mod user_group_links;
 pub mod user_histories;
 pub mod users;
+pub mod webpush_clients;
+pub mod webpush_subscriptions;

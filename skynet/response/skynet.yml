@@ -45,3 +45,11 @@ PermissionNotExist:
 PluginLoaded:
   code: 11
   message: "response.plugin.loaded"
+
+TopicNotExist:
+  code: 12
+  message: "response.webpush.notexist"
+
+EndpointInvalid:
+  code: 13
+  message: "response.webpush.invalid"

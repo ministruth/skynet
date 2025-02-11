@@ -1,6 +1,6 @@
 use actix_cloud::{
     actix_web::{
-        cookie::{time::Duration, Key, SameSite},
+        cookie::{Key, SameSite},
         dev::{fn_service, ServiceRequest, ServiceResponse},
         middleware::{self, from_fn},
         web::{scope, Data},
@@ -10,10 +10,7 @@ use actix_cloud::{
     logger::Logger,
     request,
     security::SecurityHeader,
-    session::{
-        config::{PersistentSession, TtlExtensionPolicy},
-        SessionMiddleware,
-    },
+    session::{config::PersistentSession, SessionMiddleware},
     state::GlobalState,
     tracing::{info, warn},
     tracing_actix_web::TracingLogger,
@@ -21,8 +18,13 @@ use actix_cloud::{
 };
 use actix_files::NamedFile;
 use qstring::QString;
-use rustls::crypto::aws_lc_rs;
-use skynet_api::Skynet;
+use skynet_api::{
+    config::CONFIG_SESSION_KEY,
+    sea_orm::{DatabaseConnection, TransactionTrait},
+    tracing::debug,
+    viewer::settings::SettingViewer,
+    Result, Skynet,
+};
 
 use super::init;
 use crate::{
@@ -43,23 +45,30 @@ fn print_cover() {
     println!("         \\/     \\/\\/         \\/     \\/      \n");
 }
 
-fn get_session_middleware(skynet: &Skynet, state: &GlobalState) -> SessionMiddleware {
+async fn get_session_key(db: &DatabaseConnection) -> Result<String> {
+    if let Some(x) = SettingViewer::get(db, CONFIG_SESSION_KEY).await? {
+        debug!("Session key is existed, using the previous one");
+        Ok(x)
+    } else {
+        info!("Session key not found, generating new one");
+        let key = utils::rand_string(64);
+        let tx = db.begin().await?;
+        SettingViewer::set(&tx, CONFIG_SESSION_KEY, &key).await?;
+        tx.commit().await?;
+        Ok(key)
+    }
+}
+
+fn get_session_middleware(key: &str, skynet: &Skynet, state: &GlobalState) -> SessionMiddleware {
     let cookie_prefix = skynet.config.session.prefix.to_owned();
     let cookie_fn = move |x: &str| format!("{cookie_prefix}{x}");
-    SessionMiddleware::builder(
-        state.memorydb.clone(),
-        Key::from(skynet.config.session.key.as_bytes()),
-    )
-    .cache_keygen(cookie_fn)
-    .cookie_name(skynet.config.session.cookie.to_owned())
-    .cookie_secure(skynet.config.listen.ssl)
-    .cookie_same_site(SameSite::Strict)
-    .session_lifecycle(
-        PersistentSession::default()
-            .session_ttl_extension_policy(TtlExtensionPolicy::OnEveryRequest)
-            .session_ttl(Duration::seconds(skynet.config.session.expire.into())),
-    )
-    .build()
+    SessionMiddleware::builder(state.memorydb.clone(), Key::from(key.as_bytes()))
+        .cache_keygen(cookie_fn)
+        .cookie_name(skynet.config.session.cookie.to_owned())
+        .cookie_secure(skynet.config.listen.ssl)
+        .cookie_same_site(SameSite::Strict)
+        .session_lifecycle(PersistentSession::default())
+        .build()
 }
 
 pub async fn command(cli: &Cli, logger: Option<Logger>, skip_cover: bool, disable_csrf: bool) {
@@ -67,7 +76,7 @@ pub async fn command(cli: &Cli, logger: Option<Logger>, skip_cover: bool, disabl
         print_cover();
     }
 
-    let (skynet, state, db, plugin_manager) = init(cli, logger).await;
+    let (skynet, state, db, plugin_manager, webpush_manager) = init(cli, logger).await;
 
     if disable_csrf {
         warn!("CSRF protection is disabled, for debugging purpose only");
@@ -79,13 +88,19 @@ pub async fn command(cli: &Cli, logger: Option<Logger>, skip_cover: bool, disabl
         warn!("SSL is not enabled, your traffic is at risk")
     }
     if !cli.persist_session {
+        debug!("Flushing memory sessions");
         state.memorydb.flush().await.unwrap();
+    } else {
+        debug!("Keeping memory sessions");
     }
     let geoip = if skynet.config.geoip.enable {
+        debug!("Parsing geoip file");
         Some(maxminddb::Reader::open_readfile(&skynet.config.geoip.database).unwrap())
     } else {
+        debug!("geoip is disabled");
         None
     };
+    let session_key = get_session_key(&db).await.unwrap();
 
     let mut worker = skynet.config.listen.worker;
     if worker == 0 {
@@ -105,6 +120,7 @@ pub async fn command(cli: &Cli, logger: Option<Logger>, skip_cover: bool, disabl
     let db = Data::new(db);
     let plugin_manager = Data::new(plugin_manager);
     let geoip = Data::new(geoip);
+    let webpush_manager = Data::new(webpush_manager);
     let mut route = api::new_api(&skynet.default_id);
     service::init_handler(skynet.clone(), state.clone());
     route = plugin_manager.register(&skynet, route).await;
@@ -124,7 +140,7 @@ pub async fn command(cli: &Cli, logger: Option<Logger>, skip_cover: bool, disabl
                                 check_csrf_token(skynet.config.csrf.prefix.clone()),
                             ),
                         ))
-                        .wrap(get_session_middleware(&skynet, &state))
+                        .wrap(get_session_middleware(&session_key, &skynet, &state))
                         .wrap(back_header.clone().build()),
                 )
                 .service(
@@ -157,6 +173,7 @@ pub async fn command(cli: &Cli, logger: Option<Logger>, skip_cover: bool, disabl
                 .app_data(db.clone())
                 .app_data(plugin_manager.clone())
                 .app_data(geoip.clone())
+                .app_data(webpush_manager.clone())
         }
     })
     .workers(worker);
@@ -175,7 +192,6 @@ pub async fn command(cli: &Cli, logger: Option<Logger>, skip_cover: bool, disabl
             .unwrap()
             .run()
     } else {
-        aws_lc_rs::default_provider().install_default().unwrap();
         server.bind(address).unwrap().run()
     };
     info!("Listening on {address}");

@@ -4,6 +4,7 @@ use crate::{
     permission::{IDTypes, PermChecker, PermissionItem},
     HyUuid,
 };
+use dashmap::DashMap;
 use derivative::Derivative;
 use enum_map::EnumMap;
 use serde::{Deserialize, Serialize};
@@ -18,9 +19,9 @@ use std::{
 pub struct Skynet {
     pub logger: Logger,
     pub config: Config,
-
     pub default_id: EnumMap<IDTypes, HyUuid>,
     pub menu: Vec<MenuItem>,
+    pub warning: Arc<DashMap<String, String>>,
 }
 
 impl Skynet {

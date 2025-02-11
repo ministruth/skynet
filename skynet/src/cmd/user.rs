@@ -37,7 +37,7 @@ where
 }
 
 pub async fn command(cli: &Cli, logger: Option<Logger>, user_cli: &UserCli) {
-    let (skynet, state, db, _) = init(cli, logger).await;
+    let (skynet, state, db, _, _) = init(cli, logger).await;
 
     let tx = db.begin().await.unwrap();
     match &user_cli.command {

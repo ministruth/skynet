@@ -1,3 +1,15 @@
+# v0.5.0
+## Changes
+1. New features: system warning, web push.
+2. Session key is generated dynamically.
+3. Session TTL can be set dynamically.
+4. Session does not renew on every request.
+
+# frontend-v0.1.5
+## Changes
+1. New features: system warning, session key reset, web push.
+2. Add system setting card.
+
 # v0.4.2
 ## Changes
 1. Login history now records user agent header.

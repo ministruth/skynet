@@ -63,6 +63,9 @@ const PermissionList = () => {
       dataSource={data}
       columns={columns}
       cardBordered={false}
+      pagination={{
+        defaultPageSize: 5,
+      }}
     />
   );
 };

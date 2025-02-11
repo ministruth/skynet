@@ -1,6 +1,6 @@
 [package]
 name = "skynet"
-version = "0.4.2"
+version = "0.5.0"
 edition = "2021"
 authors = ["MXWXZ <matrixwxz@gmail.com>"]
 description = "Service integration and management system, optimized for home-lab use."
@@ -27,20 +27,27 @@ async-recursion = "1.1"
 dashmap = "6.1"
 maxminddb = "0.24"
 sysinfo = "0.33"
+openssl = "0.10"
+web-push = "0.10"
+wildmatch = "2.4"
 
-rustls = "0.23"
 actix-files = "0.6"
 validator = { version = "0.18", features = ["derive"] }
 actix-web-validator = "6.0"
-awc = { version = "3.5", default-features = false, features = [
+reqwest = { version = "0.12", default-features = false, features = [
+    "macos-system-configuration",
+    "http2",
+    "rustls-tls",
+    "charset",
     "cookies",
-    "compress-gzip",
-    "rustls-0_23-webpki-roots",
+    "gzip",
+    "json",
+    "socks",
 ] }
 actix-cloud = "0.4"
 actix-ws = "0.3"
 
-skynet_api = { version = "0.4", features = [
+skynet_api = { version = "0.5", features = [
     "service",
     "plugin",
     "viewer",

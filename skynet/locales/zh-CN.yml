@@ -28,8 +28,14 @@ response:
     notexist: "权限不存在"
   plugin:
     loaded: "插件已加载"
+  webpush:
+    notexist: "Webpush topic不存在"
+    invalid: "Webpush endpoint不合法"
 
 text:
   na: "不可用"
   unknown: "未知"
   loopback: "本地地址"
+  warning:
+    session: "会话密钥已被重置"
+    plugin: "插件已被修改"

@@ -16,6 +16,7 @@ use crate::{
     api, db, logger,
     plugin::PluginManager,
     service::{self, ServiceImpl},
+    webpush::WebpushManager,
     Cli,
 };
 
@@ -26,7 +27,13 @@ pub mod user;
 async fn init(
     cli: &Cli,
     logger: Option<actix_cloud::logger::Logger>,
-) -> (Skynet, GlobalState, DatabaseConnection, PluginManager) {
+) -> (
+    Skynet,
+    GlobalState,
+    DatabaseConnection,
+    PluginManager,
+    WebpushManager,
+) {
     // load config
     let (state_config, config) = config::load_file(cli.config.to_str().unwrap());
     debug!("Config file {:?} loaded", cli.config);
@@ -52,8 +59,12 @@ async fn init(
         .await
         .expect("DB connect failed");
 
+    // init webpush
+    let webpush = WebpushManager::new(db.clone(), &default_id).await.unwrap();
+
     // init notification
     logger::set_db(db.clone()).await;
+    logger::set_webpush(webpush.clone()).await;
 
     let skynet = Skynet {
         default_id,
@@ -64,6 +75,7 @@ async fn init(
             enable: !cli.quiet,
         },
         menu: api::new_menu(&default_id),
+        warning: Default::default(),
     };
     let state = GlobalState {
         memorydb,
@@ -76,7 +88,7 @@ async fn init(
     ServiceImpl::register_mock(&mut reg, SKYNET_SERVICE);
 
     // init service
-    service::init(&state, db.clone());
+    service::init(&state, webpush.clone());
 
     // init plugin
     let mut plugin = PluginManager::new(reg);
@@ -85,5 +97,5 @@ async fn init(
     // set menu badge, must after plugin init.
     api::set_menu_badge(&mut skynet);
 
-    (skynet, state, db, plugin)
+    (skynet, state, db, plugin, webpush)
 }

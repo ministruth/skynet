@@ -32,7 +32,7 @@ use skynet_api::{
 use validator::Validate;
 use walkdir::WalkDir;
 
-const PLUGIN_SETTING_PREFIX: &str = "plugin_";
+const PLUGIN_SETTING_PREFIX: &str = "plugin.";
 const PLUGIN_CONFIG: &str = "config.yml";
 
 #[serde_as]
@@ -158,12 +158,26 @@ impl PluginManager {
         None
     }
 
+    pub fn is_pending(&self) -> bool {
+        for i in self.plugin.read().iter() {
+            if i.status == PluginStatus::PendingDisable || i.status == PluginStatus::PendingEnable {
+                return true;
+            }
+        }
+        false
+    }
+
     /// Set plugin enable status.
     ///
     /// # Errors
     ///
     /// Will return `Err` when db error.
-    pub async fn set(&self, db: &DatabaseTransaction, id: &HyUuid, enable: bool) -> Result<bool> {
+    pub async fn set(
+        &self,
+        db: &DatabaseTransaction,
+        id: &HyUuid,
+        enable: bool,
+    ) -> Result<Option<Arc<PluginInstance>>> {
         let mut idx = None;
         {
             let rlock = self.plugin.read();
@@ -200,9 +214,9 @@ impl PluginManager {
                     }
                 }
             }
-            Ok(true)
+            Ok(Some(self.plugin.read().index(idx).clone()))
         } else {
-            Ok(false)
+            Ok(None)
         }
     }
 

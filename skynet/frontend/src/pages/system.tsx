@@ -1,6 +1,7 @@
 import MainLayout from '@/components/layout';
 import MainContainer from '@/components/layout/container';
 import DangerZoneCard from '@/components/system/dangerzone';
+import SettingCard from '@/components/system/setting';
 import { getIntl, UserPerm } from '@/utils';
 
 const System = () => {
@@ -20,6 +21,7 @@ const System = () => {
         ]}
         content={intl.get('pages.system.content')}
       >
+        <SettingCard style={{ marginBottom: '16px' }} />
         <DangerZoneCard />
       </MainContainer>
     </MainLayout>

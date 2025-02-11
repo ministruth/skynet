@@ -12,6 +12,7 @@ use skynet_api::{
 use crate::logger;
 
 mod auth;
+mod client;
 mod dashboard;
 mod group;
 mod misc;
@@ -110,6 +111,10 @@ pub fn new_menu(id: &EnumMap<IDTypes, HyUuid>) -> Vec<MenuItem> {
 pub fn api_call(name: &str, r: Route) -> Route {
     match name {
         "setting::get_public" => r.to(setting::get_public),
+        "setting::get_system" => r.to(setting::get_system),
+        "setting::put_system" => r.to(setting::put_system),
+        "setting::reset_session_key" => r.to(setting::reset_session_key),
+        "setting::reset_webpush_key" => r.to(setting::reset_webpush_key),
         "auth::signin" => r.to(auth::signin),
         "auth::signout" => r.to(auth::signout),
         "misc::health" => r.to(misc::health),
@@ -135,6 +140,11 @@ pub fn api_call(name: &str, r: Route) -> Route {
         "user::get_histories" => r.to(user::get_histories),
         "user::get_sessions_self" => r.to(user::get_sessions_self),
         "user::get_sessions" => r.to(user::get_sessions),
+        "user::get_webpush_topics" => r.to(user::get_webpush_topics),
+        "user::put_webpush_topic" => r.to(user::put_webpush_topic),
+        "user::subscribe_webpush" => r.to(user::subscribe_webpush),
+        "user::unsubscribe_webpush" => r.to(user::unsubscribe_webpush),
+        "user::check_webpush" => r.to(user::check_webpush),
         "group::get_all" => r.to(group::get_all),
         "group::add" => r.to(group::add),
         "group::delete_batch" => r.to(group::delete_batch),
@@ -168,6 +178,34 @@ pub fn new_api(id: &EnumMap<IDTypes, HyUuid>) -> Vec<Router> {
             method: Method::Get,
             route: Inner(String::from("setting::get_public")),
             checker: PermChecker::Entry(PermEntry::new_guest()),
+            csrf: CSRFType::Header,
+        },
+        Router {
+            path: String::from("/settings/system"),
+            method: Method::Get,
+            route: Inner(String::from("setting::get_system")),
+            checker: PermChecker::new_entry(id[PermManageSystemID], PERM_READ),
+            csrf: CSRFType::Header,
+        },
+        Router {
+            path: String::from("/settings/system"),
+            method: Method::Put,
+            route: Inner(String::from("setting::put_system")),
+            checker: PermChecker::new_entry(id[PermManageSystemID], PERM_WRITE),
+            csrf: CSRFType::Header,
+        },
+        Router {
+            path: String::from("/settings/sessionkey"),
+            method: Method::Post,
+            route: Inner(String::from("setting::reset_session_key")),
+            checker: PermChecker::new_entry(id[PermManageSystemID], PERM_WRITE),
+            csrf: CSRFType::Header,
+        },
+        Router {
+            path: String::from("/settings/webpushkey"),
+            method: Method::Post,
+            route: Inner(String::from("setting::reset_webpush_key")),
+            checker: PermChecker::new_entry(id[PermManageSystemID], PERM_WRITE),
             csrf: CSRFType::Header,
         },
         Router {
@@ -343,6 +381,41 @@ pub fn new_api(id: &EnumMap<IDTypes, HyUuid>) -> Vec<Router> {
             method: Method::Get,
             route: Inner(String::from("user::get_sessions")),
             checker: PermChecker::new_entry(id[PermManageUserID], PERM_READ),
+            csrf: CSRFType::Header,
+        },
+        Router {
+            path: String::from("/users/self/webpush"),
+            method: Method::Get,
+            route: Inner(String::from("user::get_webpush_topics")),
+            checker: PermChecker::Entry(PermEntry::new_user()),
+            csrf: CSRFType::Header,
+        },
+        Router {
+            path: String::from("/users/self/webpush"),
+            method: Method::Put,
+            route: Inner(String::from("user::put_webpush_topic")),
+            checker: PermChecker::Entry(PermEntry::new_user()),
+            csrf: CSRFType::Header,
+        },
+        Router {
+            path: String::from("/users/self/webpush"),
+            method: Method::Post,
+            route: Inner(String::from("user::subscribe_webpush")),
+            checker: PermChecker::Entry(PermEntry::new_user()),
+            csrf: CSRFType::Header,
+        },
+        Router {
+            path: String::from("/users/self/webpush"),
+            method: Method::Delete,
+            route: Inner(String::from("user::unsubscribe_webpush")),
+            checker: PermChecker::Entry(PermEntry::new_user()),
+            csrf: CSRFType::Header,
+        },
+        Router {
+            path: String::from("/users/self/webpush/check"),
+            method: Method::Post,
+            route: Inner(String::from("user::check_webpush")),
+            checker: PermChecker::Entry(PermEntry::new_user()),
             csrf: CSRFType::Header,
         },
         Router {

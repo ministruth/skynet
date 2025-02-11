@@ -34,6 +34,27 @@ impl SettingViewer {
             .map(|x| x.map(|x| x.value))
     }
 
+    pub async fn get_or_init(db: &DatabaseTransaction, name: &str, value: &str) -> Result<String> {
+        Self::find_or_init(db, name, value).await.map(|x| x.value)
+    }
+
+    pub async fn find_or_init(
+        db: &DatabaseTransaction,
+        name: &str,
+        value: &str,
+    ) -> Result<settings::Model> {
+        match Self::find_by_name(db, name).await? {
+            Some(x) => Ok(x),
+            None => Ok(settings::ActiveModel {
+                name: Set(name.to_owned()),
+                value: Set(value.to_owned()),
+                ..Default::default()
+            }
+            .insert(db)
+            .await?),
+        }
+    }
+
     pub async fn find_by_name<C>(db: &C, name: &str) -> Result<Option<settings::Model>>
     where
         C: ConnectionTrait,

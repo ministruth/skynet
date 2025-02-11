@@ -5,6 +5,13 @@ use serde::{Deserialize, Serialize};
 use serde_inline_default::serde_inline_default;
 use validator::{Validate, ValidationError};
 
+pub const CONFIG_SESSION_KEY: &str = "config.session.key";
+pub const CONFIG_SESSION_EXPIRE: &str = "config.session.expire";
+pub const CONFIG_SESSION_REMEMBER: &str = "config.session.remember";
+pub const CONFIG_WEBPUSH_TTL: &str = "config.webpush.ttl";
+pub const CONFIG_WEBPUSH_KEY: &str = "config.webpush.key";
+pub const CONFIG_WEBPUSH_ENDPOINT: &str = "config.webpush.endpoint";
+
 fn check_file(path: &str) -> Result<(), ValidationError> {
     if Path::new(path).exists() {
         Ok(())
@@ -46,20 +53,12 @@ pub struct ConfigRedis {
 #[serde_inline_default]
 #[derive(Serialize, Deserialize, Debug, Validate, Clone)]
 pub struct ConfigSession {
-    #[validate(length(min = 64))]
-    pub key: String,
     #[serde_inline_default("session_".into())]
     #[validate(length(min = 1))]
     pub prefix: String,
     #[serde_inline_default("SESSIONID".into())]
     #[validate(length(min = 1))]
     pub cookie: String,
-    #[serde_inline_default(3600)]
-    #[validate(range(min = 1))]
-    pub expire: u32,
-    #[serde_inline_default(5184000)]
-    #[validate(range(min = 1))]
-    pub remember: u32,
 }
 
 #[serde_inline_default]
@@ -103,6 +102,17 @@ pub struct ConfigRecaptcha {
     pub sitekey: Option<String>,
     #[validate(length(min = 1))]
     pub secret: Option<String>,
+}
+
+#[serde_inline_default]
+#[derive(Serialize, Deserialize, Debug, Validate, Clone)]
+pub struct ConfigClient {
+    #[validate(length(min = 1))]
+    pub proxy: Option<String>,
+    #[validate(length(min = 1))]
+    pub username: Option<String>,
+    #[validate(length(min = 1))]
+    pub password: Option<String>,
     #[serde_inline_default(10)]
     pub timeout: u32,
 }
@@ -137,6 +147,8 @@ pub struct Config {
     pub csrf: ConfigCsrf,
     #[validate(nested)]
     pub geoip: ConfigGeoip,
+    #[validate(nested)]
+    pub client: ConfigClient,
     #[serde_inline_default("default.webp".into())]
     #[validate(custom(function = "check_file"))]
     pub avatar: String,

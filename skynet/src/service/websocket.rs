@@ -31,7 +31,7 @@ impl WebsocketImpl {
 
 #[plugin_impl_trait]
 impl skynet_api::service::skynet::Websocket for WebsocketImpl {
-    async fn send(&self, _: &Registry, id: HyUuid, msg: WSMessage) -> SResult<()> {
+    async fn websocket_send(&self, _: &Registry, id: HyUuid, msg: WSMessage) -> SResult<()> {
         match msg {
             WSMessage::Text(s) => {
                 let x = self.sessions.get(&id).map(|x| x.0.clone());
@@ -66,7 +66,7 @@ impl skynet_api::service::skynet::Websocket for WebsocketImpl {
         }
     }
 
-    async fn close(&self, _: &Registry, id: HyUuid) {
+    async fn websocket_close(&self, _: &Registry, id: HyUuid) {
         let x = self.sessions.remove(&id);
         if let Some((_, x)) = x {
             let _ = x.0.close(None).await;

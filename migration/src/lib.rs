@@ -4,6 +4,7 @@ use sea_orm_migration::prelude::*;
 mod m20220101_000001_create_table;
 mod m20241201_000001_create_table;
 mod m20250101_000001_alter_table;
+mod m20250119_000001_create_table;
 
 pub struct Migrator;
 
@@ -14,6 +15,7 @@ impl MigratorTrait for Migrator {
             Box::new(m20220101_000001_create_table::Migration),
             Box::new(m20241201_000001_create_table::Migration),
             Box::new(m20250101_000001_alter_table::Migration),
+            Box::new(m20250119_000001_create_table::Migration),
         ]
     }
 }
