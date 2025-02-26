@@ -4,7 +4,7 @@ use actix_cloud::{
     utils,
 };
 use actix_web_validator::Json;
-use base64::{prelude::BASE64_URL_SAFE_NO_PAD, Engine};
+use base64::{Engine, prelude::BASE64_URL_SAFE_NO_PAD};
 use openssl::{
     bn::BigNumContext,
     ec::{self},
@@ -13,6 +13,7 @@ use openssl::{
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use skynet_api::{
+    Skynet,
     config::{
         CONFIG_SESSION_EXPIRE, CONFIG_SESSION_KEY, CONFIG_SESSION_REMEMBER,
         CONFIG_WEBPUSH_ENDPOINT, CONFIG_WEBPUSH_KEY,
@@ -21,7 +22,6 @@ use skynet_api::{
     sea_orm::{DatabaseConnection, TransactionTrait},
     tracing::info,
     viewer::{settings::SettingViewer, webpush_clients::WebpushClientViewer},
-    Skynet,
 };
 use validator::Validate;
 

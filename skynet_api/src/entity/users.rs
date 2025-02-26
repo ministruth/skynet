@@ -3,7 +3,7 @@ use anyhow::Result;
 use sea_orm::entity::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::{serializer::vec_string_option, HyUuid};
+use crate::{HyUuid, serializer::vec_string_option};
 
 #[derive(Clone, Debug, PartialEq, DeriveEntityModel, Eq, Default, Serialize, Deserialize)]
 #[sea_orm(table_name = "users")]

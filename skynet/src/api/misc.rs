@@ -2,7 +2,7 @@ use std::{collections::BTreeMap, net::IpAddr, sync::atomic::Ordering};
 
 use actix_web_validator::QsQuery;
 use async_recursion::async_recursion;
-use maxminddb::{geoip2::Country, MaxMindDBError, Reader};
+use maxminddb::{MaxMindDBError, Reader, geoip2::Country};
 use serde::{Deserialize, Serialize};
 
 use actix_cloud::{
@@ -11,10 +11,10 @@ use actix_cloud::{
     state::GlobalState,
     t,
 };
-use skynet_api::{ffi_rpc::registry::Registry, plugin::Plugin, request::Request, MenuItem, Skynet};
+use skynet_api::{MenuItem, Skynet, ffi_rpc::registry::Registry, plugin::Plugin, request::Request};
 use validator::Validate;
 
-use crate::{finish_data, finish_err, finish_ok, plugin::PluginManager, SkynetResponse};
+use crate::{SkynetResponse, finish_data, finish_err, finish_ok, plugin::PluginManager};
 
 pub async fn get_menus(
     req: Request,

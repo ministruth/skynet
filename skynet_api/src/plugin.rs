@@ -46,7 +46,7 @@ pub enum Body {
 
 #[cfg(feature = "plugin-api")]
 pub mod api {
-    use crate::{request::Router, service::SResult, Skynet};
+    use crate::{Skynet, request::Router, service::SResult};
 
     use super::*;
     use std::path::PathBuf;
@@ -124,29 +124,28 @@ pub mod api {
 mod request {
     use std::{
         fmt::Debug,
-        future::{ready, Ready},
+        future::{Ready, ready},
         net::SocketAddr,
         str::FromStr,
     };
 
     use actix_cloud::{
         actix_web::{
-            self,
+            self, FromRequest, Handler, HttpMessage, HttpRequest, Responder,
             body::to_bytes,
             dev::{Payload, ServiceRequest, ServiceResponse},
             http::header::{HeaderName, HeaderValue},
             test,
             web::Data,
-            FromRequest, Handler, HttpMessage, HttpRequest, Responder,
         },
         chrono::{DateTime, Utc},
         state::GlobalState,
     };
     use ahash::AHashMap;
-    use anyhow::{anyhow, Result};
+    use anyhow::{Result, anyhow};
     use ffi_rpc::registry::Registry;
 
-    use crate::{request::Method, service::SResult, Skynet};
+    use crate::{Skynet, request::Method, service::SResult};
 
     use super::*;
 

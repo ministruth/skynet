@@ -1,8 +1,8 @@
 use crate::{
+    HyUuid,
     config::Config,
     logger::Logger,
     permission::{IDTypes, PermChecker, PermissionItem},
-    HyUuid,
 };
 use dashmap::DashMap;
 use derivative::Derivative;
@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 use std::{
     cmp,
     collections::HashMap,
-    sync::{atomic::AtomicI32, Arc},
+    sync::{Arc, atomic::AtomicI32},
 };
 
 /// Main entrance providing skynet function.

@@ -1,7 +1,8 @@
-use actix_cloud::tokio::sync::mpsc::{channel, Receiver, Sender};
+use actix_cloud::tokio::sync::mpsc::{Receiver, Sender, channel};
 use actix_ws::Session;
 use dashmap::DashMap;
 use skynet_api::{
+    HyUuid,
     ffi_rpc::{
         self, abi_stable, async_trait, bincode,
         ffi_rpc_macro::{plugin_impl_instance, plugin_impl_trait},
@@ -9,7 +10,6 @@ use skynet_api::{
     },
     plugin::{PluginError, WSMessage},
     service::SResult,
-    HyUuid,
 };
 
 #[plugin_impl_instance(|| WebsocketImpl{ sessions:Default::default() })]

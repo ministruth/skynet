@@ -7,12 +7,11 @@ use actix_web_validator::{Json, QsQuery};
 use serde::Deserialize;
 use serde_json::json;
 use skynet_api::{
-    finish,
+    HyUuid, MenuItem, Skynet, finish,
     permission::PermissionItem,
     plugin::PluginStatus,
-    request::{unique_validator, PaginationParam, Request, SortType},
+    request::{PaginationParam, Request, SortType, unique_validator},
     sea_orm::{DatabaseConnection, TransactionTrait},
-    HyUuid, MenuItem, Skynet,
 };
 use std::{
     collections::{HashMap, HashSet},
@@ -21,7 +20,7 @@ use std::{
 };
 use validator::Validate;
 
-use crate::{finish_data, finish_err, finish_ok, plugin::PluginManager, Cli, SkynetResponse};
+use crate::{Cli, SkynetResponse, finish_data, finish_err, finish_ok, plugin::PluginManager};
 
 fn get_authorized_plugins(
     skynet: &Skynet,

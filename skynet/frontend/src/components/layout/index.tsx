@@ -47,6 +47,18 @@ const MainLayout: React.FC<PropsWithChildren<MainLayoutProps>> = (props) => {
 
   useEffect(() => {
     if (!initialState?.signin) history.push('/');
+    if ('serviceWorker' in navigator && 'PushManager' in window) {
+      navigator.serviceWorker.addEventListener('message', (event) => {
+        if (!event.data.action) {
+          return;
+        }
+        switch (event.data.action) {
+          case 'skynet-click':
+            history.push(event.data.url);
+            break;
+        }
+      });
+    }
   }, []);
 
   let children: ReactNode;

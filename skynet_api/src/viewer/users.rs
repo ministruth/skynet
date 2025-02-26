@@ -1,17 +1,17 @@
 use std::str::FromStr;
 
 use crate::{
+    HyUuid,
     entity::{user_histories, users},
     hyuuid::uuids2strings,
     permission::ROOT_ID,
     request::{Condition, Session},
-    HyUuid,
 };
 use actix_cloud::{memorydb::MemoryDB, utils};
-use anyhow::{anyhow, Result};
+use anyhow::{Result, anyhow};
 use argon2::{
-    password_hash::{rand_core::OsRng, SaltString},
     Argon2, PasswordHash, PasswordHasher, PasswordVerifier,
+    password_hash::{SaltString, rand_core::OsRng},
 };
 use chrono::Utc;
 use sea_orm::{

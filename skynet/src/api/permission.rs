@@ -8,16 +8,15 @@ use actix_cloud::{
 use actix_web_validator::Json;
 use serde::{Deserialize, Serialize};
 use skynet_api::{
-    finish,
+    HyUuid, finish,
     permission::UserPerm,
-    request::{unique_validator, Condition},
+    request::{Condition, unique_validator},
     sea_orm::{DatabaseConnection, TransactionTrait},
     viewer::{groups::GroupViewer, permissions::PermissionViewer, users::UserViewer},
-    HyUuid,
 };
 use validator::Validate;
 
-use crate::{finish_data, finish_err, finish_ok, service, SkynetResponse};
+use crate::{SkynetResponse, finish_data, finish_err, finish_ok, service};
 
 pub async fn get(db: Data<DatabaseConnection>) -> RspResult<JsonResponse> {
     let data = PermissionViewer::find(db.as_ref(), Condition::default())

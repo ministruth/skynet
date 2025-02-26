@@ -9,7 +9,7 @@ use actix_web_validator::QsQuery;
 use serde::Deserialize;
 use skynet_api::{
     entity::notifications::Column,
-    request::{unique_validator, Condition, IntoExpr, PageData, PaginationParam, TimeParam},
+    request::{Condition, IntoExpr, PageData, PaginationParam, TimeParam, unique_validator},
     sea_orm::{ColumnTrait, DatabaseConnection, IntoSimpleExpr},
     viewer::notifications::NotificationViewer,
 };

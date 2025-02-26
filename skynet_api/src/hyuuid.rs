@@ -1,14 +1,14 @@
 use std::fmt::{self, Display};
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 #[cfg(feature = "database")]
 use sea_orm::{
+    ColIdx, TryFromU64, TryGetError, TryGetable,
     prelude::*,
     sea_query::{ArrayType, Nullable, ValueType, ValueTypeErr},
-    ColIdx, TryFromU64, TryGetError, TryGetable,
 };
 #[cfg(feature = "serde")]
-use serde::{de, Deserialize, Deserializer, Serialize, Serializer};
+use serde::{Deserialize, Deserializer, Serialize, Serializer, de};
 use uuid::Uuid;
 
 #[derive(Clone, Copy, Hash, Debug, PartialEq, Eq, Default)]

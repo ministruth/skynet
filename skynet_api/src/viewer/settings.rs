@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
-use crate::{entity::settings, request::Condition, HyUuid};
+use crate::{HyUuid, entity::settings, request::Condition};
 use anyhow::Result;
-use base64::{prelude::BASE64_STANDARD, Engine};
+use base64::{Engine, prelude::BASE64_STANDARD};
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, ConnectionTrait, DatabaseTransaction, EntityTrait,
     IntoActiveModel, PaginatorTrait, QueryFilter, Set,

@@ -12,10 +12,10 @@ mod pagination {
     use anyhow::Result;
     use async_trait::async_trait;
     use derivative::Derivative;
-    use sea_orm::{prelude::*, FromQueryResult};
+    use sea_orm::{FromQueryResult, prelude::*};
     use serde::{Deserialize, Serialize};
     use serde_inline_default::serde_inline_default;
-    use serde_with::{serde_as, DisplayFromStr};
+    use serde_with::{DisplayFromStr, serde_as};
     use validator::Validate;
 
     #[derive(Serialize, Derivative)]
@@ -121,9 +121,9 @@ mod condition {
     use anyhow::Result;
     use enum_as_inner::EnumAsInner;
     use sea_orm::{
+        FromQueryResult, Order, QueryOrder,
         prelude::*,
         sea_query::{ConditionExpression, LikeExpr, SimpleExpr},
-        FromQueryResult, Order, QueryOrder,
     };
     use serde::{Deserialize, Serialize};
 
@@ -260,7 +260,7 @@ mod param {
     use actix_cloud::utils;
     use anyhow::Result;
     use serde::Deserialize;
-    use serde_with::{serde_as, DisplayFromStr};
+    use serde_with::{DisplayFromStr, serde_as};
     use validator::{Validate, ValidationError};
 
     use crate::HyUuid;
@@ -346,13 +346,13 @@ mod route {
     use std::fmt;
 
     use actix_cloud::{
-        actix_web::{http, web, Route},
+        actix_web::{Route, http, web},
         router::CSRFType,
     };
     use serde::{Deserialize, Serialize};
     use serde_repr::{Deserialize_repr, Serialize_repr};
 
-    use crate::{permission::PermChecker, HyUuid};
+    use crate::{HyUuid, permission::PermChecker};
 
     #[repr(u8)]
     #[derive(Serialize_repr, Deserialize_repr, Clone, Copy)]
@@ -462,18 +462,18 @@ mod route {
 mod req {
     use std::{
         collections::HashMap,
-        future::{ready, Ready},
+        future::{Ready, ready},
         sync::Arc,
     };
 
     use actix_cloud::{
-        actix_web::{self, dev::Payload, FromRequest, HttpMessage, HttpRequest},
+        actix_web::{self, FromRequest, HttpMessage, HttpRequest, dev::Payload},
         request::Extension,
     };
     use anyhow::anyhow;
     use serde::{Deserialize, Serialize};
 
-    use crate::{permission::PermissionItem, HyUuid};
+    use crate::{HyUuid, permission::PermissionItem};
 
     #[derive(Serialize, Deserialize, Debug, Clone)]
     pub struct Request {

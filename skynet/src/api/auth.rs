@@ -2,10 +2,10 @@ use std::collections::HashMap;
 
 use actix_cloud::{
     actix_web::{
-        cookie::{time::Duration, Cookie, SameSite},
+        HttpRequest,
+        cookie::{Cookie, SameSite, time::Duration},
         http::header::USER_AGENT,
         web::Data,
-        HttpRequest,
     },
     response::{JsonResponse, RspResult},
     session::Session,
@@ -15,20 +15,20 @@ use actix_cloud::{
 use actix_web_validator::Json;
 use serde::{Deserialize, Serialize};
 use skynet_api::{
+    HyUuid, Skynet,
     config::{CONFIG_SESSION_EXPIRE, CONFIG_SESSION_REMEMBER},
     finish,
     request::{self, Request},
     sea_orm::{DatabaseConnection, TransactionTrait},
     viewer::{settings::SettingViewer, users::UserViewer},
-    HyUuid, Skynet,
 };
 use validator::Validate;
 
 use crate::{
-    api::client::{verify_recaptcha, RecaptchaOption},
-    finish_data, finish_err, finish_ok,
-    request::{new_csrf_token, APIError, CSRF_COOKIE},
     SkynetResponse,
+    api::client::{RecaptchaOption, verify_recaptcha},
+    finish_data, finish_err, finish_ok,
+    request::{APIError, CSRF_COOKIE, new_csrf_token},
 };
 
 #[derive(Debug, Validate, Deserialize)]

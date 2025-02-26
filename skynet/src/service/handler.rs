@@ -1,9 +1,9 @@
-use std::sync::{atomic::Ordering, OnceLock};
+use std::sync::{OnceLock, atomic::Ordering};
 
 use actix_cloud::{actix_web::web::Data, state::GlobalState};
 use skynet_api::{
-    ffi_rpc::{self, async_trait, bincode, ffi_rpc_macro::plugin_impl_trait, registry::Registry},
     HyUuid, MenuItem, Skynet,
+    ffi_rpc::{self, async_trait, bincode, ffi_rpc_macro::plugin_impl_trait, registry::Registry},
 };
 
 pub static HANDLER_INSTANCE: OnceLock<HandlerImpl> = OnceLock::new();

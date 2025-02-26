@@ -21,8 +21,8 @@ pub mod viewer;
 #[cfg(feature = "logger")]
 pub use actix_cloud::tracing;
 pub use anyhow;
-pub use anyhow::bail;
 pub use anyhow::Result;
+pub use anyhow::bail;
 #[cfg(any(feature = "plugin-request", feature = "service-skynet"))]
 pub use ffi_rpc;
 pub use hyuuid::HyUuid;

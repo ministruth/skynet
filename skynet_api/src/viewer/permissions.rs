@@ -1,9 +1,9 @@
 use crate::{
+    HyUuid,
     entity::{groups, permission_links, permissions, users},
     hyuuid::uuids2strings,
-    permission::{PermEntry, PermissionItem, UserPerm, PERM_REVOKE},
+    permission::{PERM_REVOKE, PermEntry, PermissionItem, UserPerm},
     request::Condition,
-    HyUuid,
 };
 use anyhow::Result;
 use sea_orm::{

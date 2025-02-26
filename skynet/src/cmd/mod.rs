@@ -2,22 +2,21 @@ use std::sync::Arc;
 
 use actix_cloud::{
     self,
-    i18n::{i18n, Locale},
-    memorydb::{default::DefaultBackend, redis::RedisBackend, MemoryDB},
+    i18n::{Locale, i18n},
+    memorydb::{MemoryDB, default::DefaultBackend, redis::RedisBackend},
     state::{GlobalState, ServerHandle},
     tracing::debug,
 };
 use skynet_api::{
-    config, ffi_rpc::registry::Registry, logger::Logger, sea_orm::DatabaseConnection,
-    service::SKYNET_SERVICE, Skynet,
+    Skynet, config, ffi_rpc::registry::Registry, logger::Logger, sea_orm::DatabaseConnection,
+    service::SKYNET_SERVICE,
 };
 
 use crate::{
-    api, db, logger,
+    Cli, api, db, logger,
     plugin::PluginManager,
     service::{self, ServiceImpl},
     webpush::WebpushManager,
-    Cli,
 };
 
 pub mod check;

@@ -9,7 +9,7 @@ import {
 } from '@/utils';
 import { ParamsType } from '@ant-design/pro-components';
 import { ActionType, ProColumns } from '@ant-design/pro-table';
-import { FormattedMessage, history, useModel } from '@umijs/max';
+import { FormattedMessage, useModel } from '@umijs/max';
 import { Button, message } from 'antd';
 import { SortOrder } from 'antd/es/table/interface';
 import { useEffect, useRef, useState } from 'react';
@@ -42,19 +42,7 @@ const handleSubscribe = async (
                 }),
               ),
           )
-          .then((s) => postAPI('/users/self/webpush', s))
-          .then(() => {
-            navigator.serviceWorker.addEventListener('message', (event) => {
-              if (!event.data.action) {
-                return;
-              }
-              switch (event.data.action) {
-                case 'skynet-click':
-                  history.push(event.data.url);
-                  break;
-              }
-            });
-          }),
+          .then((s) => postAPI('/users/self/webpush', s)),
       )
       .catch(() => {
         message.error(intl.get('pages.account.webpush.failed'));

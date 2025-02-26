@@ -1,4 +1,4 @@
-use crate::{entity::webpush_subscriptions, hyuuid::uuids2strings, request::Condition, HyUuid};
+use crate::{HyUuid, entity::webpush_subscriptions, hyuuid::uuids2strings, request::Condition};
 use anyhow::Result;
 use sea_orm::{
     ActiveModelTrait, ColumnTrait, ConnectionTrait, EntityTrait, PaginatorTrait, QueryFilter, Set,

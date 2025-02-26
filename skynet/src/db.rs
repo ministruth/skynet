@@ -4,13 +4,13 @@ use migration::Migrator;
 use openssl::{ec, nid};
 use sea_orm_migration::MigratorTrait;
 use skynet_api::{
+    HyUuid,
     config::{
         CONFIG_SESSION_EXPIRE, CONFIG_SESSION_REMEMBER, CONFIG_WEBPUSH_ENDPOINT, CONFIG_WEBPUSH_KEY,
     },
     permission::IDTypes::{self, *},
     sea_orm::{ConnectOptions, Database, DatabaseConnection, TransactionTrait},
     viewer::{permissions::PermissionViewer, settings::SettingViewer},
-    HyUuid,
 };
 
 fn default_perm() -> Vec<(IDTypes, String)> {

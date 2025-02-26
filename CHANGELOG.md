@@ -1,3 +1,13 @@
+# v0.5.1
+## Changes
+1. Update rust 2024.
+
+# frontend-v0.1.6
+## Changes
+1. Dependency upgrade.
+## Bug fix
+1. Fix webpush url not open bug.
+
 # v0.5.0
 ## Changes
 1. New features: system warning, web push.

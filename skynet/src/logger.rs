@@ -1,8 +1,8 @@
 use std::{
     path::PathBuf,
     sync::{
-        atomic::{AtomicI32, Ordering},
         Arc, LazyLock, OnceLock,
+        atomic::{AtomicI32, Ordering},
     },
     thread,
 };
@@ -17,10 +17,11 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 use serde_repr::{Deserialize_repr, Serialize_repr};
 use skynet_api::{
+    HyUuid,
     entity::notifications,
     sea_orm::{ActiveModelTrait, DatabaseConnection, Set},
     service::Message,
-    uuid, HyUuid,
+    uuid,
 };
 
 use crate::webpush::WebpushManager;

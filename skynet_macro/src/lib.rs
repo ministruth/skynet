@@ -1,6 +1,6 @@
 use proc_macro::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, parse_quote, ExprPath, Ident, ImplItem, ItemImpl, ItemStruct};
+use syn::{ExprPath, Ident, ImplItem, ItemImpl, ItemStruct, parse_macro_input, parse_quote};
 
 /// Implement common request param methods.
 ///

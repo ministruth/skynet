@@ -5,17 +5,16 @@ use std::{
 
 use actix_cloud::{
     actix_web::{
-        self,
+        self, HttpMessage, HttpRequest, HttpResponse,
         body::MessageBody,
         dev::{ServiceRequest, ServiceResponse},
         http::{
-            header::{HeaderName, HeaderValue},
             StatusCode,
+            header::{HeaderName, HeaderValue},
         },
         middleware::Next,
         rt::spawn,
         web::{Bytes, Data, Payload},
-        HttpMessage, HttpRequest, HttpResponse,
     },
     async_trait,
     chrono::Utc,
@@ -25,7 +24,7 @@ use actix_cloud::{
     session::SessionExt,
     state::GlobalState,
     tokio::select,
-    tracing::{error, info, info_span, Span},
+    tracing::{Span, error, info, info_span},
     tracing_actix_web::{DefaultRootSpanBuilder, RequestId, RootSpanBuilder},
     utils,
 };
@@ -33,19 +32,19 @@ use actix_ws::Message;
 use derivative::Derivative;
 use futures::StreamExt;
 use skynet_api::{
-    permission::{PermChecker, PermissionItem, GUEST_ID, GUEST_NAME, PERM_ALL},
+    HyUuid, Result, Skynet,
+    permission::{GUEST_ID, GUEST_NAME, PERM_ALL, PermChecker, PermissionItem},
     plugin::{self, Body, WSMessage},
     request::{Request, Router, RouterType},
     sea_orm::DatabaseConnection,
     tracing::debug,
-    HyUuid, Result, Skynet,
 };
 
 use crate::{
+    Cli,
     api::api_call,
     plugin::PluginManager,
     service::{self, websocket::WEBSOCKETIMPL_INSTANCE},
-    Cli,
 };
 
 pub const CSRF_COOKIE: &str = "CSRF_TOKEN";
@@ -71,10 +70,9 @@ macro_rules! finish_err {
 #[macro_export]
 macro_rules! finish_data {
     ($rsp:expr) => {
-        skynet_api::finish!(actix_cloud::response::JsonResponse::new(
-            $crate::SkynetResponse::Success
+        skynet_api::finish!(
+            actix_cloud::response::JsonResponse::new($crate::SkynetResponse::Success).json($rsp)
         )
-        .json($rsp))
     };
 }
 
@@ -245,8 +243,8 @@ fn http_handler(
     Data<Skynet>,
     Bytes,
 ) -> Pin<Box<dyn Future<Output = RspResult<HttpResponse<Bytes>>>>>
-       + Clone
-       + 'static {
++ Clone
++ 'static {
     move |http_req, req, plugin_manager, skynet, body| {
         let r = plugin::Request::from_request(
             skynet.as_ref().to_owned(),
@@ -290,8 +288,8 @@ fn ws_handler(
     Data<Skynet>,
     Payload,
 ) -> Pin<Box<dyn Future<Output = Result<HttpResponse, actix_web::Error>>>>
-       + Clone
-       + 'static {
++ Clone
++ 'static {
     move |http_req, req, plugin_manager, skynet, payload| {
         let trace_id = req.trace_id();
         let mut r = plugin::Request::from_request(

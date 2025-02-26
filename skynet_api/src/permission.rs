@@ -81,7 +81,7 @@ mod item {
                 return true;
             }
             p.get(&self.pid)
-                .map_or(false, |x| (x.perm & self.perm) == self.perm)
+                .is_some_and(|x| (x.perm & self.perm) == self.perm)
         }
 
         pub fn is_guest(&self) -> bool {
@@ -151,7 +151,7 @@ mod checker {
     use super::*;
     use derivative::Derivative;
     use parking_lot::RwLock;
-    use rhai::{Engine, Scope, AST};
+    use rhai::{AST, Engine, Scope};
     use serde::{Deserialize, Serialize};
     use std::collections::HashMap;
 

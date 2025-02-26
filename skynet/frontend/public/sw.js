@@ -27,7 +27,7 @@ self.addEventListener('notificationclick', async (e) => {
             action: 'skynet-click',
             url: url,
           });
-        } else return clients.openWindow(url);
+        } else return self.clients.openWindow(url);
       }),
   );
 });

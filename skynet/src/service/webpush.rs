@@ -1,10 +1,10 @@
 use std::sync::OnceLock;
 
 use skynet_api::{
+    HyUuid,
     ffi_rpc::{self, async_trait, bincode, ffi_rpc_macro::plugin_impl_trait, registry::Registry},
     permission::PermChecker,
     service::Message,
-    HyUuid,
 };
 
 use crate::webpush::WebpushManager;

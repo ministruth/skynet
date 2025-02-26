@@ -6,7 +6,7 @@ use actix_cloud::{
     tokio::time::sleep,
 };
 use serde::Serialize;
-use skynet_api::{request::Request, Skynet};
+use skynet_api::{Skynet, request::Request};
 use sysinfo::{CpuRefreshKind, MemoryRefreshKind, RefreshKind, System};
 
 use crate::finish_data;

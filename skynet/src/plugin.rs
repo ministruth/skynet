@@ -19,15 +19,14 @@ use futures::executor::block_on;
 use parking_lot::RwLock;
 use semver::{Version, VersionReq};
 use serde::{Deserialize, Serialize};
-use serde_with::{serde_as, DisplayFromStr};
+use serde_with::{DisplayFromStr, serde_as};
 use skynet_api::{
-    bail,
+    HyUuid, Result, Skynet, bail,
     ffi_rpc::registry::Registry,
     plugin::{Plugin, PluginStatus},
     request::Router,
     sea_orm::{ConnectionTrait, DatabaseTransaction},
     viewer::settings::SettingViewer,
-    HyUuid, Result, Skynet,
 };
 use validator::Validate;
 use walkdir::WalkDir;

@@ -8,6 +8,7 @@ use actix_cloud::{
     tracing::info,
 };
 use skynet_api::{
+    HyUuid,
     entity::{groups, users},
     finish,
     hyuuid::uuids2strings,
@@ -15,12 +16,11 @@ use skynet_api::{
     request::{Condition, IDsReq, IntoExpr, PageData, PaginationParam, TimeParam},
     sea_orm::{ColumnTrait, DatabaseConnection, IntoSimpleExpr, TransactionTrait},
     viewer::{groups::GroupViewer, permissions::PermissionViewer, users::UserViewer},
-    HyUuid,
 };
 use skynet_macro::common_req;
 use validator::Validate;
 
-use crate::{finish_data, finish_err, finish_ok, SkynetResponse};
+use crate::{SkynetResponse, finish_data, finish_err, finish_ok};
 
 #[common_req(groups::Column)]
 #[derive(Debug, Validate, Deserialize)]

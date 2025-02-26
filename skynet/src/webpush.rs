@@ -2,22 +2,23 @@ use std::{io::Cursor, sync::Arc, thread};
 
 use actix_cloud::tokio::{
     runtime,
-    sync::mpsc::{unbounded_channel, UnboundedSender},
+    sync::mpsc::{UnboundedSender, unbounded_channel},
 };
 use dashmap::DashMap;
 use enum_map::EnumMap;
 use parking_lot::RwLock;
 use reqwest::{
-    header::{CONTENT_ENCODING, CONTENT_LENGTH, CONTENT_TYPE},
     StatusCode,
+    header::{CONTENT_ENCODING, CONTENT_LENGTH, CONTENT_TYPE},
 };
 use serde_json::json;
 use skynet_api::{
+    HyUuid, Result,
     config::CONFIG_WEBPUSH_KEY,
     entity::{webpush_clients, webpush_subscriptions},
     permission::{
         IDTypes::{self, *},
-        PermChecker, PERM_READ,
+        PERM_READ, PermChecker,
     },
     request::Condition,
     sea_orm::{ColumnTrait, DatabaseConnection},
@@ -28,7 +29,6 @@ use skynet_api::{
         settings::SettingViewer, webpush_clients::WebpushClientViewer,
         webpush_subscriptions::WebpushSubscriptionViewer,
     },
-    HyUuid, Result,
 };
 use web_push::{ContentEncoding, SubscriptionInfo, VapidSignatureBuilder, WebPushMessageBuilder};
 

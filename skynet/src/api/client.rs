@@ -3,7 +3,7 @@ use std::time::Duration;
 use actix_cloud::actix_web::web::Data;
 use reqwest::{Client, Proxy};
 use serde::{Deserialize, Serialize};
-use skynet_api::{bail, Result, Skynet};
+use skynet_api::{Result, Skynet, bail};
 
 fn create_client(skynet: Data<Skynet>) -> Result<Client> {
     let mut builder = Client::builder();

@@ -1,8 +1,8 @@
 use crate::{
+    HyUuid,
     entity::{groups, user_group_links, users},
     hyuuid::uuids2strings,
     request::{Condition, SelectPage},
-    HyUuid,
 };
 use anyhow::Result;
 use sea_orm::{
