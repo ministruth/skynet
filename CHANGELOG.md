@@ -1,3 +1,19 @@
+# frontend-v0.1.7
+## Changes
+1. Dependency upgrade.
+2. Session can be sorted by time and ttl.
+3. Add modalProps.
+
+# v0.6.0
+## Changes
+1. Request errors except for 5XX are not logged in notification.
+2. Update ffi-rpc version.
+3. Session TTL can be configured to be refreshed on every request.
+4. Session TTL now shows the real time TTL.
+
+## Bug fix
+1. Fix username/password can be empty.
+
 # v0.5.1
 ## Changes
 1. Update rust 2024.
@@ -5,6 +21,7 @@
 # frontend-v0.1.6
 ## Changes
 1. Dependency upgrade.
+
 ## Bug fix
 1. Fix webpush url not open bug.
 

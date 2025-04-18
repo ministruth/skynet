@@ -2,7 +2,7 @@ use std::{collections::BTreeMap, net::IpAddr, sync::atomic::Ordering};
 
 use actix_web_validator::QsQuery;
 use async_recursion::async_recursion;
-use maxminddb::{MaxMindDBError, Reader, geoip2::Country};
+use maxminddb::{MaxMindDbError, Reader, geoip2::Country};
 use serde::{Deserialize, Serialize};
 
 use actix_cloud::{
@@ -98,11 +98,16 @@ pub async fn geoip(
     match geoip.as_ref() {
         Some(geoip) => {
             let country = geoip.lookup::<Country>(param.ip);
-            if let Err(MaxMindDBError::AddressNotFoundError(_)) = &country {
+            if let Err(MaxMindDbError::InvalidNetwork(_)) = &country {
                 finish_data!(unknown);
             }
             let country = country?;
-            finish_data!(get_geoip_country(country, &req.extension.lang, unknown))
+            match country {
+                Some(country) => {
+                    finish_data!(get_geoip_country(country, &req.extension.lang, unknown))
+                }
+                None => finish_data!(unknown),
+            }
         }
         None => finish_data!(t!(state.locale, "text.na", &req.extension.lang)),
     }

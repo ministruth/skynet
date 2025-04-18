@@ -3,7 +3,7 @@ use std::sync::OnceLock;
 use actix_cloud::tokio::sync::mpsc::UnboundedSender;
 use serde_json::{Map, Value};
 use skynet_api::ffi_rpc::{
-    self, async_trait, bincode, ffi_rpc_macro::plugin_impl_trait, registry::Registry,
+    self, async_trait, ffi_rpc_macro::plugin_impl_trait, registry::Registry, rmp_serde,
 };
 
 pub static LOGGER_INSTANCE: OnceLock<LoggerImpl> = OnceLock::new();

@@ -2,7 +2,7 @@ use std::sync::OnceLock;
 
 use skynet_api::{
     HyUuid,
-    ffi_rpc::{self, async_trait, bincode, ffi_rpc_macro::plugin_impl_trait, registry::Registry},
+    ffi_rpc::{self, async_trait, ffi_rpc_macro::plugin_impl_trait, registry::Registry, rmp_serde},
     permission::PermChecker,
     service::Message,
 };

@@ -1,4 +1,4 @@
-import { getAPI, getIntl, postAPI, StringIntl } from '@/utils';
+import { getAPI, getIntl, paramSort, postAPI, StringIntl } from '@/utils';
 import { ParamsType } from '@ant-design/pro-components';
 import { ProColumns } from '@ant-design/pro-table';
 import { FormattedMessage } from '@umijs/max';
@@ -11,9 +11,11 @@ import styles from './style.less';
 
 const request = async (
   params?: ParamsType,
-  _sort?: Record<string, SortOrder>,
+  sort?: Record<string, SortOrder>,
 ) => {
   const msg = await getAPI('/users/self/sessions', {
+    time_sort: paramSort(sort?.time) || 'desc',
+    ttl_sort: paramSort(sort?.ttl),
     page: params?.current,
     size: params?.pageSize,
   });
@@ -54,6 +56,7 @@ const SessionList = () => {
       align: 'center',
       valueType: 'dateTime',
       hideInSearch: true,
+      sorter: true,
     },
     {
       title: intl.get('tables.device'),
@@ -67,6 +70,7 @@ const SessionList = () => {
       dataIndex: 'ttl',
       align: 'center',
       hideInSearch: true,
+      sorter: true,
     },
   ];
 

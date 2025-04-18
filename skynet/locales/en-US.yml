@@ -20,7 +20,6 @@ response:
     notexist: "User does not exist"
     exist: "Username already exists"
     root: "Cannot perform operation on root user"
-    invalid_avatar: "Avatar file mime is invalid"
   group:
     notexist: "Group does not exist"
     exist: "Group name already exists"

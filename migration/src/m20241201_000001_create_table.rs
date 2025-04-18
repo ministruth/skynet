@@ -3,7 +3,7 @@ use sea_orm_migration::prelude::*;
 use crate::m20220101_000001_create_table::Users;
 
 #[derive(Iden)]
-pub(crate) enum UserHistories {
+enum UserHistories {
     Table,
     ID,
     Uid,

@@ -33,8 +33,9 @@ use crate::{
 
 #[derive(Debug, Validate, Deserialize)]
 pub struct SigninReq {
-    #[validate(length(max = 32))]
+    #[validate(length(min = 1, max = 32))]
     pub username: String,
+    #[validate(length(min = 1))]
     pub password: String,
     pub remember: Option<bool>,
     #[serde(rename = "g-recaptcha-response")]
@@ -94,12 +95,12 @@ pub async fn signin(
         SettingViewer::get(&tx, CONFIG_SESSION_REMEMBER)
             .await?
             .ok_or(APIError::MissingSetting(CONFIG_SESSION_REMEMBER.to_owned()))?
-            .parse::<u32>()?
+            .parse::<u64>()?
     } else {
         SettingViewer::get(&tx, CONFIG_SESSION_EXPIRE)
             .await?
             .ok_or(APIError::MissingSetting(CONFIG_SESSION_EXPIRE.to_owned()))?
-            .parse::<u32>()?
+            .parse::<u64>()?
     };
     tx.commit().await?;
 
@@ -110,6 +111,8 @@ pub async fn signin(
         ttl,
         time: user.last_login.unwrap(),
         user_agent,
+        _key: None,
+        _ttl: None,
     }
     .into_session(session)?;
     info!(success = true, id = %user.id, name = user.username, "User signin");

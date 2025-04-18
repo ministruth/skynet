@@ -4,9 +4,10 @@ use dashmap::DashMap;
 use skynet_api::{
     HyUuid,
     ffi_rpc::{
-        self, abi_stable, async_trait, bincode,
+        self, abi_stable, async_trait,
         ffi_rpc_macro::{plugin_impl_instance, plugin_impl_trait},
         registry::Registry,
+        rmp_serde,
     },
     plugin::{PluginError, WSMessage},
     service::SResult,

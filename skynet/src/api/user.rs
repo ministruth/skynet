@@ -74,10 +74,7 @@ pub async fn get_all(
         cond = cond.add_sort(Column::LastLogin.into_simple_expr(), x.into());
     };
 
-    let (avatar, mime) = get_dataurl(&fs::read(&skynet.config.avatar)?);
-    if mime.is_none() {
-        finish_err!(SkynetResponse::UserInvalidAvatar);
-    }
+    let (avatar, _) = get_dataurl(&fs::read(&skynet.config.avatar)?);
     let data = UserViewer::find(db.as_ref(), cond).await?;
     let data = (
         data.0
@@ -105,14 +102,11 @@ pub async fn get(
         finish!(JsonResponse::not_found());
     }
     let mut data = data.unwrap();
-    let (avatar, mime) = if let Some(avatar) = data.avatar {
+    let (avatar, _) = if let Some(avatar) = data.avatar {
         get_dataurl(&avatar)
     } else {
         get_dataurl(&fs::read(&skynet.config.avatar)?)
     };
-    if mime.is_none() {
-        finish_err!(SkynetResponse::UserInvalidAvatar);
-    }
     data.avatar = Some(avatar.into());
 
     finish_data!(data);
@@ -128,8 +122,9 @@ pub async fn get_self(
 
 #[derive(Debug, Validate, Deserialize)]
 pub struct AddReq {
-    #[validate(length(max = 32))]
+    #[validate(length(min = 1, max = 32))]
     pub username: String,
+    #[validate(length(min = 1))]
     pub password: String,
     pub avatar: Option<String>,
     #[validate(custom(function = "unique_validator"))]
@@ -156,7 +151,7 @@ pub async fn add(param: Json<AddReq>, db: Data<DatabaseConnection>) -> RspResult
         if mime.is_none()
             || !["image/png", "image/jpeg", "image/webp"].contains(&mime.unwrap().mime_type())
         {
-            finish_err!(SkynetResponse::UserInvalidAvatar);
+            finish!(JsonResponse::bad_request("File mime is invalid"));
         }
         Some(avatar)
     } else {
@@ -221,8 +216,9 @@ pub async fn add(param: Json<AddReq>, db: Data<DatabaseConnection>) -> RspResult
 
 #[derive(Debug, Validate, Deserialize)]
 pub struct PutReq {
-    #[validate(length(max = 32))]
+    #[validate(length(min = 1, max = 32))]
     pub username: Option<String>,
+    #[validate(length(min = 1))]
     pub password: Option<String>,
     pub avatar: Option<String>,
     #[validate(custom(function = "unique_validator"))]
@@ -273,7 +269,7 @@ pub async fn put(
                     || !["image/png", "image/jpeg", "image/webp"]
                         .contains(&mime.unwrap().mime_type())
                 {
-                    finish_err!(SkynetResponse::UserInvalidAvatar);
+                    finish!(JsonResponse::bad_request("File mime is invalid"));
                 }
                 Some(avatar)
             }
@@ -312,6 +308,7 @@ pub async fn put(
 
 #[derive(Debug, Validate, Deserialize)]
 pub struct PutSelfReq {
+    #[validate(length(min = 1))]
     pub password: Option<String>,
     pub avatar: Option<String>,
 }
@@ -514,7 +511,17 @@ pub async fn get_histories_self(
 }
 
 #[derive(Debug, Validate, Deserialize)]
-pub struct GetCommonReq {
+pub struct GetSessionReq {
+    pub time_sort: Option<SortType>,
+    #[validate(range(min = 0))]
+    pub time_start: Option<i64>,
+    #[validate(range(min = 0))]
+    pub time_end: Option<i64>,
+
+    pub ttl_sort: Option<SortType>,
+    pub ttl_start: Option<u64>,
+    pub ttl_end: Option<u64>,
+
     #[serde(flatten)]
     #[validate(nested)]
     pub page: PaginationParam,
@@ -522,14 +529,14 @@ pub struct GetCommonReq {
 
 pub async fn get_sessions(
     uid: Path<HyUuid>,
-    param: QsQuery<GetCommonReq>,
+    param: QsQuery<GetSessionReq>,
     skynet: Data<Skynet>,
     state: Data<GlobalState>,
     db: Data<DatabaseConnection>,
 ) -> RspResult<JsonResponse> {
     #[derive(Serialize)]
     struct Rsp {
-        ttl: u32,
+        ttl: u64,
         time: i64,
         #[serde(skip_serializing_if = "Option::is_none")]
         user_agent: Option<String>,
@@ -543,20 +550,57 @@ pub async fn get_sessions(
     let sessions =
         UserViewer::find_sessions(state.memorydb.as_ref(), &uid, &skynet.config.session.prefix)
             .await?;
-    let data: Vec<_> = sessions
+    let mut data: Vec<_> = sessions
         .into_iter()
         .map(|x| Rsp {
-            ttl: x.ttl,
+            ttl: x._ttl.unwrap_or_default(),
             time: x.time,
             user_agent: x.user_agent,
         })
+        .filter(|x| {
+            if let Some(t) = param.time_start {
+                if x.time < t {
+                    return false;
+                }
+            }
+            if let Some(t) = param.time_end {
+                if x.time > t {
+                    return false;
+                }
+            }
+            if let Some(t) = param.ttl_start {
+                if x.ttl < t {
+                    return false;
+                }
+            }
+            if let Some(t) = param.ttl_end {
+                if x.ttl > t {
+                    return false;
+                }
+            }
+            true
+        })
         .collect();
+    if let Some(x) = param.time_sort {
+        if x.is_asc() {
+            data.sort_by(|a, b| a.time.cmp(&b.time));
+        } else {
+            data.sort_by(|a, b| b.time.cmp(&a.time));
+        }
+    }
+    if let Some(x) = param.ttl_sort {
+        if x.is_asc() {
+            data.sort_by(|a, b| a.ttl.cmp(&b.ttl));
+        } else {
+            data.sort_by(|a, b| b.ttl.cmp(&a.ttl));
+        }
+    }
 
     finish_data!(param.page.split(data));
 }
 
 pub async fn get_sessions_self(
-    param: QsQuery<GetCommonReq>,
+    param: QsQuery<GetSessionReq>,
     req: Request,
     skynet: Data<Skynet>,
     state: Data<GlobalState>,
@@ -565,8 +609,15 @@ pub async fn get_sessions_self(
     get_sessions(req.uid.unwrap().into(), param, skynet, state, db).await
 }
 
+#[derive(Debug, Validate, Deserialize)]
+pub struct GetWebpushTopicsReq {
+    #[serde(flatten)]
+    #[validate(nested)]
+    pub page: PaginationParam,
+}
+
 pub async fn get_webpush_topics(
-    param: QsQuery<GetCommonReq>,
+    param: QsQuery<GetWebpushTopicsReq>,
     req: Request,
     webpush: Data<WebpushManager>,
     db: Data<DatabaseConnection>,

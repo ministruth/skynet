@@ -1,6 +1,6 @@
 [package]
 name = "skynet"
-version = "0.5.1"
+version = "0.6.0"
 edition = "2024"
 authors = ["MXWXZ <matrixwxz@gmail.com>"]
 description = "Service integration and management system, optimized for home-lab use."
@@ -25,7 +25,7 @@ futures = "0.3"
 abi_stable = "0.11"
 async-recursion = "1.1"
 dashmap = "6.1"
-maxminddb = "0.25"
+maxminddb = "0.26"
 sysinfo = "0.33"
 openssl = "0.10"
 web-push = "0.11"
@@ -47,7 +47,7 @@ reqwest = { version = "0.12", default-features = false, features = [
 actix-cloud = "0.4"
 actix-ws = "0.3"
 
-skynet_api = { version = "0.5", features = [
+skynet_api = { version = "0.6", features = [
     "service",
     "plugin",
     "viewer",

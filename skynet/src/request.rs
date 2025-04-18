@@ -138,6 +138,7 @@ pub async fn error_middleware(
                     code = rsp.status().as_u16(),
                     process_time,
                     error = %error.as_response_error(),
+                    _ignore = !rsp.status().is_server_error(),
                     "HTTP Request"
                 );
             } else {
@@ -158,6 +159,7 @@ pub async fn error_middleware(
                 code = rsp.status().as_u16(),
                 process_time,
                 error = %e,
+                _ignore = !rsp.status().is_server_error(),
                 "HTTP Request"
             );
 

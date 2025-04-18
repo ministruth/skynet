@@ -190,7 +190,13 @@ fn transformer(mut item: LogItem) -> LogItem {
         .get("success")
         .and_then(Value::as_bool)
         .unwrap_or_default();
-    if item.level <= Level::WARN || success {
+    if (item.level <= Level::WARN || success)
+        && !item
+            .fields
+            .get("_ignore")
+            .and_then(Value::as_bool)
+            .unwrap_or_default()
+    {
         // prevent deadlock for sqlite
         let level = item.level;
         let target = item.target.clone();

@@ -59,6 +59,8 @@ pub struct ConfigSession {
     #[serde_inline_default("SESSIONID".into())]
     #[validate(length(min = 1))]
     pub cookie: String,
+    #[serde(default)]
+    pub refresh: bool,
 }
 
 #[serde_inline_default]

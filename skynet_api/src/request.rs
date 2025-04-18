@@ -528,9 +528,14 @@ mod session {
         MissingField(String),
     }
     pub struct Session {
+        /// Session key.
+        pub _key: Option<String>,
+        /// Real ttl after refresh.
+        pub _ttl: Option<u64>,
+
         pub id: HyUuid,
         pub name: String,
-        pub ttl: u32,
+        pub ttl: u64,
         pub time: i64,
         pub user_agent: Option<String>,
     }
@@ -567,6 +572,8 @@ mod session {
                 ttl,
                 time,
                 user_agent,
+                _key: None,
+                _ttl: None,
             })
         }
     }
@@ -603,6 +610,8 @@ mod session {
                 ttl,
                 time,
                 user_agent,
+                _key: None,
+                _ttl: None,
             })
         }
     }

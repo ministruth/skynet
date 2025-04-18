@@ -9,6 +9,7 @@ redis:
 session:
   prefix: "session_" # prefix in redis, please prevent glob pattern keywords like ? and *
   cookie: "SESSIONID" # session cookie name
+  refresh: true # refresh TTL on every request
 
 listen:
   address: "localhost:8080" # listen address

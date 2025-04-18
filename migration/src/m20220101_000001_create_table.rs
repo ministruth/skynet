@@ -14,7 +14,7 @@ pub(crate) enum Users {
 }
 
 #[derive(Iden)]
-pub(crate) enum Groups {
+enum Groups {
     Table,
     ID,
     Name,
@@ -24,7 +24,7 @@ pub(crate) enum Groups {
 }
 
 #[derive(Iden)]
-pub(crate) enum UserGroupLinks {
+enum UserGroupLinks {
     Table,
     ID,
     Uid,
@@ -34,7 +34,7 @@ pub(crate) enum UserGroupLinks {
 }
 
 #[derive(Iden)]
-pub(crate) enum PermissionLinks {
+enum PermissionLinks {
     Table,
     ID,
     Uid,
@@ -46,7 +46,7 @@ pub(crate) enum PermissionLinks {
 }
 
 #[derive(Iden)]
-pub(crate) enum Permissions {
+enum Permissions {
     Table,
     ID,
     Name,
@@ -56,7 +56,7 @@ pub(crate) enum Permissions {
 }
 
 #[derive(Iden)]
-pub(crate) enum Settings {
+enum Settings {
     Table,
     ID,
     Name,
@@ -66,7 +66,7 @@ pub(crate) enum Settings {
 }
 
 #[derive(Iden)]
-pub(crate) enum Notifications {
+enum Notifications {
     Table,
     ID,
     Level,

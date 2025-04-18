@@ -295,7 +295,9 @@ impl UserViewer {
         let mut sessions = Vec::new();
         for i in keys {
             if let Some(x) = db.get(&i).await? {
-                let s = Session::from_str(&x)?;
+                let mut s = Session::from_str(&x)?;
+                s._key = Some(i.to_owned());
+                s._ttl = db.ttl(&i).await?;
                 sessions.push(s);
             }
         }

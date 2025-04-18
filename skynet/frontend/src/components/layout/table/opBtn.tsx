@@ -26,6 +26,7 @@ const TableOp: React.FC<TableOpProps & ModalSchemaProps> = (props) => {
         title={props.title}
         trigger={props.trigger}
         width={props.width}
+        modalProps={{ ...props.modalProps }}
         schemaProps={{
           layout: 'horizontal',
           autoFocusFirstInput: true,

@@ -169,10 +169,10 @@ mod checker {
             Self { engine, ast }
         }
 
-        fn new_entry(s: &str, p: UserPerm) -> PermEntry {
+        fn new_entry(s: &str, p: i64) -> PermEntry {
             PermEntry {
                 pid: HyUuid::parse(s).unwrap(),
-                perm: p,
+                perm: p as i32,
             }
         }
 

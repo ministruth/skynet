@@ -1,6 +1,6 @@
 import { BetaSchemaForm, ProFormInstance } from '@ant-design/pro-form';
 import { FormSchema } from '@ant-design/pro-form/es/components/SchemaForm';
-import { Modal } from 'antd';
+import { Modal, ModalProps } from 'antd';
 import { isEqual } from 'lodash';
 import React, { useRef, useState } from 'react';
 
@@ -8,7 +8,8 @@ export interface ModalSchemaProps {
   trigger?: JSX.Element;
   title?: React.ReactNode;
   width?: string | number;
-  schemaProps: FormSchema;
+  schemaProps?: FormSchema;
+  modalProps?: ModalProps;
   changedSubmit?: boolean;
 }
 
@@ -55,13 +56,14 @@ const ModalSchema: React.FC<ModalSchemaProps> = (props) => {
         onOk={ok}
         okButtonProps={{ disabled: props.changedSubmit ? !changed : false }}
         maskClosable={false}
+        {...props.modalProps}
       >
         <BetaSchemaForm
           formRef={formRef}
           submitter={false}
           preserve={false}
           onValuesChange={(_: any, all: Record<string, any>) => {
-            if (props.schemaProps.initialValues)
+            if (props?.schemaProps?.initialValues)
               for (let k in all) {
                 // possible object
                 if (!isEqual(props.schemaProps.initialValues[k], all[k])) {

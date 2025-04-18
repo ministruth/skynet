@@ -52,8 +52,9 @@ pub mod api {
     use std::path::PathBuf;
 
     use ffi_rpc::{
-        abi_stable, async_trait, bincode,
+        abi_stable, async_trait,
         ffi_rpc_macro::{self, plugin_api},
+        rmp_serde,
     };
 
     /// Plugin interface, all plugins should implement this trait.
@@ -309,37 +310,43 @@ mod request {
     #[macro_export]
     macro_rules! route {
         {$reg:expr, $state:expr, $name:expr, $req:expr, $($key:expr => $value:path),+ $(,)?} => {{
-            use std::str::FromStr;
-            use skynet_api::tracing::Instrument;
+            let reg = $reg.to_owned();
+            let state = $state.to_owned();
+            tokio::runtime::Handle::current().spawn_blocking(|| {
+                tokio::runtime::Handle::current().block_on(async {
+                    use std::str::FromStr;
+                    use skynet_api::tracing::Instrument;
 
-            let span = actix_cloud::tracing::info_span!(
-                "HTTP request",
-                trace_id = %$req.req.trace_id(),
-                ip = %$req.req.extension.real_ip,
-                method = %$req.method,
-                path = $req
-                    .uri
-                    .parse::<actix_cloud::actix_web::http::Uri>()?
-                    .path_and_query()
-                    .map(ToString::to_string)
-                    .unwrap_or_default(),
-                user_agent = $req
-                    .header
-                    .get(actix_cloud::actix_web::http::header::HeaderName::from_str("User-Agent").unwrap().as_str())
-                    .map_or(String::new(), |x| String::from_utf8_lossy(x).to_string()),
-            );
-            async move {
-                let mut r = $req.into_srv_request($reg.to_owned(), $state)?;
-                let ret = match $name.as_str() {
-                    $(
-                        $key => skynet_api::plugin::api_call(r, $value).await,
-                    )+
-                    _ => Err(skynet_api::plugin::PluginError::NoSuchRoute.into()),
-                }?;
-                return Response::from_srv_response(ret).await;
-            }
-            .instrument(span)
-            .await
+                    let span = actix_cloud::tracing::info_span!(
+                        "HTTP request",
+                        trace_id = %$req.req.trace_id(),
+                        ip = %$req.req.extension.real_ip,
+                        method = %$req.method,
+                        path = $req
+                            .uri
+                            .parse::<actix_cloud::actix_web::http::Uri>()?
+                            .path_and_query()
+                            .map(ToString::to_string)
+                            .unwrap_or_default(),
+                        user_agent = $req
+                            .header
+                            .get(actix_cloud::actix_web::http::header::HeaderName::from_str("User-Agent").unwrap().as_str())
+                            .map_or(String::new(), |x| String::from_utf8_lossy(x).to_string()),
+                    );
+                    async move {
+                        let mut r = $req.into_srv_request(reg, state)?;
+                        let ret = match $name.as_str() {
+                            $(
+                                $key => skynet_api::plugin::api_call(r, $value).await,
+                            )+
+                            _ => Err(skynet_api::plugin::PluginError::NoSuchRoute.into()),
+                        }?;
+                        return Response::from_srv_response(ret).await;
+                    }
+                    .instrument(span)
+                    .await
+                })
+            }).await?
         }};
     }
 }

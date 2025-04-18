@@ -20,7 +20,6 @@ response:
     notexist: "用户不存在"
     exist: "用户名已被占用"
     root: "不允许对root用户进行此操作"
-    invalid_avatar: "头像文件类型错误"
   group:
     notexist: "用户组不存在"
     exist: "用户组名已存在"

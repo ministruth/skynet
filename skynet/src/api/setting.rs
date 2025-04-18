@@ -72,20 +72,20 @@ pub async fn get_system(db: Data<DatabaseConnection>) -> RspResult<JsonResponse>
     #[derive(Serialize)]
     struct Rsp {
         #[serde(rename = "session.expire")]
-        session_expire: u32,
+        session_expire: u64,
         #[serde(rename = "session.remember")]
-        session_remember: u32,
+        session_remember: u64,
         #[serde(rename = "webpush.endpoint")]
         webpush_endpoint: Vec<String>,
     }
     let session_expire = SettingViewer::get(db.as_ref(), CONFIG_SESSION_EXPIRE)
         .await?
         .ok_or(APIError::MissingSetting(CONFIG_SESSION_EXPIRE.to_owned()))?
-        .parse::<u32>()?;
+        .parse::<u64>()?;
     let session_remember = SettingViewer::get(db.as_ref(), CONFIG_SESSION_REMEMBER)
         .await?
         .ok_or(APIError::MissingSetting(CONFIG_SESSION_REMEMBER.to_owned()))?
-        .parse::<u32>()?;
+        .parse::<u64>()?;
     let webpush_endpoint = SettingViewer::get(db.as_ref(), CONFIG_WEBPUSH_ENDPOINT)
         .await?
         .ok_or(APIError::MissingSetting(CONFIG_WEBPUSH_ENDPOINT.to_owned()))?;
@@ -107,9 +107,9 @@ pub async fn get_system(db: Data<DatabaseConnection>) -> RspResult<JsonResponse>
 #[derive(Debug, Validate, Deserialize)]
 pub struct PutSystemReq {
     #[serde(rename = "session.expire")]
-    pub session_expire: Option<u32>,
+    pub session_expire: Option<u64>,
     #[serde(rename = "session.remember")]
-    pub session_remember: Option<u32>,
+    pub session_remember: Option<u64>,
     #[validate(custom(function = "unique_validator"))]
     #[serde(rename = "webpush.endpoint")]
     webpush_endpoint: Option<Vec<String>>,

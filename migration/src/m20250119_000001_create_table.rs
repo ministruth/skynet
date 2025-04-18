@@ -3,7 +3,7 @@ use sea_orm_migration::prelude::*;
 use crate::m20220101_000001_create_table::Users;
 
 #[derive(Iden)]
-pub(crate) enum WebpushClients {
+enum WebpushClients {
     Table,
     ID,
     Uid,
@@ -16,7 +16,7 @@ pub(crate) enum WebpushClients {
 }
 
 #[derive(Iden)]
-pub(crate) enum WebpushSubscriptions {
+enum WebpushSubscriptions {
     Table,
     ID,
     Uid,

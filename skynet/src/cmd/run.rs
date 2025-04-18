@@ -10,7 +10,10 @@ use actix_cloud::{
     logger::Logger,
     request,
     security::SecurityHeader,
-    session::{SessionMiddleware, config::PersistentSession},
+    session::{
+        SessionMiddleware,
+        config::{PersistentSession, TtlExtensionPolicy},
+    },
     state::GlobalState,
     tracing::{info, warn},
     tracing_actix_web::TracingLogger,
@@ -67,7 +70,13 @@ fn get_session_middleware(key: &str, skynet: &Skynet, state: &GlobalState) -> Se
         .cookie_name(skynet.config.session.cookie.to_owned())
         .cookie_secure(skynet.config.listen.ssl)
         .cookie_same_site(SameSite::Strict)
-        .session_lifecycle(PersistentSession::default())
+        .session_lifecycle(PersistentSession::default().session_ttl_extension_policy(
+            if skynet.config.session.refresh {
+                TtlExtensionPolicy::OnEveryRequest
+            } else {
+                TtlExtensionPolicy::OnStateChanges
+            },
+        ))
         .build()
 }
 

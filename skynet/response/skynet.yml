@@ -26,30 +26,26 @@ UserRoot:
   code: 6
   message: "response.user.root"
 
-UserInvalidAvatar:
-  code: 7
-  message: "response.user.invalid_avatar"
-
 GroupNotExist:
-  code: 8
+  code: 7
   message: "response.group.notexist"
 
 GroupExist:
-  code: 9
+  code: 8
   message: "response.group.exist"
 
 PermissionNotExist:
-  code: 10
+  code: 9
   message: "response.permission.notexist"
 
 PluginLoaded:
-  code: 11
+  code: 10
   message: "response.plugin.loaded"
 
 TopicNotExist:
-  code: 12
+  code: 11
   message: "response.webpush.notexist"
 
 EndpointInvalid:
-  code: 13
+  code: 12
   message: "response.webpush.invalid"
